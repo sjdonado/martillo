@@ -9,7 +9,7 @@ obj.__index = obj
 obj.name = "LaunchOrToggleFocus"
 obj.version = "1.0"
 obj.author = "sjdonado"
-obj.homepage = "https://github.com/sjdonado/dotfiles/hammerspoon/Spoons"
+obj.homepage = "https://github.com/sjdonado/martillo/spoons"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 obj.hotkeys = {}
@@ -20,7 +20,7 @@ obj.logger = hs.logger.new('LaunchOrToggleFocus', 'info')
 --- Method
 --- Initialize the spoon
 function obj:init()
-  return self
+    return self
 end
 
 --- LaunchOrToggleFocus:launchOrToggle(appName)
@@ -30,14 +30,14 @@ end
 --- Parameters:
 ---  * appName - The name of the application to launch or toggle
 function obj:launchOrToggle(appName)
-  local app = hs.application.get(appName)
-  if app and app:isFrontmost() then
-    -- If app is running and focused, unfocus it (hide)
-    app:hide()
-  else
-    -- Launch or focus the app
-    hs.application.launchOrFocus(appName)
-  end
+    local app = hs.application.get(appName)
+    if app and app:isFrontmost() then
+        -- If app is running and focused, unfocus it (hide)
+        app:hide()
+    else
+        -- Launch or focus the app
+        hs.application.launchOrFocus(appName)
+    end
 end
 
 --- LaunchOrToggleFocus:setup(mapping)
@@ -55,14 +55,14 @@ end
 ---     chat = { hotkey = { { "alt", "shift" }, "g" }, app = "ChatGPT" }
 ---   })
 function obj:setup(mapping)
-  for _, config in pairs(mapping) do
-    if config.hotkey and config.app then
-      hs.hotkey.bind(config.hotkey[1], config.hotkey[2], function()
-        self:launchOrToggle(config.app)
-      end)
+    for _, config in pairs(mapping) do
+        if config.hotkey and config.app then
+            hs.hotkey.bind(config.hotkey[1], config.hotkey[2], function()
+                self:launchOrToggle(config.app)
+            end)
+        end
     end
-  end
-  return self
+    return self
 end
 
 --- LaunchOrToggleFocus:bindHotkeys(mapping)
@@ -79,16 +79,16 @@ end
 ---     terminal = { { "alt", "shift" }, "t" }
 ---   })
 function obj:bindHotkeys(mapping)
-  local def = {}
-  for appKey, hotkey in pairs(mapping) do
-    def[appKey] = function()
-      -- Convert appKey to proper app name (capitalize first letter)
-      local appName = appKey:gsub("^%l", string.upper)
-      self:launchOrToggle(appName)
+    local def = {}
+    for appKey, hotkey in pairs(mapping) do
+        def[appKey] = function()
+            -- Convert appKey to proper app name (capitalize first letter)
+            local appName = appKey:gsub("^%l", string.upper)
+            self:launchOrToggle(appName)
+        end
     end
-  end
-  hs.spoons.bindHotkeysToSpec(def, mapping)
-  return self
+    hs.spoons.bindHotkeysToSpec(def, mapping)
+    return self
 end
 
 return obj

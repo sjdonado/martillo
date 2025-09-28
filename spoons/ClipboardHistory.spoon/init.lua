@@ -64,9 +64,7 @@ function obj:initializeChooser()
                 self:loadAllHistory()
                 local query = self.chooser:query()
                 self.chooser:query(query)
-                hs.timer.doAfter(0.01, function()
-                    self:show()
-                end)
+                self:show()
             else
                 -- Try to paste by default, fall back to copy only in specific cases
                 local shouldJustCopy = self:shouldOnlyCopy()

@@ -59,6 +59,42 @@ local function processHotkeys(spoon, keys)
     end
 end
 
+-- Pre-compile spoons that have native binaries without loading them into memory
+-- Compile spoons that have native binaries (after sync)
+local function compileSpoons()
+    print("🔨 Compiling Martillo spoons with native binaries...")
+
+    -- List of spoons that require compilation
+    local compilableSpoons = { "MySchedule", "ClipboardHistory" }
+
+    for _, spoonName in ipairs(compilableSpoons) do
+        -- Load the synced spoon from Hammerspoon's standard location
+        local loadSuccess, loadErr = pcall(function()
+            hs.loadSpoon(spoonName)
+        end)
+
+        if loadSuccess and spoon[spoonName] then
+            local spoonInstance = spoon[spoonName]
+            if type(spoonInstance.compile) == "function" then
+                local compileSuccess, compileErr = pcall(function()
+                    spoonInstance:compile()
+                end)
+                if compileSuccess then
+                    print("✅ Compiled " .. spoonName)
+                else
+                    print("❌ Failed to compile " .. spoonName)
+                    print("Error: " .. tostring(compileErr))
+                    print("Stack trace:")
+                    print(debug.traceback())
+                end
+            end
+            -- Don't clean up - these will be used by the user's config
+        else
+            print("⚠️  Skipping compilation for " .. spoonName .. " (not found or failed to load)")
+        end
+    end
+end
+
 -- Ensure Martillo spoons directory is in the search path
 local function ensureMartilloSpoonPath()
     local martilloSpoonsDir = os.getenv("HOME") .. "/.martillo/spoons"
@@ -67,6 +103,7 @@ local function ensureMartilloSpoonPath()
         local searchPattern = martilloSpoonsDir .. "/?.spoon/init.lua"
         if not package.path:find(searchPattern, 1, true) then
             package.path = searchPattern .. ";" .. package.path
+            print("🔄 Added Martillo spoons to package path")
         end
     end
 end
@@ -79,9 +116,6 @@ local function loadSpoon(spec)
         hs.alert.show("Invalid spoon specification")
         return nil
     end
-
-    -- Ensure Martillo spoons are in search path
-    ensureMartilloSpoonPath()
 
     -- Load the spoon
     hs.loadSpoon(name)
@@ -188,6 +222,12 @@ function M.setup(config, options)
 
     -- Store config
     M.config = opts
+
+    -- Sync Martillo spoons to Hammerspoon's standard location
+    ensureMartilloSpoonPath()
+
+    -- Compile spoons that need native binaries
+    compileSpoons()
 
     -- Load all spoons
     for _, spoonSpec in ipairs(spoons) do

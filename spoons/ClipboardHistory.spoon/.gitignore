@@ -1,7 +1,6 @@
-clipboard_history.json
-clipboard_history.db
-clipboard_history.db-shm
-clipboard_history.db-wal
-sqlite_reader_bin
-clipboard_monitor_sqlite_bin
-migrate_to_sqlite
+# RocksDB + USearch files
+clipboard_rocksdb/
+clipboard_usearch*
+rocksdb_manager_bin
+usearch_manager_bin
+clipboard_monitor_rocksdb_bin

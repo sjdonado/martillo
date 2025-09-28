@@ -35,9 +35,10 @@ obj.logger = hs.logger.new('ClipboardHistory')
 --- Method
 --- Initialize the spoon
 function obj:init()
-    -- Set up database file path
+    -- Set up database paths
     local spoonPath = hs.spoons.scriptPath()
-    self.dbFile = spoonPath .. "/clipboard_history.db"
+    self.dbPath = spoonPath .. "/clipboard_rocksdb"
+    self.usearchPath = spoonPath .. "/clipboard_usearch"
 
     -- Initialize chooser
     self:initializeChooser()
@@ -162,16 +163,16 @@ function obj:onClipboardChange()
         self.clipboardMonitorTask = nil
     end
 
-    local binaryPath = self:compileClipboardMonitor()
-    if not binaryPath then
+    local rocksdbBinary = self:getRocksDBBinary()
+    if not rocksdbBinary then
+        self.logger:e("RocksDB binary not available")
         return
     end
 
-    -- Run the SQLite clipboard monitor from spoon directory
+    -- Run the RocksDB clipboard monitor
     local spoonPath = hs.spoons.scriptPath()
-    local sqliteMonitorPath = spoonPath .. "/clipboard_monitor_sqlite_bin"
-    local command = string.format("cd %s && %s %d", spoonPath, sqliteMonitorPath,
-        self.maxDatabaseEntries)
+    local monitorPath = spoonPath .. "/clipboard_monitor_rocksdb_bin"
+    local command = string.format('"%s" "%s" "%s"', monitorPath, rocksdbBinary, self.dbPath)
 
     self.clipboardMonitorTask = hs.task.new("/bin/sh", function(exitCode, stdOut, stdErr)
         self.clipboardMonitorTask = nil
@@ -179,69 +180,174 @@ function obj:onClipboardChange()
         if exitCode == 0 and stdOut then
             -- Parse the new entry from stdout and add to buffer
             self:addToBuffer(stdOut)
+            -- Also add to USearch index for semantic search
+            self:addToUSearchIndex(stdOut)
         else
-            self.logger:e("SQLite monitor failed: " .. (stdErr or "unknown error"))
+            self.logger:e("RocksDB monitor failed: " .. (stdErr or "unknown error"))
         end
     end, { "-c", command })
 
     self.clipboardMonitorTask:start()
 end
 
+--- ClipboardHistory:addToUSearchIndex()
+--- Method
+--- Add entry to USearch index for semantic similarity search
+function obj:addToUSearchIndex(jsonEntry)
+    local usearchBinary = self:getUSearchBinary()
+    if not usearchBinary then
+        return -- USearch not available, skip indexing
+    end
+
+    local success, entry = pcall(hs.json.decode, jsonEntry)
+    if not success or not entry or not entry.id or not entry.content then
+        return
+    end
+
+    -- Add to USearch index
+    local command = string.format('"%s" "%s" add "%s" "%s"',
+        usearchBinary, self.usearchPath, entry.id, entry.content:gsub('"', '\\"'))
+
+    hs.task.new("/bin/sh", function(exitCode, stdOut, stdErr)
+        if exitCode ~= 0 and stdErr then
+            self.logger:d("USearch indexing warning: " .. stdErr)
+        end
+    end, { "-c", command }):start()
+end
+
 --- ClipboardHistory:compile()
 --- Method
 --- Compile both SQLite reader and clipboard monitor binaries
 function obj:compile()
-    self.logger:i("🔨 Compiling binaries...")
+    self.logger:i("🔨 Compiling RocksDB + USearch binaries...")
 
     local spoonPath = hs.spoons.scriptPath()
 
-    -- Compile SQLite reader
-    local sqliteReaderPath = spoonPath .. "/sqlite_reader.m"
-    local sqliteReaderBinary = spoonPath .. "/sqlite_reader_bin"
+    -- Validate required dependencies
+    local requiredLibs = {
+        { path = "/opt/homebrew/lib/librocksdb.dylib", name = "RocksDB" },
+        { path = "/opt/homebrew/lib/libjsoncpp.dylib", name = "jsoncpp" },
+        { path = "/opt/homebrew/include/rocksdb",      name = "RocksDB headers" },
+        { path = spoonPath .. "/usearch_index.hpp",    name = "USearch header" }
+    }
 
-    local file = io.open(sqliteReaderPath, "r")
+    for _, lib in ipairs(requiredLibs) do
+        if not hs.fs.attributes(lib.path) then
+            local errorMsg = "❌ Missing dependency: " .. lib.name .. " (" .. lib.path .. ")"
+            print(errorMsg)
+            print("Install with: brew install rocksdb jsoncpp")
+            error(errorMsg)
+        end
+    end
+
+    -- Compile RocksDB manager
+    local rocksdbSource = spoonPath .. "/rocksdb_manager.cpp"
+    local rocksdbBinary = spoonPath .. "/rocksdb_manager_bin"
+
+    local file = io.open(rocksdbSource, "r")
     if not file then
-        error("❌ SQLite reader source file not found: " .. sqliteReaderPath)
+        local errorMsg = "❌ RocksDB manager source file not found: " .. rocksdbSource
+        print(errorMsg)
+        print("Current spoon path: " .. spoonPath)
+        print("Stack trace:")
+        print(debug.traceback())
+        error(errorMsg)
     end
     file:close()
 
-    local sourceAttr = hs.fs.attributes(sqliteReaderPath)
-    local binaryAttr = hs.fs.attributes(sqliteReaderBinary)
+    local sourceAttr = hs.fs.attributes(rocksdbSource)
+    local binaryAttr = hs.fs.attributes(rocksdbBinary)
 
     if not binaryAttr or not sourceAttr or binaryAttr.modification < sourceAttr.modification then
-        local compileCmd = string.format("/usr/bin/clang -framework Foundation -lsqlite3 -o %s %s",
-            sqliteReaderBinary, sqliteReaderPath)
+        local compileCmd = string.format(
+            "/usr/bin/clang++ -std=c++17 -O3 -I/opt/homebrew/include -L/opt/homebrew/lib " ..
+            "-lrocksdb -ljsoncpp -o %s %s",
+            rocksdbBinary, rocksdbSource)
         local output, success = hs.execute(compileCmd)
         if not success then
-            error("❌ Failed to compile SQLite reader. Command: " ..
-                compileCmd .. "\nOutput: " .. (output or "no output"))
+            local errorMsg = "❌ Failed to compile RocksDB manager"
+            print(errorMsg)
+            print("Command: " .. compileCmd)
+            print("Output: " .. (output or "no output"))
+            print("Stack trace:")
+            print(debug.traceback())
+            error(errorMsg)
         end
-        self.logger:i("✅ SQLite reader compiled")
+        self.logger:i("✅ RocksDB manager compiled")
     else
-        self.logger:i("✅ SQLite reader up to date")
+        self.logger:i("✅ RocksDB manager up to date")
+    end
+
+    -- Compile USearch manager
+    local usearchSource = spoonPath .. "/usearch_manager.cpp"
+    local usearchBinary = spoonPath .. "/usearch_manager_bin"
+
+    file = io.open(usearchSource, "r")
+    if not file then
+        local errorMsg = "❌ USearch manager source file not found: " .. usearchSource
+        print(errorMsg)
+        print("Current spoon path: " .. spoonPath)
+        print("Stack trace:")
+        print(debug.traceback())
+        error(errorMsg)
+    end
+    file:close()
+
+    sourceAttr = hs.fs.attributes(usearchSource)
+    binaryAttr = hs.fs.attributes(usearchBinary)
+
+    if not binaryAttr or not sourceAttr or binaryAttr.modification < sourceAttr.modification then
+        local compileCmd = string.format(
+            "/usr/bin/clang++ -std=c++17 -O3 -I/opt/homebrew/include -I%s -L/opt/homebrew/lib " ..
+            "-lrocksdb -ljsoncpp -o %s %s",
+            spoonPath, usearchBinary, usearchSource)
+        local output, success = hs.execute(compileCmd)
+        if not success then
+            local errorMsg = "❌ Failed to compile USearch manager"
+            print(errorMsg)
+            print("Command: " .. compileCmd)
+            print("Output: " .. (output or "no output"))
+            print("Stack trace:")
+            print(debug.traceback())
+            error(errorMsg)
+        end
+        self.logger:i("✅ USearch manager compiled")
+    else
+        self.logger:i("✅ USearch manager up to date")
     end
 
     -- Compile clipboard monitor
-    local monitorPath = spoonPath .. "/clipboard_monitor_sqlite.m"
-    local monitorBinary = spoonPath .. "/clipboard_monitor_sqlite_bin"
+    local monitorSource = spoonPath .. "/clipboard_monitor_rocksdb.m"
+    local monitorBinary = spoonPath .. "/clipboard_monitor_rocksdb_bin"
 
-    file = io.open(monitorPath, "r")
+    file = io.open(monitorSource, "r")
     if not file then
-        error("❌ Clipboard monitor source file not found: " .. monitorPath)
+        local errorMsg = "❌ Clipboard monitor source file not found: " .. monitorSource
+        print(errorMsg)
+        print("Current spoon path: " .. spoonPath)
+        print("Stack trace:")
+        print(debug.traceback())
+        error(errorMsg)
     end
     file:close()
 
-    sourceAttr = hs.fs.attributes(monitorPath)
+    sourceAttr = hs.fs.attributes(monitorSource)
     binaryAttr = hs.fs.attributes(monitorBinary)
 
     if not binaryAttr or not sourceAttr or binaryAttr.modification < sourceAttr.modification then
-        compileCmd = string.format(
-            "/usr/bin/clang -framework Cocoa -framework Foundation -lsqlite3 -o %s %s",
-            monitorBinary, monitorPath)
-        output, success = hs.execute(compileCmd)
+        local compileCmd = string.format(
+            "/usr/bin/clang -framework Cocoa -I/opt/homebrew/include -L/opt/homebrew/lib " ..
+            "-lrocksdb -ljsoncpp -o %s %s",
+            monitorBinary, monitorSource)
+        local output, success = hs.execute(compileCmd)
         if not success then
-            error("❌ Failed to compile clipboard monitor. Command: " ..
-                compileCmd .. "\nOutput: " .. (output or "no output"))
+            local errorMsg = "❌ Failed to compile clipboard monitor"
+            print(errorMsg)
+            print("Command: " .. compileCmd)
+            print("Output: " .. (output or "no output"))
+            print("Stack trace:")
+            print(debug.traceback())
+            error(errorMsg)
         end
         self.logger:i("✅ Clipboard monitor compiled")
     else
@@ -249,22 +355,89 @@ function obj:compile()
     end
 
     -- Verify binaries were created successfully
-    local finalSqliteAttr = hs.fs.attributes(sqliteReaderBinary)
+    local finalRocksdbAttr = hs.fs.attributes(rocksdbBinary)
+    local finalUsearchAttr = hs.fs.attributes(usearchBinary)
     local finalMonitorAttr = hs.fs.attributes(monitorBinary)
 
-    if not finalSqliteAttr then
-        error("❌ SQLite reader binary was not created: " .. sqliteReaderBinary)
+    if not finalRocksdbAttr then
+        local errorMsg = "❌ RocksDB binary was not created: " .. rocksdbBinary
+        print(errorMsg)
+        print("Binary path: " .. rocksdbBinary)
+        print("Stack trace:")
+        print(debug.traceback())
+        error(errorMsg)
+    end
+
+    if not finalUsearchAttr then
+        local errorMsg = "❌ USearch binary was not created: " .. usearchBinary
+        print(errorMsg)
+        print("Binary path: " .. usearchBinary)
+        print("Stack trace:")
+        print(debug.traceback())
+        error(errorMsg)
     end
 
     if not finalMonitorAttr then
-        error("❌ Clipboard monitor binary was not created: " .. monitorBinary)
+        local errorMsg = "❌ Clipboard monitor binary was not created: " .. monitorBinary
+        print(errorMsg)
+        print("Binary path: " .. monitorBinary)
+        print("Stack trace:")
+        print(debug.traceback())
+        error(errorMsg)
     end
 
     -- Cache binary paths
-    self.sqliteReaderBinary = sqliteReaderBinary
+    self.rocksdbBinary = rocksdbBinary
+    self.usearchBinary = usearchBinary
     self.clipboardMonitorBinary = monitorBinary
 
     self.logger:i("✅ All binaries compiled and verified")
+end
+
+--- ClipboardHistory:getRocksDBBinary()
+--- Method
+--- Get the compiled RocksDB binary path
+function obj:getRocksDBBinary()
+    if self.rocksdbBinary then
+        return self.rocksdbBinary
+    end
+
+    local spoonPath = hs.spoons.scriptPath()
+    local binaryPath = spoonPath .. "/rocksdb_manager_bin"
+
+    -- Check if binary exists
+    local binaryAttr = hs.fs.attributes(binaryPath)
+    if binaryAttr then
+        self.rocksdbBinary = binaryPath
+        return self.rocksdbBinary
+    end
+
+    -- Binary not found
+    self.logger:e("RocksDB binary not found. Run compile() first.")
+    return nil
+end
+
+--- ClipboardHistory:getUSearchBinary()
+--- Method
+--- Get the compiled USearch binary path
+function obj:getUSearchBinary()
+    if self.usearchBinary then
+        return self.usearchBinary
+    end
+
+    local spoonPath = hs.spoons.scriptPath()
+    local binaryPath = spoonPath .. "/usearch_manager_bin"
+
+    -- Check if binary exists
+    local binaryAttr = hs.fs.attributes(binaryPath)
+    if binaryAttr then
+        self.usearchBinary = binaryPath
+        return self.usearchBinary
+    end
+
+    -- Binary not found
+    self.logger:e("USearch binary not found. Run compile() first.")
+    return nil
 end
 
 --- ClipboardHistory:compileSqliteReader()
@@ -293,16 +466,16 @@ end
 
 --- ClipboardHistory:initializeBuffer()
 --- Method
---- Initialize buffer with first entries from SQLite database
+--- Initialize buffer with first entries from RocksDB
 function obj:initializeBuffer()
-    local binaryPath = self:compileSqliteReader()
-    if not binaryPath then
+    local rocksdbBinary = self:getRocksDBBinary()
+    if not rocksdbBinary then
         self.historyBuffer = {}
         return
     end
 
-    -- Load first entries using SQLite reader
-    local command = string.format("%s %s recent %d", binaryPath, self.dbFile, self.maxRecentEntries)
+    -- Load first entries using RocksDB manager
+    local command = string.format('"%s" "%s" recent %d', rocksdbBinary, self.dbPath, self.maxRecentEntries)
 
     local handle = io.popen(command, "r")
     if handle then
@@ -369,15 +542,15 @@ end
 
 --- ClipboardHistory:loadAllHistory()
 --- Method
---- Load all clipboard history entries from SQLite database
+--- Load all clipboard history entries from RocksDB database
 function obj:loadAllHistory()
-    local binaryPath = self:compileSqliteReader()
-    if not binaryPath then
+    local rocksdbBinary = self:getRocksDBBinary()
+    if not rocksdbBinary then
         return
     end
 
-    -- Load all entries from SQLite
-    local command = string.format("%s %s recent %d", binaryPath, self.dbFile, self.maxDatabaseEntries)
+    -- Load all entries from RocksDB
+    local command = string.format('"%s" "%s" recent %d', rocksdbBinary, self.dbPath, self.maxDatabaseEntries)
 
     local handle = io.popen(command, "r")
     if handle then
@@ -408,54 +581,75 @@ function obj:updateChoices()
         -- No query, show all entries from buffer
         filteredEntries = self.historyBuffer
     else
-        -- Use SQLite's search_sorted for efficient search and sorting
+        -- Use hybrid RocksDB + USearch for search
         local query = self.currentQuery
         self.logger:d("Searching for query: '" .. query .. "'")
 
-        local binaryPath = self:compileSqliteReader()
-        if binaryPath then
-            -- Use the new search_sorted mode for efficient prefix/contains sorting
-            local command = string.format("%s %s search_sorted \"%s\" %d", binaryPath, self.dbFile,
-                query:gsub('"', '\\"'), self.maxRecentEntries)
-            self.logger:d("Executing search command: " .. command)
+        -- First try exact/prefix search with RocksDB
+        local rocksdbBinary = self:getRocksDBBinary()
+        if rocksdbBinary then
+            local command = string.format('"%s" "%s" search "%s" %d',
+                rocksdbBinary, self.dbPath, query:gsub('"', '\\"'), self.maxRecentEntries)
+            self.logger:d("Executing RocksDB search command: " .. command)
 
             local handle = io.popen(command, "r")
             if handle then
                 local output = handle:read("*all")
                 local success, exitType, exitCode = handle:close()
 
-                self.logger:d(string.format("Command exit: success=%s, exitCode=%s", tostring(success),
-                    tostring(exitCode)))
-
                 if output and output ~= "" then
                     output = output:gsub("^%s+", ""):gsub("%s+$", "")
-                    self.logger:d(string.format("Raw output length: %d", #output))
 
-                    if output:match("^ERROR:") then
-                        self.logger:e("SQLite search error: " .. output)
-                    elseif output:match("^%[") then
+                    if output:match("^%[") then
                         local parseSuccess, searchResults = pcall(hs.json.decode, output)
                         if parseSuccess and searchResults and type(searchResults) == "table" then
                             filteredEntries = searchResults
-                            self.logger:d(string.format("SQLite search returned %d results", #filteredEntries))
-
-                            -- Log first few results for debugging
-                            for i = 1, math.min(3, #filteredEntries) do
-                                local entry = filteredEntries[i]
-                                self.logger:d(string.format("Result %d: priority=%s, preview=%s",
-                                    i, tostring(entry.match_priority), (entry.preview or ""):sub(1, 50)))
-                            end
-                        else
-                            self.logger:e("Failed to parse SQLite search JSON: " .. (output:sub(1, 200) or ""))
+                            self.logger:d(string.format("RocksDB search returned %d results", #filteredEntries))
                         end
-                    else
-                        self.logger:w("Unexpected SQLite output format: " .. (output:sub(1, 100) or ""))
                     end
-                else
-                    self.logger:w("Empty output from SQLite search command")
                 end
-            else
-                self.logger:e("Failed to execute SQLite search command")
+            end
+        end
+
+        -- If RocksDB search didn't return enough results, try USearch for semantic similarity
+        if #filteredEntries < 5 then
+            local usearchBinary = self:getUSearchBinary()
+            if usearchBinary then
+                local command = string.format('"%s" "%s" search "%s" %d',
+                    usearchBinary, self.usearchPath, query:gsub('"', '\\"'), self.maxRecentEntries - #filteredEntries)
+                self.logger:d("Executing USearch semantic search command: " .. command)
+
+                local handle = io.popen(command, "r")
+                if handle then
+                    local output = handle:read("*all")
+                    local success, exitType, exitCode = handle:close()
+
+                    if output and output ~= "" then
+                        output = output:gsub("^%s+", ""):gsub("%s+$", "")
+
+                        if output:match("^%[") then
+                            local parseSuccess, semanticResults = pcall(hs.json.decode, output)
+                            if parseSuccess and semanticResults and type(semanticResults) == "table" then
+                                -- Merge semantic results with exact matches, avoiding duplicates
+                                local existingIds = {}
+                                for _, entry in ipairs(filteredEntries) do
+                                    if entry.id then
+                                        existingIds[entry.id] = true
+                                    end
+                                end
+
+                                for _, entry in ipairs(semanticResults) do
+                                    if entry.id and not existingIds[entry.id] then
+                                        table.insert(filteredEntries, entry)
+                                        existingIds[entry.id] = true
+                                    end
+                                end
+
+                                self.logger:d(string.format("Combined search: %d total results", #filteredEntries))
+                            end
+                        end
+                    end
+                end
             end
         end
 
@@ -724,11 +918,11 @@ function obj:updateChoices()
 
     -- Add "Load more" item if we might have more entries and no search query
     if self.currentQuery == "" and #self.historyBuffer == self.maxRecentEntries then
-        local binaryPath = self:compileSqliteReader()
+        local rocksdbBinary = self:getRocksDBBinary()
         local totalEntries = 0
 
-        if binaryPath then
-            local command = string.format("%s %s count", binaryPath, self.dbFile)
+        if rocksdbBinary then
+            local command = string.format('"%s" "%s" count', rocksdbBinary, self.dbPath)
             local handle = io.popen(command, "r")
             if handle then
                 local output = handle:read("*all")

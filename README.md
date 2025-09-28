@@ -1,5 +1,7 @@
 # 🔨 Martillo
 
+> **⚠️ Pre-Alpha Software**: Martillo is currently in pre-alpha development. Features may be incomplete, unstable, or change significantly. Use at your own risk.
+
 A powerful, declarative configuration framework for [Hammerspoon](https://www.hammerspoon.org/) that provides fast, ergonomic, and reliable productivity tools for macOS.
 
 Martillo (Spanish for "hammer") offers a clean, maintainable way to configure Hammerspoon using a single-line setup inspired by [lazy.nvim](https://github.com/folke/lazy.nvim), with a collection of custom productivity spoons built-in.
@@ -110,28 +112,28 @@ Martillo comes with these productivity spoons:
 Quick app switching with customizable hotkeys. Launch or focus apps instantly without lifting your hands from the keyboard.
 
 ### ActionsLauncher
-Command palette for system actions, utilities, and custom commands. Includes:
-- Window management actions
-- System controls (dark mode, caffeinate)
-- Network utilities
-- Color converter
-- Base64/JWT decoder
-- UUID generator
-- Live transformations (timestamps, colors, encoding)
+Searchable command palette with configurable actions. Current built-in actions include:
+- **Window management**: Maximize, almost maximize, reasonable size
+- **System controls**: Toggle dark mode, caffeinate (prevent sleep)
+- **Utilities**: Copy public IP, generate UUID, network status check
+- **Live transformations**: Timestamp conversion, Base64 encoding/decoding, JWT decoding, color conversions
 
-<img width="866" height="667" alt="Screenshot 2025-09-28 at 16 38 08" src="https://github.com/user-attachments/assets/871de636-a1ab-4926-ab22-94e2e13c48f9" />
+![50c706b1-01b8-474b-a019-2fd2ed997a8c](https://github.com/user-attachments/assets/0a35f718-3ea5-48bd-821f-2b3cdf276125)
+
+![b3b8d12d-6628-4351-9c6e-8ecf58e3e0c4](https://github.com/user-attachments/assets/5ccf5360-1347-49e0-b542-20e0a39c59a5)
+
+![95d40333-a141-4557-b653-6fefa89f56c0](https://github.com/user-attachments/assets/6e636afb-f462-4fef-9b20-48d05c508beb)
 
 ### WindowManager
-Powerful window manipulation with keyboard shortcuts:
-- Snap to halves/quarters
-- Center windows
-- Move between screens
-- Custom layouts
+Window positioning and resizing with keyboard shortcuts. Available actions:
+- **Halves**: Snap to left, right, top, or bottom half of screen
+- **Maximize**: Full screen or almost maximize (90% centered)
+- **Center**: Center window at current size or reasonable size (60%×70% centered)
 
 ### KillProcess
 Quick process killer with fuzzy search. Find and terminate unresponsive apps instantly.
 
-<img width="866" height="667" alt="Screenshot 2025-09-28 at 16 38 46" src="https://github.com/user-attachments/assets/7d4007de-5a9e-4089-b5e7-116818b4297a" />
+![8726c321-6f4c-4ca2-9684-70700c58020d](https://github.com/user-attachments/assets/f95fc249-dbfd-4e51-b7e6-f6a894e963f6)
 
 ### ClipboardHistory
 Advanced clipboard manager with persistent history using RocksDB + USearch backend. Features:
@@ -141,13 +143,13 @@ Advanced clipboard manager with persistent history using RocksDB + USearch backe
 - Background clipboard monitoring
 - Never lose copied content again
 
-<img width="866" height="667" alt="Screenshot 2025-09-28 at 18 02 58" src="https://github.com/user-attachments/assets/51295184-2f8f-4b53-8015-519b39f8d546" />
+![ff32fe87-1306-4ee5-a4b8-b3a84b4767bb](https://github.com/user-attachments/assets/a0255fda-3114-4594-8ac3-be4093650cd7)
 
 ### BrowserRedirect
 Intelligent URL routing to different browsers based on patterns. Perfect for developers who need specific browsers for different environments.
 
 ### MySchedule
-Personal scheduling and reminder system integrated with macOS.
+Calendar integration that displays today's events in the menu bar with countdown timers. Uses macOS EventKit to access calendar data, showing upcoming meetings with real-time time remaining and clickable meeting URLs.
 
 ## Installation
 
@@ -297,11 +299,39 @@ martillo.reload()
 
 ## Roadmap
 
-- [ ] Unified launcher (Raycast-style command palette)
-- [ ] Enhanced clipboard manager with images
+**Vision**: Open source Raycast alternative built with Lua and Hammerspoon
+
+### Core Features
+- [x] Extensive action launcher with fuzzy search
+- [x] Window management via launcher and keymaps
+- [x] Launch/toggle macOS apps via keymaps
+- [x] Process killer with fuzzy search
+- [x] Clipboard history with search and paste
+- [x] Upcoming meetings display in menu bar
+- [x] Browser routing rules based on URL patterns
+- [x] Link transformation rules before opening
+
+### Framework Improvements
+- [ ] **Fork Hammerspoon** - Custom build with enhanced chooser capabilities
+- [x] **Precompiled Spoons** - All spoons loaded and compiled by default
+- [x] **Simplified Configuration** - Single table configuration like lazy.nvim
+- [ ] **Spoon Aliases** - Set custom aliases for each spoon
+- [ ] **Enhanced Search** - Search by aliases in choosers
+- [ ] **Alias Display** - Show aliases in chooser items (right side)
+
+### Enhanced Chooser System
+- [ ] **Navigation Callbacks**:
+  - `onScrollTop` - Trigger when scrolling to top
+  - `onScrollBottom` - Trigger when scrolling to bottom
+  - `onBack` - Navigation back button for nested choosers
+- [ ] **Nested Choosers** - Child choosers with parent context preservation
+- [ ] **Persistent Choosers** - Don't close on action if child process spawns
+- [ ] **Smart Refresh** - Refresh choices without losing scroll position
+- [ ] **Main Launcher** - Central chooser listing all actions and sub-launchers
+
+### Advanced Features
 - [ ] Snippet expansion system
-- [ ] Calculator with natural language
-- [ ] Emoji picker
+- [ ] Emoji picker and special characters
 
 ## Contributing
 

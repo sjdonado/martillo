@@ -130,7 +130,12 @@ Powerful window manipulation with keyboard shortcuts:
 Quick process killer with fuzzy search. Find and terminate unresponsive apps instantly.
 
 ### ClipboardHistory
-Clipboard manager with history and search capabilities. Never lose copied content again.
+Advanced clipboard manager with persistent history using RocksDB + USearch backend. Features:
+- Fast exact and semantic similarity search
+- Persistent storage with RocksDB for performance
+- Support for text, images, and file paths
+- Background clipboard monitoring
+- Never lose copied content again
 
 ### BrowserRedirect
 Intelligent URL routing to different browsers based on patterns. Perfect for developers who need specific browsers for different environments.
@@ -142,6 +147,20 @@ Personal scheduling and reminder system integrated with macOS.
 
 **Prerequisites**
 - macOS 10.12 or later
+- [Homebrew](https://brew.sh/) (for installing dependencies)
+
+### Dependencies
+
+Some spoons require additional dependencies for compilation:
+
+```bash
+# Required for ClipboardHistory spoon (RocksDB + USearch backend)
+brew install rocksdb jsoncpp
+
+# Download USearch header (v2.21.0) for ClipboardHistory semantic search
+curl -L https://raw.githubusercontent.com/unum-cloud/usearch/main/include/usearch/index.hpp \
+  -o ~/.martillo/spoons/ClipboardHistory.spoon/usearch_index.hpp
+```
 
 ### Quick Install
 
@@ -149,8 +168,15 @@ Personal scheduling and reminder system integrated with macOS.
 # Install Hammerspoon if you don't have it
 brew install --cask hammerspoon
 
+# Install required dependencies
+brew install rocksdb jsoncpp
+
 # Clone Martillo
 git clone https://github.com/sjdonado/martillo ~/.martillo
+
+# Download USearch header for ClipboardHistory
+curl -L https://raw.githubusercontent.com/unum-cloud/usearch/main/include/usearch/index.hpp \
+  -o ~/.martillo/spoons/ClipboardHistory.spoon/usearch_index.hpp
 
 # Backup existing Hammerspoon config (if any)
 [ -f ~/.hammerspoon/init.lua ] && mv ~/.hammerspoon/init.lua ~/.hammerspoon/init.lua.backup

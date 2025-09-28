@@ -4,107 +4,7 @@ A powerful, declarative configuration framework for [Hammerspoon](https://www.ha
 
 Martillo (Spanish for "hammer") offers a clean, maintainable way to configure Hammerspoon using a single-line setup inspired by [lazy.nvim](https://github.com/folke/lazy.nvim), with a collection of custom productivity spoons built-in.
 
-## ✨ Features
-
-- 🎯 **Single-line setup** - Your entire configuration in one `return` statement
-- 📦 **Custom Spoons Collection** - Curated productivity tools included
-- ⚡ **Fast & Native** - Pure Lua performance, no overhead
-- 🔧 **Fully Customizable** - Every aspect can be tweaked to your workflow
-- 🔄 **Auto-reload** - Automatically reload configuration on file changes
-- 🎨 **Clean API** - Consistent, predictable configuration structure
-
-## 🛠️ Built-in Spoons
-
-Martillo comes with these productivity spoons:
-
-### 🚀 **LaunchOrToggleFocus**
-Quick app switching with customizable hotkeys. Launch or focus apps instantly without lifting your hands from the keyboard.
-
-### 📋 **ActionsLauncher**
-Command palette for system actions, utilities, and custom commands. Includes:
-- Window management actions
-- System controls (dark mode, caffeinate)
-- Network utilities
-- Color converter
-- Base64/JWT decoder
-- UUID generator
-- Live transformations (timestamps, colors, encoding)
-
-### 🪟 **WindowManager**
-Powerful window manipulation with keyboard shortcuts:
-- Snap to halves/quarters
-- Center windows
-- Move between screens
-- Custom layouts
-
-### 💀 **KillProcess**
-Quick process killer with fuzzy search. Find and terminate unresponsive apps instantly.
-
-### 📋 **ClipboardHistory**
-Clipboard manager with history and search capabilities. Never lose copied content again.
-
-### 🌐 **BrowserRedirect**
-Intelligent URL routing to different browsers based on patterns. Perfect for developers who need specific browsers for different environments.
-
-### 📅 **MySchedule**
-Personal scheduling and reminder system integrated with macOS.
-
-## 📋 Prerequisites
-
-- macOS 10.12 or later
-- [Hammerspoon](https://www.hammerspoon.org/)
-
-## 🚀 Installation
-
-### Quick Install
-
-```bash
-# Install Hammerspoon if you don't have it
-brew install --cask hammerspoon
-
-# Clone Martillo
-git clone https://github.com/sjdonado/martillo ~/.martillo
-
-# Backup existing Hammerspoon config (if any)
-[ -f ~/.hammerspoon/init.lua ] && mv ~/.hammerspoon/init.lua ~/.hammerspoon/init.lua.backup
-
-# Create new init.lua
-cat > ~/.hammerspoon/init.lua << 'EOF'
--- Load Martillo
-package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
-
--- Your configuration
-return require("martillo").setup {
-  -- Spoons configuration here
-}
-EOF
-
-# Reload Hammerspoon
-```
-
-## 📖 Configuration
-
-### Basic Setup
-
-```lua
--- ~/.hammerspoon/init.lua
-package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
-
-return require("martillo").setup {
-  -- Simple spoon
-  { "WindowManager" },
-
-  -- Spoon with configuration
-  { "ClipboardHistory",
-    config = function(spoon)
-      spoon:compile()
-      spoon:start()
-    end
-  },
-}
-```
-
-### Full Example
+## Full Example
 
 ```lua
 package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
@@ -202,6 +102,95 @@ return require("martillo").setup {
 }
 ```
 
+## Built-in Spoons
+
+Martillo comes with these productivity spoons:
+
+### LaunchOrToggleFocus
+Quick app switching with customizable hotkeys. Launch or focus apps instantly without lifting your hands from the keyboard.
+
+### ActionsLauncher
+Command palette for system actions, utilities, and custom commands. Includes:
+- Window management actions
+- System controls (dark mode, caffeinate)
+- Network utilities
+- Color converter
+- Base64/JWT decoder
+- UUID generator
+- Live transformations (timestamps, colors, encoding)
+
+### WindowManager
+Powerful window manipulation with keyboard shortcuts:
+- Snap to halves/quarters
+- Center windows
+- Move between screens
+- Custom layouts
+
+### KillProcess
+Quick process killer with fuzzy search. Find and terminate unresponsive apps instantly.
+
+### ClipboardHistory
+Clipboard manager with history and search capabilities. Never lose copied content again.
+
+### BrowserRedirect
+Intelligent URL routing to different browsers based on patterns. Perfect for developers who need specific browsers for different environments.
+
+### MySchedule
+Personal scheduling and reminder system integrated with macOS.
+
+## Installation
+
+**Prerequisites**
+- macOS 10.12 or later
+
+### Quick Install
+
+```bash
+# Install Hammerspoon if you don't have it
+brew install --cask hammerspoon
+
+# Clone Martillo
+git clone https://github.com/sjdonado/martillo ~/.martillo
+
+# Backup existing Hammerspoon config (if any)
+[ -f ~/.hammerspoon/init.lua ] && mv ~/.hammerspoon/init.lua ~/.hammerspoon/init.lua.backup
+
+# Create new init.lua
+cat > ~/.hammerspoon/init.lua << 'EOF'
+-- Load Martillo
+package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
+
+-- Your configuration
+return require("martillo").setup {
+  -- Spoons configuration here
+}
+EOF
+
+# Reload Hammerspoon
+```
+
+## Configuration
+
+### Basic Setup
+
+```lua
+-- ~/.hammerspoon/init.lua
+package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
+
+return require("martillo").setup {
+  -- Simple spoon
+  { "WindowManager" },
+
+  -- Spoon with configuration
+  { "ClipboardHistory",
+    config = function(spoon)
+      spoon:compile()
+      spoon:start()
+    end
+  },
+}
+```
+
 ## ⌨️ Default Keybindings
 
 | Feature | Default Shortcut | Description |
@@ -216,19 +205,7 @@ return require("martillo").setup {
 | **Window Center** | `⌘ ⇧ ↵` | Center window |
 | **App Hotkeys** | `⌥ ⇧ [key]` | Launch/focus specific apps |
 
-## 🎨 ActionsLauncher Features
-
-The ActionsLauncher provides live transformations for:
-
-- **Timestamps**: Convert Unix timestamps to ISO format
-- **Base64**: Decode Base64 strings
-- **JWT**: Decode JWT tokens (header and payload)
-- **Colors**: Convert between HEX and RGB formats
-- **UUID**: Generate UUIDs
-- **Network**: Check connectivity and latency
-- **System**: Toggle dark mode, caffeinate
-
-## 🔧 Configuration Options
+## Configuration Options
 
 ### Spoon Specification
 
@@ -266,7 +243,7 @@ return require("martillo").setup({
 })
 ```
 
-## 📚 API Reference
+## API Reference
 
 ### Core Functions
 
@@ -286,28 +263,7 @@ local spoons = martillo.list()
 martillo.reload()
 ```
 
-## 🗂️ Project Structure
-
-```
-~/.martillo/
-├── martillo.lua           # Core module
-├── spoons/               # Built-in spoons
-│   ├── LaunchOrToggleFocus.spoon/
-│   ├── ActionsLauncher.spoon/
-│   ├── WindowManager.spoon/
-│   ├── KillProcess.spoon/
-│   ├── ClipboardHistory.spoon/
-│   ├── BrowserRedirect.spoon/
-│   └── MySchedule.spoon/
-└── README.md
-
-~/.hammerspoon/
-├── init.lua              # Your configuration
-└── config/               # Optional config modules
-    └── actions.lua       # ActionsLauncher config
-```
-
-## 🎯 Roadmap
+## Roadmap
 
 - [ ] Unified launcher (Raycast-style command palette)
 - [ ] Enhanced clipboard manager with images
@@ -315,7 +271,7 @@ martillo.reload()
 - [ ] Calculator with natural language
 - [ ] Emoji picker
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
@@ -325,16 +281,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [Hammerspoon](https://www.hammerspoon.org/) - The powerful macOS automation tool
 - [lazy.nvim](https://github.com/folke/lazy.nvim) - Inspiration for the declarative configuration style
-
-## 📮 Support
-
-- [Report Issues](https://github.com/sjdonado/martillo/issues)
-- [Discussions](https://github.com/sjdonado/martillo/discussions)

@@ -17,7 +17,7 @@ return {
             id = "reasonable_size",
             name = "Reasonable Size",
             handler = function() spoon.WindowManager:moveWindow("reasonable") end,
-            description = "Resize window to reasonable size (50%x70%), centered"
+            description = "Resize window to reasonable size 70% of screen, centered"
         },
 
         -- System Actions

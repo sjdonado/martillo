@@ -59,6 +59,18 @@ local function processHotkeys(spoon, keys)
     end
 end
 
+-- Ensure Martillo spoons directory is in the search path
+local function ensureMartilloSpoonPath()
+    local martilloSpoonsDir = os.getenv("HOME") .. "/.martillo/spoons"
+    if hs.fs.attributes(martilloSpoonsDir) then
+        -- Add to package.path if not already present
+        local searchPattern = martilloSpoonsDir .. "/?.spoon/init.lua"
+        if not package.path:find(searchPattern, 1, true) then
+            package.path = searchPattern .. ";" .. package.path
+        end
+    end
+end
+
 -- Load a single spoon
 local function loadSpoon(spec)
     local name = type(spec) == "string" and spec or spec[1]
@@ -68,12 +80,8 @@ local function loadSpoon(spec)
         return nil
     end
 
-    -- Try to load from Martillo's spoons directory first
-    local martilloSpoonPath = os.getenv("HOME") .. "/.martillo/spoons/" .. name .. ".spoon"
-    if hs.fs.attributes(martilloSpoonPath) then
-        -- Add to Hammerspoon's config paths
-        table.insert(hs.configdir, martilloSpoonPath)
-    end
+    -- Ensure Martillo spoons are in search path
+    ensureMartilloSpoonPath()
 
     -- Load the spoon
     hs.loadSpoon(name)

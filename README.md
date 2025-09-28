@@ -119,6 +119,8 @@ Command palette for system actions, utilities, and custom commands. Includes:
 - UUID generator
 - Live transformations (timestamps, colors, encoding)
 
+<img width="866" height="667" alt="Screenshot 2025-09-28 at 16 38 08" src="https://github.com/user-attachments/assets/871de636-a1ab-4926-ab22-94e2e13c48f9" />
+
 ### WindowManager
 Powerful window manipulation with keyboard shortcuts:
 - Snap to halves/quarters
@@ -129,6 +131,8 @@ Powerful window manipulation with keyboard shortcuts:
 ### KillProcess
 Quick process killer with fuzzy search. Find and terminate unresponsive apps instantly.
 
+<img width="866" height="667" alt="Screenshot 2025-09-28 at 16 38 46" src="https://github.com/user-attachments/assets/7d4007de-5a9e-4089-b5e7-116818b4297a" />
+
 ### ClipboardHistory
 Advanced clipboard manager with persistent history using RocksDB + USearch backend. Features:
 - Fast exact and semantic similarity search
@@ -136,6 +140,8 @@ Advanced clipboard manager with persistent history using RocksDB + USearch backe
 - Support for text, images, and file paths
 - Background clipboard monitoring
 - Never lose copied content again
+
+<img width="866" height="667" alt="Screenshot 2025-09-28 at 18 02 58" src="https://github.com/user-attachments/assets/51295184-2f8f-4b53-8015-519b39f8d546" />
 
 ### BrowserRedirect
 Intelligent URL routing to different browsers based on patterns. Perfect for developers who need specific browsers for different environments.
@@ -217,7 +223,7 @@ return require("martillo").setup {
 }
 ```
 
-## ⌨️ Default Keybindings
+## Default Keybindings
 
 | Feature | Default Shortcut | Description |
 |---------|-----------------|-------------|

@@ -231,6 +231,11 @@ function obj:loadEventsWithEventKit()
             self.isLoading = false
             self.loadingTask = nil
 
+            -- Log debug output from stderr
+            if stdErr and stdErr ~= "" then
+                self.logger:i("EventKit debug output:\n" .. stdErr)
+            end
+
             if exitCode == 0 and stdOut then
                 if stdOut:find("ACCESS_DENIED") then
                     hs.alert.show(
@@ -238,10 +243,11 @@ function obj:loadEventsWithEventKit()
                     self.cachedEvents = {}
                 else
                     self.logger:d("EventKit fetch completed")
+                    self.logger:d("Raw output: " .. stdOut)
                     self:parseEventKitResult(stdOut)
                 end
             else
-                self.logger:e("EventKit failed: " .. (stdErr or "unknown error"))
+                self.logger:e("EventKit failed with exit code " .. exitCode .. ": " .. (stdErr or "unknown error"))
                 -- If compilation failed, it might be a permission issue
                 if stdErr and stdErr:find("permission") then
                     hs.alert.show(
@@ -294,21 +300,22 @@ function obj:parseEventKitResult(result)
                         local eventDescription = parts[4] ~= "" and parts[4] or ""
                         local isRecurring = parts[5] == "true"
 
-                        -- Filter reasonable events (today or close)
-                        if timeDiff > -3600 and timeDiff < 86400 then
-                            local startTimestamp = now + timeDiff
-                            local meetingURL = self:extractMeetingURL(eventDescription)
+                        local startTimestamp = now + timeDiff
+                        local meetingURL = self:extractMeetingURL(eventDescription)
 
-                            self.logger:d("Including event: " .. title .. " timeDiff: " .. timeDiff)
-                            table.insert(events, {
-                                title = title,
-                                startTimestamp = startTimestamp,
-                                timeRange = timeRange,
-                                timeDiff = timeDiff,
-                                isRecurring = isRecurring,
-                                meetingURL = meetingURL
-                            })
-                        end
+                        self.logger:i(string.format("Event: '%s' timeDiff: %.0f seconds (%.1f hours)",
+                            title, timeDiff, timeDiff/3600))
+
+                        -- Include all events from today (already filtered by EventKit predicate)
+                        self.logger:i("Including event: " .. title)
+                        table.insert(events, {
+                            title = title,
+                            startTimestamp = startTimestamp,
+                            timeRange = timeRange,
+                            timeDiff = timeDiff,
+                            isRecurring = isRecurring,
+                            meetingURL = meetingURL
+                        })
                     end
                 end
 
@@ -325,7 +332,7 @@ end
 
 --- MySchedule:findNextEvent(events)
 --- Method
---- Find the next upcoming event (prioritize events with positive timeDiff, fallback to closest event)
+--- Find the next upcoming event (only future events, not past ones)
 function obj:findNextEvent(events)
     if #events == 0 then
         self.logger:d("findNextEvent - No events provided")
@@ -347,7 +354,7 @@ function obj:findNextEvent(events)
             i, event.title, event.timeDiff, event.timeRange))
     end
 
-    -- Find first event that hasn't ended yet (within reasonable past threshold)
+    -- Find first event that is upcoming (timeDiff >= 0) or currently happening (started within last 30 min)
     for i, event in ipairs(sortedEvents) do
         -- Show events that are upcoming or recently started (within 30 minutes past)
         if event.timeDiff >= -1800 then -- -1800 seconds = 30 minutes ago
@@ -356,14 +363,8 @@ function obj:findNextEvent(events)
         end
     end
 
-    -- If all events are old, return the most recent one
-    if #sortedEvents > 0 then
-        local lastEvent = sortedEvents[#sortedEvents]
-        self.logger:d("All events are old, using most recent: " .. lastEvent.title)
-        return lastEvent
-    end
-
-    self.logger:d("No events found at all")
+    -- No upcoming events found
+    self.logger:d("No upcoming events found (all events are in the past)")
     return nil
 end
 

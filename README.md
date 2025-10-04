@@ -1,6 +1,6 @@
 # 🔨 Martillo
 
-> **⚠️ Pre-Alpha Software**: Martillo is currently in pre-alpha development. Features may be incomplete, unstable, or change significantly. Use at your own risk.
+> **⚠️ Pre-Alpha**: Features may be incomplete, unstable, or change significantly. Use at your own risk.
 
 A powerful, declarative configuration framework for [Hammerspoon](https://www.hammerspoon.org/) that provides fast, ergonomic, and reliable productivity tools for macOS.
 

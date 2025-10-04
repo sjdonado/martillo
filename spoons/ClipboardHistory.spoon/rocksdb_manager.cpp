@@ -104,21 +104,22 @@ public:
         // Scan recent entries for duplicates
         rocksdb::ReadOptions read_options;
         std::unique_ptr<rocksdb::Iterator> it(db->NewIterator(read_options));
-        
+
         int checked = 0;
-        for (it->SeekToLast(); it->Valid() && checked < 25; it->Prev(), checked++) {
+        for (it->SeekToLast(); it->Valid() && checked < 50; it->Prev()) {
             std::string key = it->key().ToString();
             if (key.substr(0, 6) == "entry:") {
                 Json::Value entry;
                 Json::CharReaderBuilder builder;
                 std::string errors;
                 std::istringstream json_stream(it->value().ToString());
-                
+
                 if (Json::parseFromStream(builder, json_stream, &entry, &errors)) {
                     if (entry["content"].asString() == content) {
                         return entry["id"].asString();
                     }
                 }
+                checked++;
             }
         }
         return "";

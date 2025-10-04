@@ -19,6 +19,12 @@ return {
             handler = function() spoon.WindowManager:moveWindow("reasonable") end,
             description = "Resize window to reasonable size 70% of screen, centered"
         },
+        {
+            id = "center_window",
+            name = "Center Window",
+            handler = function() spoon.WindowManager:moveWindow("center") end,
+            description = "Center window without resizing"
+        },
 
         -- System Actions
         {

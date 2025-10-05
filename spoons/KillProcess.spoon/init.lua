@@ -262,8 +262,8 @@ function obj:getProcessList()
                     if pidNum and cpuNum then
                         table.insert(processes, {
                             text = processName or "Unknown",
-                            subText = string.format("PID: %s | PPID: %s | CPU: %s%% | Memory: %s | %s",
-                                pid, ppid, cpu, memDisplay, command or ""),
+                            subText = string.format("PID: %s | CPU: %s%% | Memory: %s | %s",
+                                pid, cpu, memDisplay, command or ""),
                             pid = pidNum,
                             ppid = ppidNum,
                             cpu = tonumber(cpu),

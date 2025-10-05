@@ -236,6 +236,8 @@ function obj:loadEventsWithEventKit()
                 self.logger:i("EventKit debug output:\n" .. stdErr)
             end
 
+            self.logger:i("Raw stdOut: [" .. (stdOut or "nil") .. "]")
+
             if exitCode == 0 and stdOut then
                 if stdOut:find("ACCESS_DENIED") then
                     hs.alert.show(
@@ -268,56 +270,85 @@ end
 --- Method
 --- Parse EventKit result data
 function obj:parseEventKitResult(result)
-    self.logger:d("Parsing EventKit data")
+    self.logger:i("Parsing EventKit data")
+    self.logger:i("Raw result length: " .. (result and #result or 0))
     local now = os.time()
 
     if result and string.find(result, "COUNT:") then
         local countStr = string.match(result, "COUNT:(%d+)")
         local eventCount = tonumber(countStr) or 0
-        self.logger:d("Found " .. eventCount .. " events")
+        self.logger:i("Found " .. eventCount .. " events in raw output")
 
         if eventCount > 0 then
             local eventData = string.match(result, "COUNT:%d+%|%|(.+)")
+            self.logger:i("Event data: " .. (eventData or "nil"))
             if eventData then
                 local events = {}
-                local eventStrings = {}
-                for eventStr in string.gmatch(eventData .. "||", "(.-)||") do
-                    if eventStr ~= "" then
-                        table.insert(eventStrings, eventStr)
+
+                -- Simple approach: manually parse character by character
+                -- Format: title|timeDiff|timeRange|notes|isRecurring||
+                -- Note: notes can be empty, so we might see |||| (empty notes + event separator)
+                local parts = {}
+                local current = {}
+                local i = 1
+
+                while i <= #eventData do
+                    local char = eventData:sub(i, i)
+
+                    if char == "|" then
+                        -- Save current field
+                        table.insert(parts, table.concat(current))
+                        current = {}
+
+                        -- Check if next char is also | (event separator or empty field)
+                        if eventData:sub(i+1, i+1) == "|" then
+                            -- Could be event separator (after 5th field) or empty field
+                            -- Check if we have exactly 5 parts - that means this is event separator
+                            if #parts == 5 then
+                                -- Event separator - process complete event
+                                self.logger:i("Complete event with 5 parts: " .. parts[1])
+
+                                local title = parts[1]
+                                local timeDiff = tonumber(parts[2]) or 0
+                                local timeRange = parts[3]
+                                local eventDescription = parts[4] ~= "" and parts[4] or ""
+                                local isRecurring = parts[5] == "true"
+
+                                local startTimestamp = now + timeDiff
+                                local meetingURL = self:extractMeetingURL(eventDescription)
+
+                                self.logger:i(string.format("Event: '%s' timeDiff: %.0f seconds (%.1f hours)",
+                                    title, timeDiff, timeDiff/3600))
+
+                                -- Include all events from today (already filtered by EventKit predicate)
+                                self.logger:i("Including event: " .. title)
+                                table.insert(events, {
+                                    title = title,
+                                    startTimestamp = startTimestamp,
+                                    timeRange = timeRange,
+                                    timeDiff = timeDiff,
+                                    isRecurring = isRecurring,
+                                    meetingURL = meetingURL
+                                })
+
+                                -- Reset for next event
+                                parts = {}
+                                i = i + 2  -- Skip both pipes
+                            else
+                                -- Empty field in middle of event - just skip one pipe
+                                i = i + 1
+                            end
+                        else
+                            -- Single pipe - just move forward
+                            i = i + 1
+                        end
+                    else
+                        table.insert(current, char)
+                        i = i + 1
                     end
                 end
 
-                for _, singleEvent in ipairs(eventStrings) do
-                    local parts = {}
-                    for part in string.gmatch(singleEvent, "([^|]+)") do
-                        table.insert(parts, part)
-                    end
-
-                    if #parts >= 5 then
-                        local title = parts[1]
-                        local timeDiff = tonumber(parts[2]) or 0
-                        local timeRange = parts[3]
-                        local eventDescription = parts[4] ~= "" and parts[4] or ""
-                        local isRecurring = parts[5] == "true"
-
-                        local startTimestamp = now + timeDiff
-                        local meetingURL = self:extractMeetingURL(eventDescription)
-
-                        self.logger:i(string.format("Event: '%s' timeDiff: %.0f seconds (%.1f hours)",
-                            title, timeDiff, timeDiff/3600))
-
-                        -- Include all events from today (already filtered by EventKit predicate)
-                        self.logger:i("Including event: " .. title)
-                        table.insert(events, {
-                            title = title,
-                            startTimestamp = startTimestamp,
-                            timeRange = timeRange,
-                            timeDiff = timeDiff,
-                            isRecurring = isRecurring,
-                            meetingURL = meetingURL
-                        })
-                    end
-                end
+                self.logger:i("Parsed " .. #events .. " events total")
 
                 self.cachedEvents = events
                 self.lastUpdate = now

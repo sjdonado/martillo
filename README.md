@@ -15,18 +15,18 @@ return require("martillo").setup {
   -- LaunchOrToggleFocus: App switching hotkeys
   {
     "LaunchOrToggleFocus",
-    opts = {
-      calendar   = { hotkey = { { "alt", "shift" }, "c" }, app = "Calendar" },
-      chromium   = { hotkey = { { "alt", "shift" }, "d" }, app = "Chromium" },
-      excalidraw = { hotkey = { { "alt", "shift" }, "x" }, app = "Excalidraw" },
-      ghostty    = { hotkey = { { "alt", "shift" }, ";" }, app = "Ghostty" },
-      mail       = { hotkey = { { "alt", "shift" }, "e" }, app = "Mail" },
-      music      = { hotkey = { { "alt", "shift" }, "m" }, app = "Music" },
-      notes      = { hotkey = { { "alt", "shift" }, "n" }, app = "Notes" },
-      reminders  = { hotkey = { { "alt", "shift" }, "r" }, app = "Reminders" },
-      safari     = { hotkey = { { "alt", "shift" }, "b" }, app = "Safari" },
-      yaak       = { hotkey = { { "alt", "shift" }, "h" }, app = "Yaak" },
-      zed        = { hotkey = { { "alt", "shift" }, "space" }, app = "Zed" },
+    keys = {
+      { { "alt", "shift" }, "c", app = "Calendar" },
+      { { "alt", "shift" }, "d", app = "Chromium" },
+      { { "alt", "shift" }, "x", app = "Excalidraw" },
+      { { "alt", "shift" }, "space", app = "Ghostty" },
+      { { "alt", "shift" }, "e", app = "Mail" },
+      { { "alt", "shift" }, "m", app = "Music" },
+      { { "alt", "shift" }, "n", app = "Notes" },
+      { { "alt", "shift" }, "r", app = "Reminders" },
+      { { "alt", "shift" }, "b", app = "Safari" },
+      { { "alt", "shift" }, "h", app = "Yaak" },
+      { { "alt", "shift" }, "z", app = "Zed" },
     },
   },
 

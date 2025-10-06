@@ -143,7 +143,12 @@ local function loadSpoon(spec)
 
         -- Process keys
         if spec.keys then
-            processHotkeys(spoonInstance, spec.keys)
+            -- Check if this is an app-based keys format (for LaunchOrToggleFocus)
+            if spec.keys[1] and spec.keys[1].app and type(spec.keys[1][1]) == "table" and spoonInstance.setup then
+                spoonInstance:setup(spec.keys)
+            else
+                processHotkeys(spoonInstance, spec.keys)
+            end
         end
 
         -- Process config (runs after setup and keys)

@@ -40,24 +40,26 @@ function obj:launchOrToggle(appName)
     end
 end
 
---- LaunchOrToggleFocus:setup(mapping)
+--- LaunchOrToggleFocus:setup(keys)
 --- Method
---- Bind hotkeys with explicit app names (most flexible)
+--- Bind hotkeys with explicit app names
 ---
 --- Parameters:
----  * mapping - A table where keys are any identifier and values contain
----    both hotkey and app name
+---  * keys - An array of hotkey configurations where each entry contains
+---    modifiers, key, and app name
 ---
 --- Example:
 ---   spoon.LaunchOrToggleFocus:setup({
----     browser = { hotkey = { { "alt", "shift" }, "s" }, app = "Safari" },
----     editor = { hotkey = { { "alt", "shift" }, "space" }, app = "Zed" },
----     chat = { hotkey = { { "alt", "shift" }, "g" }, app = "ChatGPT" }
+---     { { "alt", "shift" }, "s", app = "Safari" },
+---     { { "alt", "shift" }, "space", app = "Zed" },
+---     { { "alt", "shift" }, "g", app = "ChatGPT" }
 ---   })
-function obj:setup(mapping)
-    for _, config in pairs(mapping) do
-        if config.hotkey and config.app then
-            hs.hotkey.bind(config.hotkey[1], config.hotkey[2], function()
+function obj:setup(keys)
+    for _, config in ipairs(keys) do
+        local mods = config[1]
+        local key = config[2]
+        if mods and key and config.app then
+            hs.hotkey.bind(mods, key, function()
                 self:launchOrToggle(config.app)
             end)
         end

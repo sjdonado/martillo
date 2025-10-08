@@ -21,8 +21,7 @@ obj.license = "MIT - https://opensource.org/licenses/MIT"
 obj.chooser = nil
 obj.hotkeys = {}
 obj.watcher = nil
-obj.maxRecentEntries = 50     -- Maximum number of recent entries to load initially
-obj.maxDatabaseEntries = 1000 -- Maximum total entries to keep in database
+obj.maxEntries = 300          -- Maximum number of entries to keep in memory and display
 obj.historyBuffer = {}        -- Memory buffer with most recent entries
 obj.dbFile = nil
 obj.currentQuery = ""
@@ -58,25 +57,19 @@ function obj:initializeChooser()
 
     -- Create new chooser
     self.chooser = hs.chooser.new(function(choice)
-        if choice then
-            if choice.isLoadMore then
-                -- Load more entries and reopen chooser
-                self:loadAllHistory()
-                local query = self.chooser:query()
-                self.chooser:query(query)
-                self:show()
-            else
-                -- Try to paste by default, fall back to copy only in specific cases
-                local shouldJustCopy = self:shouldOnlyCopy()
+        if not choice then
+            return
+        end
 
-                if shouldJustCopy then
-                    -- Just copy to clipboard without pasting
-                    self:copyToClipboard(choice)
-                else
-                    -- Handle different content types for pasting
-                    self:pasteContent(choice)
-                end
-            end
+        -- Try to paste by default, fall back to copy only in specific cases
+        local shouldJustCopy = self:shouldOnlyCopy()
+
+        if shouldJustCopy then
+            -- Just copy to clipboard without pasting
+            self:copyToClipboard(choice)
+        else
+            -- Handle different content types for pasting
+            self:pasteContent(choice)
         end
     end)
 
@@ -473,7 +466,7 @@ function obj:initializeBuffer()
     end
 
     -- Load first entries using RocksDB manager
-    local command = string.format('"%s" "%s" recent %d', rocksdbBinary, self.dbPath, self.maxRecentEntries)
+    local command = string.format('"%s" "%s" recent %d', rocksdbBinary, self.dbPath, self.maxEntries)
 
     local handle = io.popen(command, "r")
     if handle then
@@ -529,41 +522,12 @@ function obj:addToBuffer(newEntryStr)
             table.insert(self.historyBuffer, 1, newEntry)
 
             -- Keep only recent entries
-            if #self.historyBuffer > self.maxRecentEntries then
+            if #self.historyBuffer > self.maxEntries then
                 table.remove(self.historyBuffer)
             end
         end
 
         -- No need to save - SQLite handles persistence
-    end
-end
-
---- ClipboardHistory:loadAllHistory()
---- Method
---- Load all clipboard history entries from RocksDB database
-function obj:loadAllHistory()
-    local rocksdbBinary = self:getRocksDBBinary()
-    if not rocksdbBinary then
-        return
-    end
-
-    -- Load all entries from RocksDB
-    local command = string.format('"%s" "%s" recent %d', rocksdbBinary, self.dbPath, self.maxDatabaseEntries)
-
-    local handle = io.popen(command, "r")
-    if handle then
-        local output = handle:read("*all")
-        handle:close()
-
-        if output and output ~= "" then
-            output = output:gsub("^%s+", ""):gsub("%s+$", "")
-            if output:match("^%[") then
-                local parseSuccess, data = pcall(hs.json.decode, output)
-                if parseSuccess and data and type(data) == "table" then
-                    self.historyBuffer = data
-                end
-            end
-        end
     end
 end
 
@@ -587,7 +551,7 @@ function obj:updateChoices()
         local rocksdbBinary = self:getRocksDBBinary()
         if rocksdbBinary then
             local command = string.format('"%s" "%s" search "%s" %d',
-                rocksdbBinary, self.dbPath, query:gsub('"', '\\"'), self.maxRecentEntries)
+                rocksdbBinary, self.dbPath, query:gsub('"', '\\"'), self.maxEntries)
             self.logger:d("Executing RocksDB search command: " .. command)
 
             local handle = io.popen(command, "r")
@@ -613,37 +577,40 @@ function obj:updateChoices()
         if #filteredEntries < 5 then
             local usearchBinary = self:getUSearchBinary()
             if usearchBinary then
-                local command = string.format('"%s" "%s" search "%s" %d',
-                    usearchBinary, self.usearchPath, query:gsub('"', '\\"'), self.maxRecentEntries - #filteredEntries)
-                self.logger:d("Executing USearch semantic search command: " .. command)
+                local remainingSlots = math.max(self.maxEntries - #filteredEntries, 0)
+                if remainingSlots > 0 then
+                    local command = string.format('"%s" "%s" search "%s" %d',
+                        usearchBinary, self.usearchPath, query:gsub('"', '\\"'), remainingSlots)
+                    self.logger:d("Executing USearch semantic search command: " .. command)
 
-                local handle = io.popen(command, "r")
-                if handle then
-                    local output = handle:read("*all")
-                    local success, exitType, exitCode = handle:close()
+                    local handle = io.popen(command, "r")
+                    if handle then
+                        local output = handle:read("*all")
+                        local success, exitType, exitCode = handle:close()
 
-                    if output and output ~= "" then
-                        output = output:gsub("^%s+", ""):gsub("%s+$", "")
+                        if output and output ~= "" then
+                            output = output:gsub("^%s+", ""):gsub("%s+$", "")
 
-                        if output:match("^%[") then
-                            local parseSuccess, semanticResults = pcall(hs.json.decode, output)
-                            if parseSuccess and semanticResults and type(semanticResults) == "table" then
-                                -- Merge semantic results with exact matches, avoiding duplicates
-                                local existingIds = {}
-                                for _, entry in ipairs(filteredEntries) do
-                                    if entry.id then
-                                        existingIds[entry.id] = true
+                            if output:match("^%[") then
+                                local parseSuccess, semanticResults = pcall(hs.json.decode, output)
+                                if parseSuccess and semanticResults and type(semanticResults) == "table" then
+                                    -- Merge semantic results with exact matches, avoiding duplicates
+                                    local existingIds = {}
+                                    for _, entry in ipairs(filteredEntries) do
+                                        if entry.id then
+                                            existingIds[entry.id] = true
+                                        end
                                     end
-                                end
 
-                                for _, entry in ipairs(semanticResults) do
-                                    if entry.id and not existingIds[entry.id] then
-                                        table.insert(filteredEntries, entry)
-                                        existingIds[entry.id] = true
+                                    for _, entry in ipairs(semanticResults) do
+                                        if entry.id and not existingIds[entry.id] then
+                                            table.insert(filteredEntries, entry)
+                                            existingIds[entry.id] = true
+                                        end
                                     end
-                                end
 
-                                self.logger:d(string.format("Combined search: %d total results", #filteredEntries))
+                                    self.logger:d(string.format("Combined search: %d total results", #filteredEntries))
+                                end
                             end
                         end
                     end
@@ -912,34 +879,6 @@ function obj:updateChoices()
         end
 
         table.insert(choices, choiceEntry)
-    end
-
-    -- Add "Load more" item if we might have more entries and no search query
-    if self.currentQuery == "" and #self.historyBuffer == self.maxRecentEntries then
-        local rocksdbBinary = self:getRocksDBBinary()
-        local totalEntries = 0
-
-        if rocksdbBinary then
-            local command = string.format('"%s" "%s" count', rocksdbBinary, self.dbPath)
-            local handle = io.popen(command, "r")
-            if handle then
-                local output = handle:read("*all")
-                handle:close()
-                local success, data = pcall(hs.json.decode, output)
-                if success and data and data.count then
-                    totalEntries = data.count
-                end
-            end
-        end
-
-        if totalEntries > self.maxRecentEntries then
-            local remainingCount = totalEntries - self.maxRecentEntries
-            table.insert(choices, {
-                text = "📥 Load more (" .. remainingCount .. " more entries)",
-                subText = "Load remaining clipboard history entries",
-                isLoadMore = true
-            })
-        end
     end
 
     self.logger:d(string.format("updateChoices() called with %d entries", #filteredEntries))

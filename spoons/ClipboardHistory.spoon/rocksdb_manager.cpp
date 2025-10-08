@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
+#include <cctype>
 #include <rocksdb/db.h>
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
@@ -94,8 +96,8 @@ public:
             return "{}";
         }
 
-        // Cleanup old entries (keep last 1000)
-        cleanupOldEntries(1000);
+        // Cleanup old entries (keep last 300)
+        cleanupOldEntries(300);
 
         return buildEntryJson(id, content, type, preview, size, timestamp, time_str, "added");
     }
@@ -196,13 +198,21 @@ public:
         Json::Value results(Json::arrayValue);
         rocksdb::ReadOptions read_options;
         std::unique_ptr<rocksdb::Iterator> it(db->NewIterator(read_options));
+        auto toLower = [](const std::string& value) {
+            std::string lower = value;
+            std::transform(lower.begin(), lower.end(), lower.begin(),
+                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            return lower;
+        };
+        std::string queryLower = toLower(query);
         
         int count = 0;
         for (it->SeekToFirst(); it->Valid() && count < limit; it->Next()) {
             std::string key = it->key().ToString();
             if (key.substr(0, 8) == "content:") {
                 std::string content = it->value().ToString();
-                if (content.find(query) != std::string::npos) {
+                std::string contentLower = toLower(content);
+                if (contentLower.find(queryLower) != std::string::npos) {
                     // Get corresponding entry
                     std::string id = key.substr(8); // Remove "content:" prefix
                     std::string entry = getEntryById(id);

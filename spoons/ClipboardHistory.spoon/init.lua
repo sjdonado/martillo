@@ -987,7 +987,15 @@ function obj:copyToClipboard(choice)
             -- If it's a temp file, try to set the actual image data
             local imageData = hs.image.imageFromPath(imagePath)
             if imageData then
-                hs.pasteboard.setContents(imageData)
+                local wrote = hs.pasteboard.writeObjects(imageData)
+                if not wrote then
+                    -- Fallback to file path if we couldn't write the image object
+                    local fileURL = imagePath
+                    if not fileURL:match("^file://") then
+                        fileURL = "file://" .. fileURL
+                    end
+                    hs.pasteboard.setContents(fileURL)
+                end
             else
                 -- Fallback to file path
                 local fileURL = imagePath
@@ -1032,7 +1040,14 @@ function obj:pasteContent(choice)
             file:close()
             local imageData = hs.image.imageFromPath(imagePath)
             if imageData then
-                hs.pasteboard.setContents(imageData)
+                local wrote = hs.pasteboard.writeObjects(imageData)
+                if not wrote then
+                    local fileURL = imagePath
+                    if not fileURL:match("^file://") then
+                        fileURL = "file://" .. fileURL
+                    end
+                    hs.pasteboard.setContents(fileURL)
+                end
             else
                 local fileURL = imagePath
                 if not fileURL:match("^file://") then

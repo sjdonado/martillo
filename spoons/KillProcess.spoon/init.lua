@@ -88,19 +88,36 @@ function obj:getFilteredChoices()
 
     -- No search query - return all processes
     if not self.currentQuery or self.currentQuery == "" then
+        local appProcesses = {}
+        local otherProcesses = {}
+
         for _, process in ipairs(allProcesses) do
             if process then
-                table.insert(choices, process)
+                if self:isAppProcessEntry(process) then
+                    table.insert(appProcesses, process)
+                else
+                    table.insert(otherProcesses, process)
+                end
             end
+        end
+
+        for _, process in ipairs(appProcesses) do
+            table.insert(choices, process)
+        end
+        for _, process in ipairs(otherProcesses) do
+            table.insert(choices, process)
         end
         return choices
     end
 
     -- Search filtering
     local query = self.currentQuery:lower()
-    local prefixMatches = {}
-    local wordPrefixMatches = {}
-    local containsMatches = {}
+    local prefixAppMatches = {}
+    local prefixOtherMatches = {}
+    local wordAppMatches = {}
+    local wordOtherMatches = {}
+    local containsAppMatches = {}
+    local containsOtherMatches = {}
 
     -- Helper functions for different match types
     local function fuzzyMatch(str, pattern)
@@ -136,27 +153,38 @@ function obj:getFilteredChoices()
     for _, process in ipairs(allProcesses) do
         if not process then goto continue end
 
-        local name = (process.text or ""):lower()
-        local subText = (process.subText or ""):lower()
-        local fullPath = (process.fullPath or ""):lower()
+        local name = (process.name or process.text or "")
+        local nameLower = name:lower()
+        local appMatchTarget = self:isAppProcessEntry(process) and "app" or "other"
 
         local matched = false
 
         -- Priority 1: Exact prefix matches (process name starts with query)
-        if hasPrefixMatch(name, query) then
-            table.insert(prefixMatches, process)
+        if hasPrefixMatch(nameLower, query) then
+            if appMatchTarget == "app" then
+                table.insert(prefixAppMatches, process)
+            else
+                table.insert(prefixOtherMatches, process)
+            end
             matched = true
             -- Priority 2: Word prefix matches (any word in name/path starts with query)
-        elseif hasWordStartingWith(name, query) or hasWordStartingWith(fullPath, query) then
-            table.insert(wordPrefixMatches, process)
+        elseif hasWordStartingWith(nameLower, query) then
+            if appMatchTarget == "app" then
+                table.insert(wordAppMatches, process)
+            else
+                table.insert(wordOtherMatches, process)
+            end
             matched = true
         end
 
         -- Priority 3: Contains matches (if not already matched as prefix)
         if not matched then
-            if name:find(query, 1, true) or subText:find(query, 1, true) or
-                fullPath:find(query, 1, true) or fuzzyMatch(name, query) then
-                table.insert(containsMatches, process)
+            if nameLower:find(query, 1, true) or fuzzyMatch(nameLower, query) then
+                if appMatchTarget == "app" then
+                    table.insert(containsAppMatches, process)
+                else
+                    table.insert(containsOtherMatches, process)
+                end
             end
         end
 
@@ -168,18 +196,30 @@ function obj:getFilteredChoices()
         return (a and a.mem or 0) > (b and b.mem or 0)
     end
 
-    table.sort(prefixMatches, sortByMemory)
-    table.sort(wordPrefixMatches, sortByMemory)
-    table.sort(containsMatches, sortByMemory)
+    table.sort(prefixAppMatches, sortByMemory)
+    table.sort(prefixOtherMatches, sortByMemory)
+    table.sort(wordAppMatches, sortByMemory)
+    table.sort(wordOtherMatches, sortByMemory)
+    table.sort(containsAppMatches, sortByMemory)
+    table.sort(containsOtherMatches, sortByMemory)
 
     -- Combine results: prefix matches first, then word prefix matches, then contains matches
-    for _, process in ipairs(prefixMatches) do
+    for _, process in ipairs(prefixAppMatches) do
         table.insert(choices, process)
     end
-    for _, process in ipairs(wordPrefixMatches) do
+    for _, process in ipairs(prefixOtherMatches) do
         table.insert(choices, process)
     end
-    for _, process in ipairs(containsMatches) do
+    for _, process in ipairs(wordAppMatches) do
+        table.insert(choices, process)
+    end
+    for _, process in ipairs(wordOtherMatches) do
+        table.insert(choices, process)
+    end
+    for _, process in ipairs(containsAppMatches) do
+        table.insert(choices, process)
+    end
+    for _, process in ipairs(containsOtherMatches) do
         table.insert(choices, process)
     end
 
@@ -201,6 +241,15 @@ function obj:getProcessList()
     local appProcesses = {} -- Map app names to their processes
     local lineCount = 0
     local processedCount = 0
+    local function formatMemory(memKB)
+        if memKB >= 1024 * 1024 then -- >= 1GB
+            return string.format("%.1f GB", memKB / (1024 * 1024))
+        elseif memKB >= 1024 then -- >= 1MB
+            return string.format("%.0f MB", memKB / 1024)
+        else
+            return string.format("%.0f KB", memKB)
+        end
+    end
 
     for line in output:gmatch("[^\r\n]+") do
         lineCount = lineCount + 1
@@ -246,14 +295,7 @@ function obj:getProcessList()
                     local memKB = tonumber(rss) or 0
 
                     -- Convert RSS (KB) to MB or GB for display
-                    local memDisplay
-                    if memKB >= 1024 * 1024 then -- >= 1GB
-                        memDisplay = string.format("%.1f GB", memKB / (1024 * 1024))
-                    elseif memKB >= 1024 then -- >= 1MB
-                        memDisplay = string.format("%.0f MB", memKB / 1024)
-                    else
-                        memDisplay = string.format("%.0f KB", memKB)
-                    end
+                    local memDisplay = formatMemory(memKB)
 
                     -- Create process entry with safe values
                     local pidNum = tonumber(pid)
@@ -278,9 +320,102 @@ function obj:getProcessList()
         end
     end
 
+    local rawProcessCount = #processes
+
+    -- Aggregate processes with the same display name
+    local nameBuckets = {}
+    for _, process in ipairs(processes) do
+        local key = process.name or process.text or "Unknown"
+        if not nameBuckets[key] then
+            nameBuckets[key] = { name = key, processes = {} }
+        end
+        table.insert(nameBuckets[key].processes, process)
+    end
+
+    local function selectMainProcess(processList)
+        local function hasChildren(candidate)
+            for _, other in ipairs(processList) do
+                if other.ppid == candidate.pid then
+                    return true
+                end
+            end
+            return false
+        end
+
+        local function isBetter(candidate, current)
+            if not current then
+                return true
+            end
+
+            local candidateIsApp = self:isAppProcessEntry(candidate)
+            local currentIsApp = self:isAppProcessEntry(current)
+            if candidateIsApp ~= currentIsApp then
+                return candidateIsApp
+            end
+
+            local candidateIsParent = hasChildren(candidate)
+            local currentIsParent = hasChildren(current)
+            if candidateIsParent ~= currentIsParent then
+                return candidateIsParent
+            end
+
+            local candidateMem = candidate.mem or 0
+            local currentMem = current.mem or 0
+            if candidateMem ~= currentMem then
+                return candidateMem > currentMem
+            end
+
+            return (candidate.pid or math.huge) < (current.pid or math.huge)
+        end
+
+        local selected = nil
+        for _, proc in ipairs(processList) do
+            if isBetter(proc, selected) then
+                selected = proc
+            end
+        end
+        return selected or processList[1]
+    end
+
+    local aggregatedProcesses = {}
+    for _, bucket in pairs(nameBuckets) do
+        local list = bucket.processes
+        if #list == 1 then
+            table.insert(aggregatedProcesses, list[1])
+        else
+            local main = selectMainProcess(list)
+            local totalCpu = 0
+            local totalMem = 0
+
+            for _, proc in ipairs(list) do
+                totalCpu = totalCpu + (proc.cpu or 0)
+                totalMem = totalMem + (proc.mem or 0)
+            end
+
+            local totalMemDisplay = formatMemory(totalMem)
+            local subText = string.format("PID: %d | Total CPU: %.1f%% | Total Memory: %s | %s | %d processes",
+                main.pid, totalCpu, totalMemDisplay, main.fullPath or "", #list)
+
+            table.insert(aggregatedProcesses, {
+                text = bucket.name,
+                subText = subText,
+                pid = main.pid,
+                ppid = main.ppid,
+                cpu = totalCpu,
+                mem = totalMem,
+                memDisplay = totalMemDisplay,
+                name = bucket.name,
+                fullPath = main.fullPath,
+                aggregated = list
+            })
+        end
+    end
+
+    processes = aggregatedProcesses
+
     -- Debug logging
-    self.logger:d(string.format("Processed %d lines, found %d valid processes, returning %d processes",
-        lineCount, processedCount, #processes))
+    self.logger:d(string.format("Processed %d lines, %d parsed, %d raw processes, returning %d aggregated processes",
+        lineCount, processedCount, rawProcessCount, #processes))
 
     -- Limit results to maxResults
     if #processes > self.maxResults then
@@ -368,6 +503,27 @@ function obj:configure(options)
         self.refreshIntervalSeconds = options.refreshIntervalSeconds
     end
     return self
+end
+
+--- KillProcess:isAppPath(path)
+--- Method
+--- Determine if a command path belongs to an app bundle
+function obj:isAppPath(path)
+    if not path or path == "" then
+        return false
+    end
+    local lowered = path:lower()
+    return lowered:find("%.app/") ~= nil or lowered:sub(-4) == ".app"
+end
+
+--- KillProcess:isAppProcessEntry(process)
+--- Method
+--- Determine if a process entry represents an app bundle
+function obj:isAppProcessEntry(process)
+    if not process then
+        return false
+    end
+    return self:isAppPath(process.fullPath)
 end
 
 --- KillProcess:extractProcessName(command, baseAppName, appProcessList)

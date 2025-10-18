@@ -25,7 +25,7 @@ obj.maxEntries = 300   -- Maximum number of entries to keep
 obj.historyBuffer = {} -- Memory buffer with all entries
 obj.historyFile = nil
 obj.currentQuery = ""
-obj.logger = hs.logger.new('ClipboardHistory')
+obj.logger = hs.logger.new('ClipboardHistory', 'debug')
 
 --- ClipboardHistory:init()
 --- Method
@@ -203,13 +203,11 @@ end
 
 --- ClipboardHistory:getFileDisplayName(filePath)
 --- Method
---- Extract display name from file path
---- Example: "/path/to/Screenshot 2025-10-18 at 09.33.22.png" -> "Screenshot 2025-10-18 at 09.33.22"
---- Example: "/path/to/video.mp4" -> "video"
+--- Extract display name from file path with extension
 function obj:getFileDisplayName(filePath)
     if not filePath then return nil end
-    -- Extract filename without extension
-    local filename = filePath:match("([^/]+)%.%w+$")
+    -- Extract filename with extension
+    local filename = filePath:match("([^/]+)$")
     if filename then
         return filename
     end
@@ -229,7 +227,6 @@ function obj:onClipboardChange()
     local contentTypes = hs.pasteboard.contentTypes()
     local hasFileURL = false
 
-    -- Check if pasteboard contains file URL
     if contentTypes then
         for _, uti in ipairs(contentTypes) do
             if uti == "public.file-url" then
@@ -240,26 +237,32 @@ function obj:onClipboardChange()
     end
 
     if hasFileURL then
-        -- Read file URL using readDataForUTI
-        local fileURLData = hs.pasteboard.readDataForUTI("public.file-url")
-        if fileURLData then
-            -- Convert data to string and extract path
-            local fileURL = tostring(fileURLData)
-            local filePath = fileURL:gsub("^file://", "")
-            -- URL decode the path
-            filePath = filePath:gsub("%%(%x%x)", function(hex)
-                return string.char(tonumber(hex, 16))
-            end)
-            -- Remove any trailing nulls or newlines
-            filePath = filePath:gsub("%z", ""):gsub("\n", ""):gsub("\r", "")
+        -- When copying files from Finder, macOS provides file URLs that may be file ID references
+        -- like file:///.file/id=6571367. We need to resolve these using AppleScript.
+        -- Try using shell command with osascript to resolve file URL
+        local handle = io.popen([[
+            osascript -e 'try
+            set theFile to the clipboard as «class furl»
+            return POSIX path of theFile
+            end try' 2>&1
+        ]])
+        local result = handle:read("*a")
+        handle:close()
 
-            content = filePath
+        result = result:gsub("^%s+", ""):gsub("%s+$", "") -- trim whitespace
+
+        if result and result ~= "" and result:match("^/") then
+            content = result
             contentType = "file"
-            self.logger:d("Captured file path from Finder: " .. filePath)
+            self.logger:d("Captured file from Finder: " .. result)
+        else
+            self.logger:e("Failed to extract file path - osascript returned: " .. tostring(result))
+            return
         end
         -- Only check for clipboard images if there's NO file URL
         -- This handles screenshots and images copied TO clipboard (not FROM Finder)
     elseif not hasFileURL and hs.pasteboard.readImage() then
+        self.logger:d("=== Processing clipboard image (screenshot) ===")
         local imageData = hs.pasteboard.readImage()
         local timestamp = os.time()
         local spoonPath = hs.spoons.scriptPath()
@@ -299,7 +302,6 @@ function obj:onClipboardChange()
     if contentType == "text" then
         local trimmedContent = content:match("^%s*(.-)%s*$")
         if not trimmedContent or trimmedContent == "" then
-            self.logger:d("Skipping empty or whitespace-only text entry")
             return
         end
     end
@@ -312,7 +314,6 @@ function obj:onClipboardChange()
             entry.timestamp = os.time()
             table.insert(self.historyBuffer, 1, entry)
             self:saveHistory()
-            self.logger:d("Moved existing " .. contentType .. " entry to top")
             return
         end
     end
@@ -332,8 +333,6 @@ function obj:onClipboardChange()
     end
 
     self:saveHistory()
-    local logName = contentType == "image" and displayName or content:sub(1, 50)
-    self.logger:d("Added new entry: " .. logName)
 end
 
 --- ClipboardHistory:fuzzySearch(query, entries)
@@ -457,47 +456,24 @@ function obj:updateChoices()
         return "file"
     end
 
-    -- Helper function to create file type icon image
-    local function getFileTypeIcon(fileType, extension)
-        local iconSize = { w = 64, h = 64 }
-        local canvas = hs.canvas.new(iconSize)
-
-        local hammerspoonBlue = { red = 0.0, green = 0.47, blue = 1.0, alpha = 1.0 }
-
-        local symbols = {
-            image = "🖼",
-            video = "🎬",
-            audio = "🎵",
-            document = "📄",
-            code = "⌨",
-            file = "📁"
-        }
-
-        local color = hammerspoonBlue
-        local symbol = symbols[fileType] or symbols.file
-
-        canvas[1] = {
-            type = "rectangle",
-            action = "fill",
-            fillColor = color,
-            roundedRectRadii = { xRadius = 8, yRadius = 8 }
-        }
-
-        canvas[2] = {
-            type = "text",
-            text = symbol,
-            textAlignment = "center",
-            textSize = 32,
-            textColor = { white = 1.0, alpha = 1.0 },
-            frame = { x = 0, y = 12, w = 64, h = 40 }
-        }
-
-        return canvas:imageFromCanvas()
+    -- Helper function to truncate text for display
+    local function truncateText(text, maxLength)
+        if not text then return "" end
+        maxLength = maxLength or 200
+        if #text <= maxLength then
+            return text
+        end
+        return text:sub(1, maxLength) .. "..."
     end
 
     -- Convert to chooser format
     for _, entry in ipairs(filteredEntries) do
         local preview = entry.content or ""
+
+        -- For text entries, truncate long content for performance
+        if entry.type == "text" then
+            preview = truncateText(preview, 200)
+        end
 
         -- Format date for display
         local dateDisplay = ""
@@ -560,9 +536,8 @@ function obj:updateChoices()
             local filePath = entry.content
             local extension = getFileExtension(filePath)
             local fileType = getFileTypeFromExtension(extension)
-            local fileIcon = getFileTypeIcon(fileType, extension)
 
-            choiceEntry.image = fileIcon
+            -- choiceEntry.image = fileIcon
             -- Extract and display filename for all file types
             choiceEntry.text = self:getFileDisplayName(filePath) or preview
 
@@ -572,7 +547,7 @@ function obj:updateChoices()
                 file:close()
 
                 -- For image files from Finder, show preview
-                if fileType == "image" then
+                if fileType == "image" or fileType == 'video' then
                     local image = hs.image.imageFromPath(filePath)
                     if image then
                         local size = image:size()
@@ -592,9 +567,7 @@ function obj:updateChoices()
             local filePath = entry.content
             local extension = getFileExtension(filePath)
             local fileType = getFileTypeFromExtension(extension)
-            local fileIcon = getFileTypeIcon(fileType, extension)
 
-            choiceEntry.image = fileIcon
             -- Extract and display filename for all file types
             choiceEntry.text = self:getFileDisplayName(filePath) or preview
 
@@ -603,7 +576,7 @@ function obj:updateChoices()
             if file then
                 file:close()
 
-                if fileType == "image" then
+                if fileType == "image" or fileType == 'video' then
                     local image = hs.image.imageFromPath(filePath)
                     if image then
                         local size = image:size()
@@ -705,8 +678,15 @@ function obj:copyToClipboard(choice)
         else
             hs.pasteboard.setContents(choice.content)
         end
+    elseif choice.type == "file" then
+        -- For files from Finder, write the file URL back to clipboard using AppleScript
+        local filePath = choice.content
+        local escapedPath = filePath:gsub("'", "'\\''") -- Escape single quotes
+        os.execute(string.format([[osascript -e 'set the clipboard to POSIX file "%s"']], escapedPath))
+        self.logger:d("Copied file to clipboard: " .. filePath)
     else
         hs.pasteboard.setContents(choice.content)
+        self.logger:d("Copied text to clipboard")
     end
 
     hs.alert.show("📋 Copied to clipboard", 0.5)
@@ -716,7 +696,10 @@ end
 --- Method
 --- Paste content based on its type
 function obj:pasteContent(choice)
+    self.logger:d("pasteContent called - type: " .. tostring(choice.type))
+
     if choice.type == "image" then
+        self.logger:d("Pasting image from: " .. tostring(choice.content))
         local imagePath = choice.content
         local file = io.open(imagePath, "r")
         if file then
@@ -724,17 +707,48 @@ function obj:pasteContent(choice)
             local imageData = hs.image.imageFromPath(imagePath)
             if imageData then
                 hs.pasteboard.writeObjects(imageData)
+                self.logger:d("Image written to clipboard")
             else
                 hs.pasteboard.setContents(choice.content)
+                self.logger:d("Failed to load image, wrote path instead")
             end
         else
             hs.pasteboard.setContents(choice.content)
+            self.logger:d("Image file not found, wrote path instead")
+        end
+    elseif choice.type == "file" then
+        self.logger:d("Pasting file: " .. tostring(choice.content))
+
+        -- Try treating image files like screenshots - load as image and write to pasteboard
+        local filePath = choice.content
+        local extension = filePath:match("%.([^%.]+)$")
+        local isImage = extension and (extension:lower() == "png" or extension:lower() == "jpg" or
+            extension:lower() == "jpeg" or extension:lower() == "gif" or
+            extension:lower() == "webp" or extension:lower() == "bmp")
+
+        if isImage then
+            self.logger:d("File is an image, loading as image data")
+            local imageData = hs.image.imageFromPath(filePath)
+            if imageData then
+                hs.pasteboard.writeObjects(imageData)
+                self.logger:d("Image written to clipboard")
+            else
+                self.logger:d("Failed to load image, using AppleScript fallback")
+                local escapedPath = filePath:gsub("'", "'\\''")
+                os.execute(string.format([[osascript -e 'set the clipboard to POSIX file "%s"']], escapedPath))
+            end
+        else
+            self.logger:d("File is not an image, using AppleScript")
+            local escapedPath = filePath:gsub("'", "'\\''")
+            os.execute(string.format([[osascript -e 'set the clipboard to POSIX file "%s"']], escapedPath))
         end
     else
+        self.logger:d("Pasting text")
         hs.pasteboard.setContents(choice.content)
     end
 
     hs.timer.doAfter(0, function()
+        self.logger:d("Executing paste command")
         hs.eventtap.keyStroke({ "cmd" }, "v", 0)
     end)
 end

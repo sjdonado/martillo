@@ -17,7 +17,6 @@ obj.hotkeys = {}
 obj.refreshTimer = nil
 obj.refreshIntervalSeconds = 1
 obj.currentQuery = ""
-obj.currentChoices = {}
 obj.logger = hs.logger.new('KillProcess', 'info')
 
 -- Configuration options
@@ -244,7 +243,7 @@ function obj:getProcessList()
     local function formatMemory(memKB)
         if memKB >= 1024 * 1024 then -- >= 1GB
             return string.format("%.1f GB", memKB / (1024 * 1024))
-        elseif memKB >= 1024 then -- >= 1MB
+        elseif memKB >= 1024 then    -- >= 1MB
             return string.format("%.0f MB", memKB / 1024)
         else
             return string.format("%.0f KB", memKB)

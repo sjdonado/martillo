@@ -21,11 +21,11 @@ obj.license = "MIT - https://opensource.org/licenses/MIT"
 obj.chooser = nil
 obj.hotkeys = {}
 obj.watcher = nil
-obj.maxEntries = 300   -- Maximum number of entries to keep
-obj.historyBuffer = {} -- Memory buffer with all entries
+obj.maxEntries = 300 -- Maximum number of entries to keep
 obj.historyFile = nil
 obj.currentQuery = ""
 obj.logger = hs.logger.new('ClipboardHistory', 'debug')
+obj.historyBuffer = {} -- Lightweight raw entries {content, timestamp, type}
 
 --- ClipboardHistory:init()
 --- Method
@@ -77,7 +77,7 @@ function obj:initializeChooser()
         self:updateChoices()
     end)
 
-    -- Reset to show only historyBuffer (most recent entries)
+    -- Reset query and load history
     self.currentQuery = ""
     self:loadHistory()
 end
@@ -280,9 +280,9 @@ function obj:onClipboardChange()
                 local existingName = self:getFileDisplayName(entry.content)
                 if existingName == displayName then
                     -- Move existing entry to top
-                    table.remove(self.historyBuffer, i)
-                    entry.timestamp = timestamp
-                    table.insert(self.historyBuffer, 1, entry)
+                    local movedEntry = table.remove(self.historyBuffer, i)
+                    movedEntry.timestamp = timestamp
+                    table.insert(self.historyBuffer, 1, movedEntry)
                     self:saveHistory()
                     self.logger:d("Moved existing image to top: " .. displayName)
                     return
@@ -310,9 +310,9 @@ function obj:onClipboardChange()
     for i, entry in ipairs(self.historyBuffer) do
         if entry.type == contentType and entry.content == content then
             -- Move to top
-            table.remove(self.historyBuffer, i)
-            entry.timestamp = os.time()
-            table.insert(self.historyBuffer, 1, entry)
+            local movedEntry = table.remove(self.historyBuffer, i)
+            movedEntry.timestamp = os.time()
+            table.insert(self.historyBuffer, 1, movedEntry)
             self:saveHistory()
             return
         end
@@ -335,10 +335,10 @@ function obj:onClipboardChange()
     self:saveHistory()
 end
 
---- ClipboardHistory:fuzzySearch(query, entries)
+--- ClipboardHistory:fuzzySearchRawEntries(query, entries)
 --- Method
---- Pure Lua fuzzy search implementation
-function obj:fuzzySearch(query, entries)
+--- Pure Lua fuzzy search on raw entries (lightweight, no formatting)
+function obj:fuzzySearchRawEntries(query, entries)
     if not query or query == "" then
         return entries
     end
@@ -411,15 +411,10 @@ function obj:fuzzySearch(query, entries)
     return filteredEntries
 end
 
---- ClipboardHistory:updateChoices()
+--- ClipboardHistory:buildFormattedChoice(rawEntry)
 --- Method
---- Update chooser choices based on current query
-function obj:updateChoices()
-    local choices = {}
-
-    -- Apply fuzzy search
-    local filteredEntries = self:fuzzySearch(self.currentQuery, self.historyBuffer)
-
+--- Build a formatted choice from a raw entry
+function obj:buildFormattedChoice(rawEntry)
     -- Helper function to get file extension
     local function getFileExtension(filePath)
         if not filePath then return nil end
@@ -466,137 +461,159 @@ function obj:updateChoices()
         return text:sub(1, maxLength) .. "..."
     end
 
-    -- Convert to chooser format
-    for _, entry in ipairs(filteredEntries) do
-        local preview = entry.content or ""
+    local entry = rawEntry
+    local preview = entry.content or ""
 
-        -- For text entries, truncate long content for performance
-        if entry.type == "text" then
-            preview = truncateText(preview, 200)
+    -- For text entries, truncate long content for performance
+    if entry.type == "text" then
+        preview = truncateText(preview, 200)
+    end
+
+    -- Format date for display
+    local dateDisplay = ""
+    if entry.timestamp then
+        local timestamp = tonumber(entry.timestamp) or 0
+        local today = os.time()
+        local daysDiff = math.floor((today - timestamp) / 86400)
+
+        if daysDiff == 0 then
+            dateDisplay = "Today"
+        elseif daysDiff == 1 then
+            dateDisplay = "Yesterday"
+        else
+            dateDisplay = os.date("%b %d", timestamp)
         end
+    end
 
-        -- Format date for display
-        local dateDisplay = ""
-        if entry.timestamp then
-            local timestamp = tonumber(entry.timestamp) or 0
-            local today = os.time()
-            local daysDiff = math.floor((today - timestamp) / 86400)
+    -- Format time
+    local timeDisplay = ""
+    if entry.timestamp then
+        timeDisplay = os.date("%H:%M", entry.timestamp)
+    end
 
-            if daysDiff == 0 then
-                dateDisplay = "Today"
-            elseif daysDiff == 1 then
-                dateDisplay = "Yesterday"
-            else
-                dateDisplay = os.date("%b %d", timestamp)
+    local subText = string.format("%s • %s %s",
+        entry.type or "text",
+        dateDisplay,
+        timeDisplay)
+
+    -- Create choice entry
+    local choiceEntry = {
+        text = preview,
+        subText = subText,
+        content = entry.content,
+        timestamp = entry.timestamp,
+        type = entry.type
+    }
+
+    -- Handle different content types for preview
+    if entry.type == "image" and entry.content then
+        -- Saved clipboard screenshot
+        local imagePath = entry.content
+        local file = io.open(imagePath, "r")
+        if file then
+            file:close()
+            local image = hs.image.imageFromPath(imagePath)
+            if image then
+                -- Resize image to a reasonable size for preview (max 64x64)
+                local size = image:size()
+                if size.w > 64 or size.h > 64 then
+                    local scale = math.min(64 / size.w, 64 / size.h)
+                    image = image:setSize({ w = size.w * scale, h = size.h * scale })
+                end
+                choiceEntry.image = image
+                -- Extract filename from path
+                choiceEntry.text = self:getFileDisplayName(entry.content) or "Image"
             end
         end
+    elseif entry.type == "file" and entry.content then
+        -- File copied from Finder
+        local filePath = entry.content
+        local extension = getFileExtension(filePath)
+        local fileType = getFileTypeFromExtension(extension)
 
-        -- Format time
-        local timeDisplay = ""
-        if entry.timestamp then
-            timeDisplay = os.date("%H:%M", entry.timestamp)
-        end
+        -- choiceEntry.image = fileIcon
+        -- Extract and display filename for all file types
+        choiceEntry.text = self:getFileDisplayName(filePath) or preview
 
-        local subText = string.format("%s • %s %s",
-            entry.type or "text",
-            dateDisplay,
-            timeDisplay)
+        -- Check if file exists
+        local file = io.open(filePath, "r")
+        if file then
+            file:close()
 
-        -- Create choice entry
-        local choiceEntry = {
-            text = preview,
-            subText = subText,
-            content = entry.content,
-            timestamp = entry.timestamp,
-            type = entry.type
-        }
-
-        -- Handle different content types for preview
-        if entry.type == "image" and entry.content then
-            -- Saved clipboard screenshot
-            local imagePath = entry.content
-            local file = io.open(imagePath, "r")
-            if file then
-                file:close()
-                local image = hs.image.imageFromPath(imagePath)
+            -- For image files from Finder, show preview
+            if fileType == "image" or fileType == 'video' then
+                local image = hs.image.imageFromPath(filePath)
                 if image then
-                    -- Resize image to a reasonable size for preview (max 64x64)
                     local size = image:size()
                     if size.w > 64 or size.h > 64 then
                         local scale = math.min(64 / size.w, 64 / size.h)
                         image = image:setSize({ w = size.w * scale, h = size.h * scale })
                     end
                     choiceEntry.image = image
-                    -- Extract filename from path
-                    choiceEntry.text = self:getFileDisplayName(entry.content) or "Image"
                 end
             end
-        elseif entry.type == "file" and entry.content then
-            -- File copied from Finder
-            local filePath = entry.content
-            local extension = getFileExtension(filePath)
-            local fileType = getFileTypeFromExtension(extension)
-
-            -- choiceEntry.image = fileIcon
-            -- Extract and display filename for all file types
-            choiceEntry.text = self:getFileDisplayName(filePath) or preview
-
-            -- Check if file exists
-            local file = io.open(filePath, "r")
-            if file then
-                file:close()
-
-                -- For image files from Finder, show preview
-                if fileType == "image" or fileType == 'video' then
-                    local image = hs.image.imageFromPath(filePath)
-                    if image then
-                        local size = image:size()
-                        if size.w > 64 or size.h > 64 then
-                            local scale = math.min(64 / size.w, 64 / size.h)
-                            image = image:setSize({ w = size.w * scale, h = size.h * scale })
-                        end
-                        choiceEntry.image = image
-                    end
-                end
-            else
-                choiceEntry.text = (self:getFileDisplayName(filePath) or preview) .. " (file not found)"
-            end
-        elseif entry.content and entry.content:match("^/") then
-            -- Legacy: old entries that might have paths but no proper type
-            -- Looks like a file path
-            local filePath = entry.content
-            local extension = getFileExtension(filePath)
-            local fileType = getFileTypeFromExtension(extension)
-
-            -- Extract and display filename for all file types
-            choiceEntry.text = self:getFileDisplayName(filePath) or preview
-
-            -- Check if file exists
-            local file = io.open(filePath, "r")
-            if file then
-                file:close()
-
-                if fileType == "image" or fileType == 'video' then
-                    local image = hs.image.imageFromPath(filePath)
-                    if image then
-                        local size = image:size()
-                        if size.w > 64 or size.h > 64 then
-                            local scale = math.min(64 / size.w, 64 / size.h)
-                            image = image:setSize({ w = size.w * scale, h = size.h * scale })
-                        end
-                        choiceEntry.image = image
-                    end
-                end
-            else
-                choiceEntry.text = (self:getFileDisplayName(filePath) or preview) .. " (file not found)"
-            end
+        else
+            choiceEntry.text = (self:getFileDisplayName(filePath) or preview) .. " (file not found)"
         end
+    elseif entry.content and entry.content:match("^/") then
+        -- Legacy: old entries that might have paths but no proper type
+        -- Looks like a file path
+        local filePath = entry.content
+        local extension = getFileExtension(filePath)
+        local fileType = getFileTypeFromExtension(extension)
 
-        table.insert(choices, choiceEntry)
+        -- Extract and display filename for all file types
+        choiceEntry.text = self:getFileDisplayName(filePath) or preview
+
+        -- Check if file exists
+        local file = io.open(filePath, "r")
+        if file then
+            file:close()
+
+            if fileType == "image" or fileType == 'video' then
+                local image = hs.image.imageFromPath(filePath)
+                if image then
+                    local size = image:size()
+                    if size.w > 64 or size.h > 64 then
+                        local scale = math.min(64 / size.w, 64 / size.h)
+                        image = image:setSize({ w = size.w * scale, h = size.h * scale })
+                    end
+                    choiceEntry.image = image
+                end
+            end
+        else
+            choiceEntry.text = (self:getFileDisplayName(filePath) or preview) .. " (file not found)"
+        end
     end
 
-    self.logger:d(string.format("Setting %d choices in chooser", #choices))
-    self.chooser:choices(choices)
+    return choiceEntry
+end
+
+--- ClipboardHistory:getFilteredChoices()
+--- Method
+--- Get filtered choices based on current query with fuzzy search
+--- This does: fuzzy search on raw entries → format only the filtered results
+function obj:getFilteredChoices()
+    -- Step 1: Fuzzy search on lightweight raw entries
+    local filteredRawEntries = self:fuzzySearchRawEntries(self.currentQuery, self.historyBuffer)
+
+    -- Step 2: Format only the filtered results (load images only for displayed items)
+    local formattedChoices = {}
+    for _, rawEntry in ipairs(filteredRawEntries) do
+        local formattedChoice = self:buildFormattedChoice(rawEntry)
+        table.insert(formattedChoices, formattedChoice)
+    end
+
+    return formattedChoices
+end
+
+--- ClipboardHistory:updateChoices()
+--- Method
+--- Update chooser choices based on current query
+function obj:updateChoices()
+    local filteredChoices = self:getFilteredChoices()
+    self.logger:d(string.format("Setting %d filtered choices in chooser", #filteredChoices))
+    self.chooser:choices(filteredChoices)
 end
 
 --- ClipboardHistory:show()
@@ -644,7 +661,6 @@ function obj:shouldOnlyCopy()
     local appName = app:name()
 
     local copyOnlyApps = {
-        "Finder",
         "System Preferences",
         "System Settings",
         "Activity Monitor",

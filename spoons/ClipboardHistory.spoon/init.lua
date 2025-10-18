@@ -191,23 +191,84 @@ function obj:saveHistory()
     file:close()
 end
 
+--- ClipboardHistory:generateScreenshotName(timestamp)
+--- Method
+--- Generate macOS-style screenshot name
+--- Format: "Screenshot 2025-10-18 at 09.33.22"
+function obj:generateScreenshotName(timestamp)
+    timestamp = timestamp or os.time()
+    -- Format: "Screenshot YYYY-MM-DD at HH.MM.SS"
+    return os.date("Screenshot %Y-%m-%d at %H.%M.%S", timestamp)
+end
+
+--- ClipboardHistory:getFileDisplayName(filePath)
+--- Method
+--- Extract display name from file path
+--- Example: "/path/to/Screenshot 2025-10-18 at 09.33.22.png" -> "Screenshot 2025-10-18 at 09.33.22"
+--- Example: "/path/to/video.mp4" -> "video"
+function obj:getFileDisplayName(filePath)
+    if not filePath then return nil end
+    -- Extract filename without extension
+    local filename = filePath:match("([^/]+)%.%w+$")
+    if filename then
+        return filename
+    end
+    return nil
+end
+
 --- ClipboardHistory:onClipboardChange()
 --- Method
 --- Handle clipboard content changes
 function obj:onClipboardChange()
     local content = hs.pasteboard.getContents()
     local contentType = "text"
+    local displayName = nil
 
-    -- Check for images
-    local imageData = hs.pasteboard.readImage()
-    if imageData then
-        -- Save image to temp file
+    -- Check for file URLs (from Finder) FIRST - this takes priority over everything
+    -- This ensures copying files from Finder (even images) are treated as file references
+    local fileURLs = hs.pasteboard.readURL()
+    local hasFileURL = fileURLs and type(fileURLs) == "string"
+
+    if hasFileURL then
+        -- Convert file:// URL to path
+        local filePath = fileURLs:gsub("^file://", "")
+        -- URL decode the path
+        filePath = filePath:gsub("%%(%x%x)", function(hex)
+            return string.char(tonumber(hex, 16))
+        end)
+
+        content = filePath
+        contentType = "file"
+        self.logger:d("Captured file path from Finder: " .. filePath)
+        -- Only check for clipboard images if there's NO file URL
+        -- This handles screenshots and images copied TO clipboard (not FROM Finder)
+    elseif not hasFileURL and hs.pasteboard.readImage() then
+        local imageData = hs.pasteboard.readImage()
         local timestamp = os.time()
         local spoonPath = hs.spoons.scriptPath()
-        local imagePath = spoonPath .. "/images/" .. timestamp .. ".png"
+
+        -- Generate macOS-style screenshot name
+        displayName = self:generateScreenshotName(timestamp)
+        local imagePath = spoonPath .. "/images/" .. displayName .. ".png"
 
         -- Create images directory if it doesn't exist
         os.execute("mkdir -p '" .. spoonPath .. "/images'")
+
+        -- Check if this exact image already exists by extracting name from path
+        for i, entry in ipairs(self.historyBuffer) do
+            if entry.type == "image" then
+                local existingName = self:getFileDisplayName(entry.content)
+                if existingName == displayName then
+                    -- Move existing entry to top
+                    table.remove(self.historyBuffer, i)
+                    entry.timestamp = timestamp
+                    table.insert(self.historyBuffer, 1, entry)
+                    self:saveHistory()
+                    self.logger:d("Moved existing image to top: " .. displayName)
+                    return
+                end
+            end
+        end
 
         -- Save image
         imageData:saveToFile(imagePath)
@@ -217,14 +278,24 @@ function obj:onClipboardChange()
         return
     end
 
+    -- Validate text content: check if it's empty or whitespace-only
+    if contentType == "text" then
+        local trimmedContent = content:match("^%s*(.-)%s*$")
+        if not trimmedContent or trimmedContent == "" then
+            self.logger:d("Skipping empty or whitespace-only text entry")
+            return
+        end
+    end
+
     -- Check if content already exists (move to top if it does)
     for i, entry in ipairs(self.historyBuffer) do
-        if entry.content == content then
+        if entry.type == contentType and entry.content == content then
             -- Move to top
             table.remove(self.historyBuffer, i)
             entry.timestamp = os.time()
             table.insert(self.historyBuffer, 1, entry)
             self:saveHistory()
+            self.logger:d("Moved existing " .. contentType .. " entry to top")
             return
         end
     end
@@ -244,6 +315,8 @@ function obj:onClipboardChange()
     end
 
     self:saveHistory()
+    local logName = contentType == "image" and displayName or content:sub(1, 50)
+    self.logger:d("Added new entry: " .. logName)
 end
 
 --- ClipboardHistory:fuzzySearch(query, entries)
@@ -258,7 +331,16 @@ function obj:fuzzySearch(query, entries)
     local results = {}
 
     for _, entry in ipairs(entries) do
-        local searchText = (entry.content or ""):lower()
+        -- For non-text files (images, videos, etc.), search by filename; for text, search by content
+        local searchText = ""
+        if entry.type ~= "text" and entry.content then
+            -- Extract filename from path for all file types
+            local filename = self:getFileDisplayName(entry.content)
+            searchText = (filename or entry.content):lower()
+        else
+            searchText = (entry.content or ""):lower()
+        end
+
         local score = 0
 
         -- Exact match gets highest score
@@ -438,6 +520,7 @@ function obj:updateChoices()
 
         -- Handle different content types for preview
         if entry.type == "image" and entry.content then
+            -- Saved clipboard screenshot
             local imagePath = entry.content
             local file = io.open(imagePath, "r")
             if file then
@@ -451,10 +534,43 @@ function obj:updateChoices()
                         image = image:setSize({ w = size.w * scale, h = size.h * scale })
                     end
                     choiceEntry.image = image
-                    choiceEntry.text = "Image"
+                    -- Extract filename from path
+                    choiceEntry.text = self:getFileDisplayName(entry.content) or "Image"
                 end
             end
+        elseif entry.type == "file" and entry.content then
+            -- File copied from Finder
+            local filePath = entry.content
+            local extension = getFileExtension(filePath)
+            local fileType = getFileTypeFromExtension(extension)
+            local fileIcon = getFileTypeIcon(fileType, extension)
+
+            choiceEntry.image = fileIcon
+            -- Extract and display filename for all file types
+            choiceEntry.text = self:getFileDisplayName(filePath) or preview
+
+            -- Check if file exists
+            local file = io.open(filePath, "r")
+            if file then
+                file:close()
+
+                -- For image files from Finder, show preview
+                if fileType == "image" then
+                    local image = hs.image.imageFromPath(filePath)
+                    if image then
+                        local size = image:size()
+                        if size.w > 64 or size.h > 64 then
+                            local scale = math.min(64 / size.w, 64 / size.h)
+                            image = image:setSize({ w = size.w * scale, h = size.h * scale })
+                        end
+                        choiceEntry.image = image
+                    end
+                end
+            else
+                choiceEntry.text = (self:getFileDisplayName(filePath) or preview) .. " (file not found)"
+            end
         elseif entry.content and entry.content:match("^/") then
+            -- Legacy: old entries that might have paths but no proper type
             -- Looks like a file path
             local filePath = entry.content
             local extension = getFileExtension(filePath)
@@ -462,6 +578,8 @@ function obj:updateChoices()
             local fileIcon = getFileTypeIcon(fileType, extension)
 
             choiceEntry.image = fileIcon
+            -- Extract and display filename for all file types
+            choiceEntry.text = self:getFileDisplayName(filePath) or preview
 
             -- Check if file exists
             local file = io.open(filePath, "r")
@@ -480,7 +598,7 @@ function obj:updateChoices()
                     end
                 end
             else
-                choiceEntry.text = preview .. " (file not found)"
+                choiceEntry.text = (self:getFileDisplayName(filePath) or preview) .. " (file not found)"
             end
         end
 

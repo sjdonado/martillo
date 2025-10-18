@@ -1,6 +1,3 @@
 # RocksDB + USearch files
-clipboard_rocksdb/
-clipboard_usearch*
-rocksdb_manager_bin
-usearch_manager_bin
-clipboard_monitor_rocksdb_bin
+clipboard_history
+images

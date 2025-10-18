@@ -225,21 +225,38 @@ function obj:onClipboardChange()
     local displayName = nil
 
     -- Check for file URLs (from Finder) FIRST - this takes priority over everything
-    -- This ensures copying files from Finder (even images) are treated as file references
-    local fileURLs = hs.pasteboard.readURL()
-    local hasFileURL = fileURLs and type(fileURLs) == "string"
+    -- When copying files from Finder, the pasteboard contains "public.file-url" UTI
+    local contentTypes = hs.pasteboard.contentTypes()
+    local hasFileURL = false
+
+    -- Check if pasteboard contains file URL
+    if contentTypes then
+        for _, uti in ipairs(contentTypes) do
+            if uti == "public.file-url" then
+                hasFileURL = true
+                break
+            end
+        end
+    end
 
     if hasFileURL then
-        -- Convert file:// URL to path
-        local filePath = fileURLs:gsub("^file://", "")
-        -- URL decode the path
-        filePath = filePath:gsub("%%(%x%x)", function(hex)
-            return string.char(tonumber(hex, 16))
-        end)
+        -- Read file URL using readDataForUTI
+        local fileURLData = hs.pasteboard.readDataForUTI("public.file-url")
+        if fileURLData then
+            -- Convert data to string and extract path
+            local fileURL = tostring(fileURLData)
+            local filePath = fileURL:gsub("^file://", "")
+            -- URL decode the path
+            filePath = filePath:gsub("%%(%x%x)", function(hex)
+                return string.char(tonumber(hex, 16))
+            end)
+            -- Remove any trailing nulls or newlines
+            filePath = filePath:gsub("%z", ""):gsub("\n", ""):gsub("\r", "")
 
-        content = filePath
-        contentType = "file"
-        self.logger:d("Captured file path from Finder: " .. filePath)
+            content = filePath
+            contentType = "file"
+            self.logger:d("Captured file path from Finder: " .. filePath)
+        end
         -- Only check for clipboard images if there's NO file URL
         -- This handles screenshots and images copied TO clipboard (not FROM Finder)
     elseif not hasFileURL and hs.pasteboard.readImage() then

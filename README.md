@@ -49,7 +49,7 @@ return require("martillo").setup {
     },
   },
 
-  -- WindowManager: Window manipulation
+  -- WindowManager: Minimal window manipulation
   {
     "WindowManager",
     keys = {
@@ -61,7 +61,7 @@ return require("martillo").setup {
     },
   },
 
-  -- MySchedule: Personal scheduling
+  -- MySchedule: Calendar integration that displays today's events in the menu bar
   {
     "MySchedule",
     config = function(spoon)
@@ -74,7 +74,6 @@ return require("martillo").setup {
   {
     "ClipboardHistory",
     config = function(spoon)
-      spoon:compile()
       spoon:start()
     end,
     keys = {
@@ -136,12 +135,13 @@ Quick process killer with fuzzy search. Find and terminate unresponsive apps ins
 ![8726c321-6f4c-4ca2-9684-70700c58020d](https://github.com/user-attachments/assets/f95fc249-dbfd-4e51-b7e6-f6a894e963f6)
 
 ### ClipboardHistory
-Advanced clipboard manager with persistent history using RocksDB + USearch backend. Features:
-- Fast exact and semantic similarity search
-- Persistent storage with RocksDB for performance
+Lightweight clipboard manager with persistent plain text history. Features:
+- Fast fuzzy search entirely in Lua
+- Simple plain text storage (fish_history-like format)
 - Support for text, images, and file paths
 - Background clipboard monitoring
-- Never lose copied content again
+- No external dependencies required
+- Human-readable history file
 
 ![ff32fe87-1306-4ee5-a4b8-b3a84b4767bb](https://github.com/user-attachments/assets/a0255fda-3114-4594-8ac3-be4093650cd7)
 
@@ -159,16 +159,7 @@ Calendar integration that displays today's events in the menu bar with countdown
 
 ### Dependencies
 
-Some spoons require additional dependencies for compilation:
-
-```bash
-# Required for ClipboardHistory spoon (RocksDB + USearch backend)
-brew install rocksdb jsoncpp
-
-# Download USearch header (v2.21.0) for ClipboardHistory semantic search
-curl -L https://raw.githubusercontent.com/unum-cloud/usearch/main/include/usearch/index.hpp \
-  -o ~/.martillo/spoons/ClipboardHistory.spoon/usearch_index.hpp
-```
+All spoons are now dependency-free! No external libraries or compilation required.
 
 ### Quick Install
 
@@ -176,15 +167,8 @@ curl -L https://raw.githubusercontent.com/unum-cloud/usearch/main/include/usearc
 # Install Hammerspoon if you don't have it
 brew install --cask hammerspoon
 
-# Install required dependencies
-brew install rocksdb jsoncpp
-
 # Clone Martillo
 git clone https://github.com/sjdonado/martillo ~/.martillo
-
-# Download USearch header for ClipboardHistory
-curl -L https://raw.githubusercontent.com/unum-cloud/usearch/main/include/usearch/index.hpp \
-  -o ~/.martillo/spoons/ClipboardHistory.spoon/usearch_index.hpp
 
 # Backup existing Hammerspoon config (if any)
 [ -f ~/.hammerspoon/init.lua ] && mv ~/.hammerspoon/init.lua ~/.hammerspoon/init.lua.backup
@@ -218,7 +202,6 @@ return require("martillo").setup {
   -- Spoon with configuration
   { "ClipboardHistory",
     config = function(spoon)
-      spoon:compile()
       spoon:start()
     end
   },

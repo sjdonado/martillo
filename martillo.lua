@@ -16,6 +16,7 @@ M.defaults = {
     autoReload = true,
     alertOnLoad = true,
     alertMessage = "Martillo Ready",
+    leader_key = nil,
 }
 
 -- Merge tables helper
@@ -35,22 +36,194 @@ local function merge(...)
     return result
 end
 
+local MODIFIER_ALIASES = {
+    cmd = "cmd",
+    command = "cmd",
+    ["⌘"] = "cmd",
+    alt = "alt",
+    option = "alt",
+    ["⌥"] = "alt",
+    ctrl = "ctrl",
+    control = "ctrl",
+    ["⌃"] = "ctrl",
+    shift = "shift",
+    ["⇧"] = "shift",
+    fn = "fn",
+    hyper = "hyper",
+    super = "super",
+    meh = "meh",
+}
+
+local function trim(str)
+    if type(str) ~= "string" then
+        return ""
+    end
+    return (str:match("^%s*(.-)%s*$") or "")
+end
+
+local function canonicalModifier(mod)
+    local cleaned = trim(mod)
+    if cleaned == "" then
+        return nil
+    end
+    local lower = cleaned:lower()
+    return MODIFIER_ALIASES[lower] or MODIFIER_ALIASES[cleaned] or lower
+end
+
+local function collectModifiers(value)
+    local result = {}
+    local seen = {}
+
+    local function collect(v)
+        if type(v) == "string" then
+            local canonical = canonicalModifier(v)
+            if canonical and not seen[canonical] then
+                table.insert(result, canonical)
+                seen[canonical] = true
+            end
+        elseif type(v) == "table" then
+            for _, item in ipairs(v) do
+                collect(item)
+            end
+        end
+    end
+
+    collect(value)
+    return result
+end
+
+local function copyArray(list)
+    if type(list) ~= "table" then
+        return nil
+    end
+
+    local copy = {}
+    for i, value in ipairs(list) do
+        copy[i] = value
+    end
+    for key, value in pairs(list) do
+        if type(key) ~= "number" then
+            copy[key] = value
+        end
+    end
+    return copy
+end
+
+local function normalizeLeaderToken(token)
+    local lower = trim(token):lower()
+    if lower == "<leader>" or lower == "leader" then
+        return "leader"
+    end
+    return nil
+end
+
+local function resolveLeaderMods(mods)
+    local leader = M.config and M.config.leader_key
+    local placeholderUsed = false
+    local result = {}
+    local seen = {}
+
+    local function addModifier(mod)
+        local canonical = canonicalModifier(mod)
+        if canonical and not seen[canonical] then
+            table.insert(result, canonical)
+            seen[canonical] = true
+        end
+    end
+
+    local function appendLeader()
+        placeholderUsed = true
+        if not leader then
+            return
+        end
+        for _, mod in ipairs(leader) do
+            addModifier(mod)
+        end
+    end
+
+    local function process(value)
+        if type(value) == "string" then
+            if normalizeLeaderToken(value) then
+                appendLeader()
+            else
+                addModifier(value)
+            end
+        elseif type(value) == "table" then
+            for _, item in ipairs(value) do
+                process(item)
+            end
+        end
+    end
+
+    process(mods)
+
+    if #result == 0 then
+        return nil, placeholderUsed
+    end
+
+    return result, placeholderUsed
+end
+
+local function expandLeaderEntry(entry)
+    if type(entry) ~= "table" then
+        return entry
+    end
+
+    local expanded = copyArray(entry) or {}
+    local mods = expanded[1]
+    local resolved, usedPlaceholder = resolveLeaderMods(mods)
+
+    if usedPlaceholder and (not resolved or #resolved == 0) then
+        error("Martillo: <leader> placeholder used in hotkey without leader_key configuration", 0)
+    end
+
+    if resolved then
+        expanded[1] = resolved
+    else
+        local normalized = collectModifiers(mods)
+        if #normalized > 0 then
+            expanded[1] = normalized
+        elseif type(mods) == "string" then
+            expanded[1] = nil
+        end
+    end
+
+    return expanded
+end
+
+local function normalizeLeaderKey(value)
+    if not value then
+        return nil
+    end
+
+    local normalized = collectModifiers(value)
+
+    if #normalized == 0 then
+        return nil
+    end
+
+    return normalized
+end
+
 -- Process hotkey specification
 local function processHotkeys(spoon, keys)
     if not keys or not spoon.bindHotkeys then return end
 
     local hotkeyMap = {}
     for _, key in ipairs(keys) do
-        local mods = key[1]
-        local keychar = key[2]
-        local action = key[3]
+        if type(key) == "table" then
+            local hotkeyEntry = expandLeaderEntry(key)
+            local mods = hotkeyEntry[1]
+            local keychar = hotkeyEntry[2]
+            local action = hotkeyEntry[3]
 
-        if type(action) == "string" then
-            -- Named action
-            hotkeyMap[action] = { mods, keychar }
-        else
-            -- Default toggle action
-            hotkeyMap.toggle = { mods, keychar }
+            if type(action) == "string" then
+                -- Named action
+                hotkeyMap[action] = { mods, keychar }
+            else
+                -- Default toggle action
+                hotkeyMap.toggle = { mods, keychar }
+            end
         end
     end
 
@@ -144,8 +317,17 @@ local function loadSpoon(spec)
         -- Process keys
         if spec.keys then
             -- Check if this is an app-based keys format (for LaunchOrToggleFocus)
-            if spec.keys[1] and spec.keys[1].app and type(spec.keys[1][1]) == "table" and spoonInstance.setup then
-                spoonInstance:setup(spec.keys)
+            if spec.keys[1] and spec.keys[1].app and spoonInstance.setup then
+                local expandedKeys = {}
+                for index, keyConfig in ipairs(spec.keys) do
+                    expandedKeys[index] = expandLeaderEntry(keyConfig)
+                end
+                for key, value in pairs(spec.keys) do
+                    if type(key) ~= "number" then
+                        expandedKeys[key] = value
+                    end
+                end
+                spoonInstance:setup(expandedKeys)
             else
                 processHotkeys(spoonInstance, spec.keys)
             end
@@ -224,6 +406,8 @@ function M.setup(config, options)
     else
         opts = merge(M.defaults, options)
     end
+
+    opts.leader_key = normalizeLeaderKey(opts.leader_key)
 
     -- Store config
     M.config = opts

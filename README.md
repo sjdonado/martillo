@@ -11,22 +11,22 @@ Martillo (Spanish for "hammer") offers a clean, maintainable way to configure Ha
 ```lua
 package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
 
-return require("martillo").setup {
+return require("martillo").setup({
   -- LaunchOrToggleFocus: App switching hotkeys
   {
     "LaunchOrToggleFocus",
     keys = {
-      { { "alt", "shift" }, "c", app = "Calendar" },
-      { { "alt", "shift" }, "d", app = "Chromium" },
-      { { "alt", "shift" }, "x", app = "Excalidraw" },
-      { { "alt", "shift" }, "space", app = "Ghostty" },
-      { { "alt", "shift" }, "e", app = "Mail" },
-      { { "alt", "shift" }, "m", app = "Music" },
-      { { "alt", "shift" }, "n", app = "Notes" },
-      { { "alt", "shift" }, "r", app = "Reminders" },
-      { { "alt", "shift" }, "b", app = "Safari" },
-      { { "alt", "shift" }, "h", app = "Yaak" },
-      { { "alt", "shift" }, "z", app = "Zed" },
+      { "<leader>", "c",      app = "Calendar" },
+      { "<leader>", "d",      app = "Chromium" },
+      { "<leader>", "x",      app = "Excalidraw" },
+      { "<leader>", "space",  app = "Ghostty" },
+      { "<leader>", "e",      app = "Mail" },
+      { "<leader>", "m",      app = "Music" },
+      { "<leader>", "n",      app = "Notes" },
+      { "<leader>", "r",      app = "Reminders" },
+      { "<leader>", "b",      app = "Safari" },
+      { "<leader>", "h",      app = "Yaak" },
+      { "<leader>", "z",      app = "Zed" },
     },
   },
 
@@ -37,7 +37,7 @@ return require("martillo").setup {
       return require("config.actions")
     end,
     keys = {
-      { { "alt", "shift" }, "\\", desc = "Toggle Actions Launcher" }
+      { "<leader>", "\\", desc = "Toggle Actions Launcher" }
     },
   },
 
@@ -45,7 +45,7 @@ return require("martillo").setup {
   {
     "KillProcess",
     keys = {
-      { { "alt", "shift" }, "=", desc = "Toggle Kill Process" }
+      { "<leader>", "=", desc = "Toggle Kill Process" }
     },
   },
 
@@ -53,11 +53,11 @@ return require("martillo").setup {
   {
     "WindowManager",
     keys = {
-      { { "cmd", "shift" }, "left",   "left_half",   desc = "Move window to left half" },
-      { { "cmd", "shift" }, "right",  "right_half",  desc = "Move window to right half" },
-      { { "cmd", "shift" }, "up",     "top_half",    desc = "Move window to top half" },
-      { { "cmd", "shift" }, "down",   "bottom_half", desc = "Move window to bottom half" },
-      { { "cmd", "shift" }, "return", "center",      desc = "Center window" },
+      { '<leader>', "left",   "left_half",   desc = "Move window to left half" },
+      { '<leader>', "right",  "right_half",  desc = "Move window to right half" },
+      { '<leader>', "up",     "top_half",    desc = "Move window to top half" },
+      { '<leader>', "down",   "bottom_half", desc = "Move window to bottom half" },
+      { '<leader>', "return", "center",      desc = "Center window" },
     },
   },
 
@@ -77,7 +77,7 @@ return require("martillo").setup {
       spoon:start()
     end,
     keys = {
-      { { "alt", "shift" }, "-", desc = "Toggle Clipboard History" }
+      { "<leader>", "-", desc = "Toggle Clipboard History" }
     },
   },
 
@@ -100,7 +100,9 @@ return require("martillo").setup {
       spoon:start()
     end,
   },
-}
+}, {
+  leader_key = { "alt", "ctrl" },
+})
 ```
 
 ## Built-in Spoons
@@ -242,10 +244,14 @@ Each spoon can have these fields:
 keys = {
   { modifiers, key, action, desc = "description" },
   -- Examples:
+  { "<leader>", "\\", desc = "Toggle palette" },
+  { { "<leader>", "cmd" }, "p", desc = "Leader + cmd + p" },
   { { "cmd", "shift" }, "left", "left_half", desc = "Move left" },
   { { "alt" }, "space", desc = "Toggle" }, -- No action = "toggle"
 }
 ```
+
+Use the `<leader>` placeholder anywhere inside the modifiers list to expand to your configured leader chord. Mixing `<leader>` with additional modifiers (e.g., `{ "<leader>", "cmd" }`) is supported, and an explicit error is raised if you reference `<leader>` without defining `leader_key`.
 
 ### Global Options
 
@@ -256,9 +262,12 @@ return require("martillo").setup({
   -- Global options
   autoReload = true,              -- Auto-reload on file change (default: true)
   alertOnLoad = true,             -- Show alert when config loads (default: true)
-  alertMessage = "Martillo Ready" -- Custom load message
+  alertMessage = "Martillo Ready",-- Custom load message
+  leader_key = { "alt", "shift" } -- Expand <leader> modifiers (optional)
 })
 ```
+Modifier names are case-insensitive and support common aliases such as `command`, `⌘`, `option`, or `⌥`; Martillo canonicalises them automatically for Hammerspoon.
+
 
 ## API Reference
 

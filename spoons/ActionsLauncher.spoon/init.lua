@@ -3,6 +3,16 @@
 --- A customizable action palette for Hammerspoon that allows you to define and execute various actions
 --- through a searchable interface using callback functions.
 
+local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
+if scriptPath then
+    local sharedPath = scriptPath .. "../_shared/?.lua"
+    if not package.path:find(sharedPath, 1, true) then
+        package.path = sharedPath .. ";" .. package.path
+    end
+end
+
+local searchUtils = require("search")
+
 local obj = {}
 obj.__index = obj
 
@@ -101,7 +111,7 @@ function obj:createChooser()
     end)
 
     -- Set choices using a function for dynamic updates
-    self.chooser:choices(function()
+    local function choicesProvider()
         if self.isExpanded and #self.currentChoices > 0 then
             -- Clean choices by removing handler functions (they're already registered)
             local cleanedChoices = {}
@@ -118,7 +128,10 @@ function obj:createChooser()
         else
             return self.originalChoices
         end
-    end)
+    end
+
+    self.choicesProvider = choicesProvider
+    self.chooser:choices(self.choicesProvider)
 
     -- Automatically cleanup when chooser is hidden
     self.chooser:hideCallback(function()
@@ -211,7 +224,18 @@ function obj:handleQueryChange(query)
     end
 
     if not query or query == "" then
-        -- Let dynamic choices function handle this
+        self.isExpanded = false
+        self.currentChoices = {}
+        if self.chooser then
+            if self.choicesProvider then
+                self.chooser:choices(self.choicesProvider)
+            else
+                self.chooser:choices(self.originalChoices)
+            end
+            if self.chooser.refreshChoicesCallback then
+                self.chooser:refreshChoicesCallback()
+            end
+        end
         return
     end
 
@@ -255,17 +279,41 @@ end
 --- Parameters:
 ---  * query - The search query
 function obj:filterOriginalChoices(query)
-    local filteredChoices = {}
-    local lowerQuery = string.lower(query)
-
-    for _, choice in ipairs(self.originalChoices) do
-        if string.find(string.lower(choice.text), lowerQuery, 1, true) or
-            string.find(string.lower(choice.subText or ""), lowerQuery, 1, true) then
-            table.insert(filteredChoices, choice)
-        end
+    if not self.chooser then
+        return
     end
 
-    self.chooser:choices(filteredChoices)
+    if not query or query == "" then
+        if self.choicesProvider then
+            self.chooser:choices(self.choicesProvider)
+        else
+            self.chooser:choices(self.originalChoices)
+        end
+        if self.chooser.refreshChoicesCallback then
+            self.chooser:refreshChoicesCallback()
+        end
+        return
+    end
+
+    local rankedChoices = searchUtils.rank(query, self.originalChoices, {
+        getFields = function(choice)
+            return {
+                { value = choice.text or "",    weight = 1.0, key = "text" },
+                { value = choice.subText or "", weight = 0.6, key = "subText" },
+            }
+        end,
+        fuzzyMinQueryLength = 3,
+        tieBreaker = function(a, b)
+            local aText = a.text or ""
+            local bText = b.text or ""
+            if aText ~= bText then
+                return aText < bText
+            end
+            return (a.uuid or "") < (b.uuid or "")
+        end,
+    })
+
+    self.chooser:choices(rankedChoices)
 end
 
 --- ActionsLauncher:generateUUID()

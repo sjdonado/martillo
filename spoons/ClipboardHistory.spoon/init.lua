@@ -8,6 +8,16 @@
 --- • Supports text and multimedia file paths
 --- • Fast and lightweight
 
+local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
+if scriptPath then
+    local sharedPath = scriptPath .. "../_shared/?.lua"
+    if not package.path:find(sharedPath, 1, true) then
+        package.path = sharedPath .. ";" .. package.path
+    end
+end
+
+local searchUtils = require("search")
+
 local obj = {}
 obj.__index = obj
 
@@ -343,72 +353,40 @@ function obj:fuzzySearchRawEntries(query, entries)
         return entries
     end
 
-    local queryLower = query:lower()
-    local results = {}
+    local now = os.time()
 
-    for _, entry in ipairs(entries) do
-        -- For non-text files (images, videos, etc.), search by filename; for text, search by content
-        local searchText = ""
-        if entry.type ~= "text" and entry.content then
-            -- Extract filename from path for all file types
-            local filename = self:getFileDisplayName(entry.content)
-            searchText = (filename or entry.content):lower()
-        else
-            searchText = (entry.content or ""):lower()
-        end
-
-        local score = 0
-
-        -- Exact match gets highest score
-        if searchText == queryLower then
-            score = 1000
-            -- Prefix match gets high score
-        elseif searchText:sub(1, #queryLower) == queryLower then
-            score = 500
-            -- Contains match gets medium score
-        elseif searchText:find(queryLower, 1, true) then
-            score = 200
-        else
-            -- Fuzzy match: check if query characters appear in order
-            local queryPos = 1
-            local lastMatchPos = 0
-            local gaps = 0
-
-            for i = 1, #searchText do
-                if queryPos <= #queryLower and searchText:sub(i, i) == queryLower:sub(queryPos, queryPos) then
-                    gaps = gaps + (i - lastMatchPos - 1)
-                    lastMatchPos = i
-                    queryPos = queryPos + 1
+    local rankedEntries = searchUtils.rank(query, entries, {
+        getFields = function(entry)
+            if entry.type ~= "text" and entry.content then
+                local filename = self:getFileDisplayName(entry.content)
+                if filename and filename ~= "" then
+                    return {
+                        { value = filename,            weight = 1.0, key = "filename" },
+                        { value = entry.content or "", weight = 0.4, key = "path" }
+                    }
                 end
+                return { { value = entry.content or "", weight = 1.0, key = "path" } }
             end
 
-            -- If all query characters were found
-            if queryPos > #queryLower then
-                -- Lower score for more gaps between matches
-                score = math.max(0, 100 - gaps)
+            return { { value = entry.content or "", weight = 1.0, key = "content" } }
+        end,
+        adjustScore = function(entry, context)
+            local score = context.score
+            if entry.timestamp and now then
+                local ageSeconds = now - entry.timestamp
+                if ageSeconds < 0 then
+                    ageSeconds = 0
+                end
+                local recencyBoost = math.max(0, 1 - (ageSeconds / (24 * 60 * 60)))
+                score = score * (1 + recencyBoost * 0.1)
             end
-        end
+            return score
+        end,
+        fuzzyMinQueryLength = 3,
+        maxResults = self.maxEntries
+    })
 
-        if score > 0 then
-            table.insert(results, {
-                entry = entry,
-                score = score
-            })
-        end
-    end
-
-    -- Sort by score (descending)
-    table.sort(results, function(a, b)
-        return a.score > b.score
-    end)
-
-    -- Extract entries
-    local filteredEntries = {}
-    for _, result in ipairs(results) do
-        table.insert(filteredEntries, result.entry)
-    end
-
-    return filteredEntries
+    return rankedEntries
 end
 
 --- ClipboardHistory:buildFormattedChoice(rawEntry)

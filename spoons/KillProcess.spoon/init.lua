@@ -2,6 +2,16 @@
 ---
 --- Kill processes with fuzzy search - like Raycast Kill Process
 
+local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
+if scriptPath then
+    local sharedPath = scriptPath .. "../_shared/?.lua"
+    if not package.path:find(sharedPath, 1, true) then
+        package.path = sharedPath .. ";" .. package.path
+    end
+end
+
+local searchUtils = require("search")
+
 local obj = {}
 obj.__index = obj
 
@@ -110,119 +120,54 @@ function obj:getFilteredChoices()
     end
 
     -- Search filtering
-    local query = self.currentQuery:lower()
-    local prefixAppMatches = {}
-    local prefixOtherMatches = {}
-    local wordAppMatches = {}
-    local wordOtherMatches = {}
-    local containsAppMatches = {}
-    local containsOtherMatches = {}
+    local rankedProcesses = searchUtils.rank(self.currentQuery, allProcesses, {
+        getFields = function(process)
+            return {
+                { value = process.name or process.text or "", weight = 1.0, key = "name" },
+                { value = process.fullPath or "",             weight = 0.6, key = "path" },
+                { value = process.subText or "",              weight = 0.3, key = "details" },
+            }
+        end,
+        adjustScore = function(process, context)
+            local score = context.score
+            local matchType = context.match and context.match.matchType or nil
 
-    -- Helper functions for different match types
-    local function fuzzyMatch(str, pattern)
-        if not str or not pattern then return false end
-        local i = 1
-        for j = 1, #pattern do
-            i = str:find(pattern:sub(j, j), i)
-            if not i then return false end
-            i = i + 1
-        end
-        return true
-    end
-
-    -- Check if text starts with query (exact prefix match)
-    local function hasPrefixMatch(text, pattern)
-        if not text or not pattern then return false end
-        local success, result = pcall(function()
-            return text:find("^" .. pattern:gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%1")) ~= nil
-        end)
-        return success and result or false
-    end
-
-    -- Check if any word starts with query (word prefix match)
-    local function hasWordStartingWith(text, pattern)
-        if not text or not pattern or pattern == "" then return false end
-        local success, result = pcall(function()
-            return text:find('%f[%w]' .. pattern:gsub('[%-%^%$%(%)%%%.%[%]%*%+%-%?]', '%%%1')) ~= nil
-        end)
-        return success and result or false
-    end
-
-    -- Categorize matches by priority
-    for _, process in ipairs(allProcesses) do
-        if not process then goto continue end
-
-        local name = (process.name or process.text or "")
-        local nameLower = name:lower()
-        local appMatchTarget = self:isAppProcessEntry(process) and "app" or "other"
-
-        local matched = false
-
-        -- Priority 1: Exact prefix matches (process name starts with query)
-        if hasPrefixMatch(nameLower, query) then
-            if appMatchTarget == "app" then
-                table.insert(prefixAppMatches, process)
-            else
-                table.insert(prefixOtherMatches, process)
+            if matchType == "prefix" then
+                score = score * 1.1
+            elseif matchType == "word_prefix" then
+                score = score * 1.05
             end
-            matched = true
-            -- Priority 2: Word prefix matches (any word in name/path starts with query)
-        elseif hasWordStartingWith(nameLower, query) then
-            if appMatchTarget == "app" then
-                table.insert(wordAppMatches, process)
-            else
-                table.insert(wordOtherMatches, process)
+
+            if self:isAppProcessEntry(process) then
+                score = score * 1.1
             end
-            matched = true
-        end
 
-        -- Priority 3: Contains matches (if not already matched as prefix)
-        if not matched then
-            if nameLower:find(query, 1, true) or fuzzyMatch(nameLower, query) then
-                if appMatchTarget == "app" then
-                    table.insert(containsAppMatches, process)
-                else
-                    table.insert(containsOtherMatches, process)
-                end
+            if process.mem and process.mem > 0 then
+                score = score + (process.mem / (1024 * 50))
             end
-        end
 
-        ::continue::
-    end
+            return score
+        end,
+        tieBreaker = function(procA, procB)
+            local aIsApp = self:isAppProcessEntry(procA)
+            local bIsApp = self:isAppProcessEntry(procB)
+            if aIsApp ~= bIsApp then
+                return aIsApp
+            end
 
-    -- Sort each priority group by memory usage (descending)
-    local function sortByMemory(a, b)
-        return (a and a.mem or 0) > (b and b.mem or 0)
-    end
+            local aMem = procA.mem or 0
+            local bMem = procB.mem or 0
+            if aMem ~= bMem then
+                return aMem > bMem
+            end
 
-    table.sort(prefixAppMatches, sortByMemory)
-    table.sort(prefixOtherMatches, sortByMemory)
-    table.sort(wordAppMatches, sortByMemory)
-    table.sort(wordOtherMatches, sortByMemory)
-    table.sort(containsAppMatches, sortByMemory)
-    table.sort(containsOtherMatches, sortByMemory)
+            return (procA.pid or math.huge) < (procB.pid or math.huge)
+        end,
+        fuzzyMinQueryLength = 3,
+        maxResults = self.maxResults
+    })
 
-    -- Combine results: prefix matches first, then word prefix matches, then contains matches
-    for _, process in ipairs(prefixAppMatches) do
-        table.insert(choices, process)
-    end
-    for _, process in ipairs(prefixOtherMatches) do
-        table.insert(choices, process)
-    end
-    for _, process in ipairs(wordAppMatches) do
-        table.insert(choices, process)
-    end
-    for _, process in ipairs(wordOtherMatches) do
-        table.insert(choices, process)
-    end
-    for _, process in ipairs(containsAppMatches) do
-        table.insert(choices, process)
-    end
-    for _, process in ipairs(containsOtherMatches) do
-        table.insert(choices, process)
-    end
-
-    return choices
+    return rankedProcesses
 end
 
 --- KillProcess:getProcessList()

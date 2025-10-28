@@ -382,7 +382,7 @@ function obj:fuzzySearchRawEntries(query, entries)
             end
             return score
         end,
-        fuzzyMinQueryLength = 3,
+        fuzzyMinQueryLength = 4,
         maxResults = self.maxEntries
     })
 

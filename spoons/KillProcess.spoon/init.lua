@@ -163,7 +163,7 @@ function obj:getFilteredChoices()
 
             return (procA.pid or math.huge) < (procB.pid or math.huge)
         end,
-        fuzzyMinQueryLength = 3,
+        fuzzyMinQueryLength = 4,
         maxResults = self.maxResults
     })
 

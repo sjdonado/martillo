@@ -65,10 +65,14 @@ end
 local function computeFuzzyScore(text, query, queryLen, weights)
     local queryPos = 1
     local lastMatchPos = 0
+    local firstMatchPos = nil
     local gaps = 0
 
     for i = 1, #text do
         if queryPos <= queryLen and text:sub(i, i) == query:sub(queryPos, queryPos) then
+            if not firstMatchPos then
+                firstMatchPos = i
+            end
             gaps = gaps + (i - lastMatchPos - 1)
             lastMatchPos = i
             queryPos = queryPos + 1
@@ -80,7 +84,16 @@ local function computeFuzzyScore(text, query, queryLen, weights)
         local penalty = weights.fuzzyGapPenalty or DEFAULT_WEIGHTS.fuzzyGapPenalty
         local score = base - (gaps * penalty)
         if score > 0 then
-            return score, { gaps = gaps }
+            local span = 0
+            if firstMatchPos and lastMatchPos >= firstMatchPos then
+                span = lastMatchPos - firstMatchPos + 1
+            end
+            return score, {
+                gaps = gaps,
+                span = span,
+                first = firstMatchPos,
+                last = lastMatchPos,
+            }
         end
     end
 
@@ -119,7 +132,19 @@ local function computeMatchScore(text, query, queryLen, weights, opts)
     if allowFuzzy and queryLen >= minLen then
         local fuzzyScore, extra = computeFuzzyScore(text, query, queryLen, weights)
         if fuzzyScore > 0 then
-            return fuzzyScore, "fuzzy", extra
+            local span = extra and extra.span or queryLen
+            if span == 0 then
+                span = queryLen
+            end
+            local coverage = queryLen / span
+            local coverageThreshold = opts.fuzzyMinCoverage or 0.6
+            local maxGapFactor = opts.fuzzyMaxGapFactor or 2
+            local maxTotalGap = opts.fuzzyMaxTotalGap or (queryLen * maxGapFactor)
+            local gaps = extra and extra.gaps or 0
+
+            if coverage >= coverageThreshold and gaps <= maxTotalGap then
+                return fuzzyScore, "fuzzy", extra
+            end
         end
     end
 
@@ -139,6 +164,9 @@ end
 --   * normalize(text) -> custom normalization function
 --   * enableFuzzy -> boolean to toggle subsequence matching (default true)
 --   * fuzzyMinQueryLength -> minimum query length to enable fuzzy matching (default 3)
+--   * fuzzyMinCoverage -> minimum ratio (queryLen / matchSpan) required for fuzzy matches (default 0.6)
+--   * fuzzyMaxGapFactor -> maximum total gap allowed between fuzzy characters, as multiplier of query length (default 2)
+--   * fuzzyMaxTotalGap -> absolute cap on total gap characters (overrides factor if provided)
 -- @return rankedItems, detailedResults
 function M.rank(query, items, opts)
     if not items or #items == 0 then
@@ -167,26 +195,10 @@ function M.rank(query, items, opts)
         return { { value = item.text or item.name or "" } }
     end
 
-    local function asFieldArray(value)
-        if not value then
-            return {}
-        end
-
-        if type(value) ~= "table" then
-            return { value }
-        end
-
-        if value[1] == nil then
-            return { value }
-        end
-
-        return value
-    end
-
     local results = {}
 
     for index, item in ipairs(items) do
-        local fields = asFieldArray(getFields(item))
+        local fields = getFields(item)
 
         if fields and #fields > 0 then
             local bestScore = nil

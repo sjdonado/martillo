@@ -302,7 +302,7 @@ function obj:filterOriginalChoices(query)
                 { value = choice.subText or "", weight = 0.6, key = "subText" },
             }
         end,
-        fuzzyMinQueryLength = 3,
+        fuzzyMinQueryLength = 4,
         tieBreaker = function(a, b)
             local aText = a.text or ""
             local bText = b.text or ""

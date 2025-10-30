@@ -36,6 +36,8 @@ obj.historyFile = nil
 obj.currentQuery = ""
 obj.logger = hs.logger.new('ClipboardHistory', 'debug')
 obj.historyBuffer = {} -- Lightweight raw entries {content, timestamp, type}
+obj.lastFocusedApp = nil
+obj.lastFocusedWindow = nil
 
 --- ClipboardHistory:init()
 --- Method
@@ -594,6 +596,39 @@ function obj:updateChoices()
     self.chooser:choices(filteredChoices)
 end
 
+--- ClipboardHistory:captureFocus()
+--- Method
+--- Remember the window/app in focus before showing the chooser
+function obj:captureFocus()
+    self.lastFocusedWindow = hs.window.frontmostWindow()
+    local app = hs.application.frontmostApplication()
+    if app then
+        self.lastFocusedApp = app
+    else
+        self.lastFocusedApp = nil
+    end
+end
+
+--- ClipboardHistory:restoreFocus()
+--- Method
+--- Reactivate the previously focused window or app
+function obj:restoreFocus()
+    local restored = false
+
+    if self.lastFocusedWindow and self.lastFocusedWindow:application() then
+        restored = self.lastFocusedWindow:focus() or restored
+    end
+
+    if not restored and self.lastFocusedApp then
+        restored = self.lastFocusedApp:activate() or restored
+    end
+
+    self.lastFocusedWindow = nil
+    self.lastFocusedApp = nil
+
+    return restored
+end
+
 --- ClipboardHistory:show()
 --- Method
 --- Show the clipboard history chooser
@@ -603,6 +638,7 @@ function obj:show()
         return
     end
 
+    self:captureFocus()
     self.currentQuery = ""
     self:updateChoices()
     self.chooser:show()
@@ -631,12 +667,12 @@ end
 --- Method
 --- Check if we should only copy (not paste)
 function obj:shouldOnlyCopy()
-    local app = hs.application.frontmostApplication()
+    local app = self.lastFocusedApp or hs.application.frontmostApplication()
     if not app then
         return true
     end
 
-    local appName = app:name()
+    local appName = app:name() or ""
 
     local copyOnlyApps = {
         "System Preferences",
@@ -684,6 +720,10 @@ function obj:copyToClipboard(choice)
     end
 
     hs.alert.show("📋 Copied to clipboard", 0.5)
+
+    hs.timer.doAfter(0.1, function()
+        self:restoreFocus()
+    end)
 end
 
 --- ClipboardHistory:pasteContent(choice)
@@ -741,9 +781,19 @@ function obj:pasteContent(choice)
         hs.pasteboard.setContents(choice.content)
     end
 
-    hs.timer.doAfter(0, function()
-        self.logger:d("Executing paste command")
-        hs.eventtap.keyStroke({ "cmd" }, "v", 0)
+    hs.timer.doAfter(0.1, function()
+        local restored = self:restoreFocus()
+        local pasteDelay = restored and 0.05 or 0
+        self.logger:d(string.format("Executing paste command (restored focus: %s, delay: %.2f)", tostring(restored),
+            pasteDelay))
+
+        if pasteDelay > 0 then
+            hs.timer.doAfter(pasteDelay, function()
+                hs.eventtap.keyStroke({ "cmd" }, "v", 0)
+            end)
+        else
+            hs.eventtap.keyStroke({ "cmd" }, "v", 0)
+        end
     end)
 end
 

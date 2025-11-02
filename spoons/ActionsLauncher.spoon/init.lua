@@ -32,15 +32,15 @@ obj.originalChoices = {}
 obj.currentChoices = {}
 obj.isExpanded = false
 obj.uuidCounter = 0
-obj.liveQueries = nil
+obj.dynamicQueries = nil
 obj.logger = hs.logger.new('ActionsLauncher', 'info')
 
 --- ActionsLauncher:init()
 --- Method
 --- Initialize the spoon
 function obj:init()
-    -- LiveQueries will be set from config
-    self.liveQueries = nil
+    -- DynamicQueries will be set from config
+    self.dynamicQueries = nil
     return self
 end
 
@@ -149,7 +149,7 @@ end
 --- Parameters:
 ---  * config - A table containing:
 ---    * single - A table of single-result action definitions (optional)
----    * live - A table of enabled live query IDs (optional)
+---    * dynamic - A table of enabled dynamic query IDs (optional)
 function obj:setup(config)
     config = config or {}
 
@@ -158,8 +158,8 @@ function obj:setup(config)
     self.singleHandlers = {}
     self.expandHandlers = {}
 
-    -- Setup live queries directly from config
-    self.liveQueries = config.live or {}
+    -- Setup dynamic queries directly from config
+    self.dynamicQueries = config.dynamic or {}
 
     -- Convert actions to chooser format and store handlers
     self.originalChoices = {}
@@ -172,11 +172,20 @@ function obj:setup(config)
             self.expandHandlers[uuid] = action.expandHandler
         end
 
+        local subTextParts = {}
+        if action.description and action.description ~= "" then
+            table.insert(subTextParts, action.description)
+        end
+        if action.alias and action.alias ~= "" then
+            table.insert(subTextParts, "alias: " .. action.alias)
+        end
+
         self.originalChoices[i] = {
             text = action.name,
-            subText = action.description or "",
+            subText = table.concat(subTextParts, " • "),
             uuid = uuid,
-            copyToClipboard = false
+            copyToClipboard = false,
+            alias = action.alias
         }
     end
 
@@ -213,7 +222,7 @@ end
 
 --- ActionsLauncher:handleQueryChange(query)
 --- Method
---- Handle query changes for live actions
+--- Handle query changes for dynamic actions
 ---
 --- Parameters:
 ---  * query - The current search query
@@ -239,34 +248,34 @@ function obj:handleQueryChange(query)
         return
     end
 
-    local liveChoices = {}
+    local dynamicChoices = {}
 
-    if not self.liveQueries or #self.liveQueries == 0 then
+    if not self.dynamicQueries or #self.dynamicQueries == 0 then
         self:filterOriginalChoices(query)
         return
     end
 
     local context = {
         launcher = self,
-        liveChoices = liveChoices,
+        dynamicChoices = dynamicChoices,
         callbacks = self.singleHandlers,
         generateUUID = function() return self:generateUUID() end,
         createColorSwatch = function(r, g, b) return self:createColorSwatch(r, g, b) end
     }
 
-    -- Handle all live queries
-    for _, liveQuery in ipairs(self.liveQueries) do
-        if liveQuery.enabled and
-            ((liveQuery.query and liveQuery.query == query) or
-                (liveQuery.pattern and liveQuery.pattern(query))) then
-            liveQuery.handler(query, context)
+    -- Handle all dynamic queries
+    for _, dynamicQuery in ipairs(self.dynamicQueries) do
+        if dynamicQuery.enabled and
+            ((dynamicQuery.query and dynamicQuery.query == query) or
+                (dynamicQuery.pattern and dynamicQuery.pattern(query))) then
+            dynamicQuery.handler(query, context)
             break
         end
     end
 
     -- Show results
-    if #liveChoices > 0 then
-        self.chooser:choices(liveChoices)
+    if #dynamicChoices > 0 then
+        self.chooser:choices(dynamicChoices)
     else
         self:filterOriginalChoices(query)
     end
@@ -300,6 +309,7 @@ function obj:filterOriginalChoices(query)
             return {
                 { value = choice.text or "",    weight = 1.0, key = "text" },
                 { value = choice.subText or "", weight = 0.6, key = "subText" },
+                { value = choice.alias or "",   weight = 1.2, key = "alias" },
             }
         end,
         fuzzyMinQueryLength = 4,

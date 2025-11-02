@@ -12,6 +12,8 @@ local DEFAULT_WEIGHTS = {
     contains = 200,
     fuzzyBase = 100,
     fuzzyGapPenalty = 1,
+    aliasBoost = 150,
+    aliasShortBoost = 600,
 }
 
 local function toLower(str)
@@ -196,6 +198,10 @@ function M.rank(query, items, opts)
     end
 
     local results = {}
+    local aliasShortLength = opts.aliasShortLength
+    if aliasShortLength == nil then
+        aliasShortLength = 2
+    end
 
     for index, item in ipairs(items) do
         local fields = getFields(item)
@@ -232,6 +238,15 @@ function M.rank(query, items, opts)
 
                         if score and score > 0 then
                             local weightedScore = score * fieldWeight
+
+                            if fieldKey == "alias" then
+                                if weights.aliasBoost and weights.aliasBoost ~= 0 then
+                                    weightedScore = weightedScore + weights.aliasBoost
+                                end
+                                if aliasShortLength > 0 and queryLen <= aliasShortLength then
+                                    weightedScore = weightedScore + (weights.aliasShortBoost or 0)
+                                end
+                            end
 
                             if not bestScore or weightedScore > bestScore then
                                 bestScore = weightedScore

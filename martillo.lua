@@ -2,6 +2,13 @@
 -- Martillo: A declarative Hammerspoon configuration framework
 -- Fast, ergonomic and reliable productivity tools for macOS
 
+-- Load leader module
+local sharedPath = os.getenv("HOME") .. "/.martillo/spoons/_internal/?.lua"
+if not package.path:find(sharedPath, 1, true) then
+    package.path = sharedPath .. ";" .. package.path
+end
+local leader = require("leader")
+
 local M = {}
 
 -- Version
@@ -36,175 +43,6 @@ local function merge(...)
     return result
 end
 
-local MODIFIER_ALIASES = {
-    cmd = "cmd",
-    command = "cmd",
-    ["⌘"] = "cmd",
-    alt = "alt",
-    option = "alt",
-    ["⌥"] = "alt",
-    ctrl = "ctrl",
-    control = "ctrl",
-    ["⌃"] = "ctrl",
-    shift = "shift",
-    ["⇧"] = "shift",
-    fn = "fn",
-    hyper = "hyper",
-    super = "super",
-    meh = "meh",
-}
-
-local function trim(str)
-    if type(str) ~= "string" then
-        return ""
-    end
-    return (str:match("^%s*(.-)%s*$") or "")
-end
-
-local function canonicalModifier(mod)
-    local cleaned = trim(mod)
-    if cleaned == "" then
-        return nil
-    end
-    local lower = cleaned:lower()
-    return MODIFIER_ALIASES[lower] or MODIFIER_ALIASES[cleaned] or lower
-end
-
-local function collectModifiers(value)
-    local result = {}
-    local seen = {}
-
-    local function collect(v)
-        if type(v) == "string" then
-            local canonical = canonicalModifier(v)
-            if canonical and not seen[canonical] then
-                table.insert(result, canonical)
-                seen[canonical] = true
-            end
-        elseif type(v) == "table" then
-            for _, item in ipairs(v) do
-                collect(item)
-            end
-        end
-    end
-
-    collect(value)
-    return result
-end
-
-local function copyArray(list)
-    if type(list) ~= "table" then
-        return nil
-    end
-
-    local copy = {}
-    for i, value in ipairs(list) do
-        copy[i] = value
-    end
-    for key, value in pairs(list) do
-        if type(key) ~= "number" then
-            copy[key] = value
-        end
-    end
-    return copy
-end
-
-local function normalizeLeaderToken(token)
-    local lower = trim(token):lower()
-    if lower == "<leader>" or lower == "leader" then
-        return "leader"
-    end
-    return nil
-end
-
-local function resolveLeaderMods(mods)
-    local leader = M.config and M.config.leader_key
-    local placeholderUsed = false
-    local result = {}
-    local seen = {}
-
-    local function addModifier(mod)
-        local canonical = canonicalModifier(mod)
-        if canonical and not seen[canonical] then
-            table.insert(result, canonical)
-            seen[canonical] = true
-        end
-    end
-
-    local function appendLeader()
-        placeholderUsed = true
-        if not leader then
-            return
-        end
-        for _, mod in ipairs(leader) do
-            addModifier(mod)
-        end
-    end
-
-    local function process(value)
-        if type(value) == "string" then
-            if normalizeLeaderToken(value) then
-                appendLeader()
-            else
-                addModifier(value)
-            end
-        elseif type(value) == "table" then
-            for _, item in ipairs(value) do
-                process(item)
-            end
-        end
-    end
-
-    process(mods)
-
-    if #result == 0 then
-        return nil, placeholderUsed
-    end
-
-    return result, placeholderUsed
-end
-
-local function expandLeaderEntry(entry)
-    if type(entry) ~= "table" then
-        return entry
-    end
-
-    local expanded = copyArray(entry) or {}
-    local mods = expanded[1]
-    local resolved, usedPlaceholder = resolveLeaderMods(mods)
-
-    if usedPlaceholder and (not resolved or #resolved == 0) then
-        error("Martillo: <leader> placeholder used in hotkey without leader_key configuration", 0)
-    end
-
-    if resolved then
-        expanded[1] = resolved
-    else
-        local normalized = collectModifiers(mods)
-        if #normalized > 0 then
-            expanded[1] = normalized
-        elseif type(mods) == "string" then
-            expanded[1] = nil
-        end
-    end
-
-    return expanded
-end
-
-local function normalizeLeaderKey(value)
-    if not value then
-        return nil
-    end
-
-    local normalized = collectModifiers(value)
-
-    if #normalized == 0 then
-        return nil
-    end
-
-    return normalized
-end
-
 -- Process hotkey specification
 local function processHotkeys(spoon, keys)
     if not keys or not spoon.bindHotkeys then return end
@@ -212,7 +50,7 @@ local function processHotkeys(spoon, keys)
     local hotkeyMap = {}
     for _, key in ipairs(keys) do
         if type(key) == "table" then
-            local hotkeyEntry = expandLeaderEntry(key)
+            local hotkeyEntry = leader.expandLeaderEntry(key)
             local mods = hotkeyEntry[1]
             local keychar = hotkeyEntry[2]
             local action = hotkeyEntry[3]
@@ -268,15 +106,109 @@ local function compileSpoons()
     end
 end
 
+-- Process action filters to enable only selected actions with custom overrides
+local function processActionFilters(allActions, actionFilters)
+    local filtered = {}
+
+    -- Process static actions
+    if actionFilters.static and allActions.static then
+        filtered.static = {}
+        for _, selector in ipairs(actionFilters.static) do
+            local actionId, overrides
+
+            if type(selector) == "string" then
+                actionId = selector
+                overrides = {}
+            elseif type(selector) == "table" then
+                actionId = selector[1] or selector.id
+                overrides = selector
+            end
+
+            -- Find matching action in allActions
+            for _, action in ipairs(allActions.static) do
+                if action.id == actionId then
+                    -- Clone the action
+                    local filteredAction = {}
+                    for k, v in pairs(action) do
+                        filteredAction[k] = v
+                    end
+
+                    -- Apply keybinding overrides with leader expansion
+                    if overrides.keys then
+                        local expandedKeys = {}
+                        for _, keyEntry in ipairs(overrides.keys) do
+                            local expandedEntry = leader.expandLeaderEntry(keyEntry)
+                            table.insert(expandedKeys, expandedEntry)
+                        end
+                        filteredAction.keys = expandedKeys
+                    end
+
+                    -- Apply alias override
+                    if overrides.alias then
+                        filteredAction.alias = overrides.alias
+                    end
+
+                    table.insert(filtered.static, filteredAction)
+                    break
+                end
+            end
+        end
+    end
+
+    -- Process dynamic actions
+    if actionFilters.dynamic and allActions.dynamic then
+        filtered.dynamic = {}
+        for _, selector in ipairs(actionFilters.dynamic) do
+            local actionId, overrides
+
+            if type(selector) == "string" then
+                actionId = selector
+                overrides = {}
+            elseif type(selector) == "table" then
+                actionId = selector[1] or selector.id
+                overrides = selector
+            end
+
+            -- Validate that dynamic actions don't have keys
+            if overrides.keys then
+                error("Martillo: Cannot add keybindings to dynamic actions. Action ID: " .. actionId, 0)
+            end
+
+            -- Find matching action in allActions
+            for _, action in ipairs(allActions.dynamic) do
+                if action.id == actionId then
+                    -- Clone the action
+                    local filteredAction = {}
+                    for k, v in pairs(action) do
+                        filteredAction[k] = v
+                    end
+
+                    table.insert(filtered.dynamic, filteredAction)
+                    break
+                end
+            end
+        end
+    end
+
+    return filtered
+end
+
 -- Ensure Martillo spoons directory is in the search path
 local function ensureMartilloSpoonPath()
     local martilloSpoonsDir = os.getenv("HOME") .. "/.martillo/spoons"
     if hs.fs.attributes(martilloSpoonsDir) then
-        -- Add to package.path if not already present
+        -- Add main spoons directory to package.path if not already present
         local searchPattern = martilloSpoonsDir .. "/?.spoon/init.lua"
         if not package.path:find(searchPattern, 1, true) then
             package.path = searchPattern .. ";" .. package.path
             print("🔄 Added Martillo spoons to package path")
+        end
+
+        -- Add _internal directory to package.path
+        local internalPattern = martilloSpoonsDir .. "/_internal/?.spoon/init.lua"
+        if not package.path:find(internalPattern, 1, true) then
+            package.path = internalPattern .. ";" .. package.path
+            print("🔄 Added Martillo internal spoons to package path")
         end
     end
 end
@@ -304,6 +236,12 @@ local function loadSpoon(spec)
         -- Process opts
         if spec.opts then
             local opts = type(spec.opts) == "function" and spec.opts() or spec.opts
+
+            -- If actions filter is provided, filter and customize the opts
+            if spec.actions then
+                opts = processActionFilters(opts, spec.actions)
+            end
+
             if spoonInstance.setup then
                 spoonInstance:setup(opts)
             end
@@ -320,7 +258,7 @@ local function loadSpoon(spec)
             if spec.keys[1] and spec.keys[1].app and spoonInstance.setup then
                 local expandedKeys = {}
                 for index, keyConfig in ipairs(spec.keys) do
-                    expandedKeys[index] = expandLeaderEntry(keyConfig)
+                    expandedKeys[index] = leader.expandLeaderEntry(keyConfig)
                 end
                 for key, value in pairs(spec.keys) do
                     if type(key) ~= "number" then
@@ -374,40 +312,24 @@ local function setupAutoReload()
 end
 
 -- Main setup function
-function M.setup(config, options)
-    -- Handle both array of spoons and full config table
-    local spoons = config
-    local opts = options or M.defaults
+function M.setup(config)
+    -- Extract spoons (numeric keys) and options (non-numeric keys)
+    local spoons = {}
+    local configOpts = {}
 
-    -- If no separate options provided, check if config has options
-    if not options then
-        -- Check if config has non-numeric keys (mixed format)
-        local hasOptions = false
-        for k, v in pairs(config) do
-            if type(k) ~= "number" then
-                hasOptions = true
-                break
-            end
+    for k, v in pairs(config) do
+        if type(k) == "number" then
+            spoons[k] = v
+        else
+            configOpts[k] = v
         end
-
-        if hasOptions then
-            -- Extract spoons (numeric keys) and options (non-numeric keys)
-            spoons = {}
-            local configOpts = {}
-            for k, v in pairs(config) do
-                if type(k) == "number" then
-                    spoons[k] = v
-                else
-                    configOpts[k] = v
-                end
-            end
-            opts = merge(M.defaults, configOpts)
-        end
-    else
-        opts = merge(M.defaults, options)
     end
 
-    opts.leader_key = normalizeLeaderKey(opts.leader_key)
+    -- Merge with defaults
+    local opts = merge(M.defaults, configOpts)
+
+    -- Set leader key in the leader module
+    leader.setLeaderKey(opts.leader_key)
 
     -- Store config
     M.config = opts

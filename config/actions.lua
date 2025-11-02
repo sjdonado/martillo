@@ -1,29 +1,126 @@
+-- Load window management module
+local sharedPath = os.getenv("HOME") .. "/.martillo/spoons/_internal/?.lua"
+if not package.path:find(sharedPath, 1, true) then
+    package.path = sharedPath .. ";" .. package.path
+end
+local window = require("window")
+
 return {
-    single = {
-        -- Window Management Actions
+    static = {
+        -- Window Management Actions - Sizing
         {
-            id = "maximize_window",
+            id = "window_maximize",
             name = "Maximize Window",
-            handler = function() spoon.WindowManager:moveWindow("max") end,
-            description = "Maximize window to full screen"
+            handler = function() window.moveWindow("max") end,
+            description = "Maximize window to full screen",
         },
         {
-            id = "almost_maximize",
+            id = "window_almost_maximize",
             name = "Almost Maximize",
-            handler = function() spoon.WindowManager:moveWindow("almost_max") end,
-            description = "Resize window to 90% of screen, centered"
+            handler = function() window.moveWindow("almost_max") end,
+            description = "Resize window to 90% of screen, centered",
         },
         {
-            id = "reasonable_size",
+            id = "window_reasonable_size",
             name = "Reasonable Size",
-            handler = function() spoon.WindowManager:moveWindow("reasonable") end,
-            description = "Resize window to reasonable size 70% of screen, centered"
+            handler = function() window.moveWindow("reasonable") end,
+            description = "Resize window to reasonable size 70% of screen, centered",
         },
         {
-            id = "center_window",
+            id = "window_center",
             name = "Center Window",
-            handler = function() spoon.WindowManager:moveWindow("center") end,
-            description = "Center window without resizing"
+            handler = function() window.moveWindow("center") end,
+            description = "Center window without resizing",
+        },
+
+        -- Window Management Actions - Quarters
+        {
+            id = "window_top_left",
+            name = "Window Top Left",
+            handler = function() window.moveWindow("top_left") end,
+            description = "Position window in top left quarter",
+        },
+        {
+            id = "window_top_right",
+            name = "Window Top Right",
+            handler = function() window.moveWindow("top_right") end,
+            description = "Position window in top right quarter",
+        },
+        {
+            id = "window_bottom_left",
+            name = "Window Bottom Left",
+            handler = function() window.moveWindow("bottom_left") end,
+            description = "Position window in bottom left quarter",
+        },
+        {
+            id = "window_bottom_right",
+            name = "Window Bottom Right",
+            handler = function() window.moveWindow("bottom_right") end,
+            description = "Position window in bottom right quarter",
+        },
+
+        -- Window Management Actions - Thirds (Horizontal)
+        {
+            id = "window_left_third",
+            name = "Window Left Third",
+            handler = function() window.moveWindow("left_third") end,
+            description = "Position window in left third",
+        },
+        {
+            id = "window_center_third",
+            name = "Window Center Third",
+            handler = function() window.moveWindow("center_third") end,
+            description = "Position window in center third",
+        },
+        {
+            id = "window_right_third",
+            name = "Window Right Third",
+            handler = function() window.moveWindow("right_third") end,
+            description = "Position window in right third",
+        },
+        {
+            id = "window_left_two_thirds",
+            name = "Window Left Two Thirds",
+            handler = function() window.moveWindow("left_two_thirds") end,
+            description = "Position window in left two thirds",
+        },
+        {
+            id = "window_right_two_thirds",
+            name = "Window Right Two Thirds",
+            handler = function() window.moveWindow("right_two_thirds") end,
+            description = "Position window in right two thirds",
+        },
+
+        -- Window Management Actions - Thirds (Vertical)
+        {
+            id = "window_top_third",
+            name = "Window Top Third",
+            handler = function() window.moveWindow("top_third") end,
+            description = "Position window in top third",
+        },
+        {
+            id = "window_middle_third",
+            name = "Window Middle Third",
+            handler = function() window.moveWindow("middle_third") end,
+            description = "Position window in middle third",
+        },
+        {
+            id = "window_bottom_third",
+            name = "Window Bottom Third",
+            handler = function() window.moveWindow("bottom_third") end,
+            description = "Position window in bottom third",
+        },
+        {
+            id = "window_top_two_thirds",
+            name = "Window Top Two Thirds",
+            handler = function() window.moveWindow("top_two_thirds") end,
+            description = "Position window in top two thirds",
+        },
+        {
+            id = "window_bottom_two_thirds",
+            name = "Window Bottom Two Thirds",
+            handler = function() window.moveWindow("bottom_two_thirds") end,
+            description = "Position window in bottom two thirds",
         },
 
         -- System Actions
@@ -35,7 +132,7 @@ return {
                     "if pgrep caffeinate > /dev/null; then pkill caffeinate && echo 'Caffeinate disabled'; else nohup caffeinate -disu > /dev/null 2>&1 & echo 'Caffeinate enabled'; fi",
                     "Toggle Caffeinate")
             end,
-            description = "Toggle system sleep prevention"
+            description = "Toggle system sleep prevention",
         },
         {
             id = "toggle_system_appearance",
@@ -54,7 +151,7 @@ return {
           end tell
         ]], "Toggle System Appearance")
             end,
-            description = "Toggle between light and dark mode"
+            description = "Toggle between light and dark mode",
         },
 
         -- Utility Actions
@@ -66,7 +163,7 @@ return {
                     "curl -s ifconfig.me | pbcopy && curl -s ifconfig.me",
                     "Copy IP")
             end,
-            description = "Copy public IP address to clipboard"
+            description = "Copy public IP address to clipboard",
         },
         {
             id = "generate_uuid",
@@ -76,7 +173,7 @@ return {
                     "uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '\\n' | pbcopy && pbpaste",
                     "Generate UUID")
             end,
-            description = "Generate UUID v4 and copy to clipboard"
+            description = "Generate UUID v4 and copy to clipboard",
         },
         {
             id = "network_status",
@@ -209,11 +306,11 @@ return {
 
                 return spoon.ActionsLauncher:addBackOption(loadingChoices)
             end,
-            description = "Check network connectivity and status"
+            description = "Check network connectivity and status",
         },
     },
 
-    live = {
+    dynamic = {
         {
             id = "timestamp",
             enabled = true,
@@ -232,7 +329,7 @@ return {
                     local isoString = os.date("!%Y-%m-%dT%H:%M:%SZ", timestamp)
                     local uuid = context.generateUUID()
 
-                    table.insert(context.liveChoices, {
+                    table.insert(context.dynamicChoices, {
                         text = "Unix Timestamp → ISO String",
                         subText = isoString,
                         uuid = uuid,
@@ -260,7 +357,7 @@ return {
 
                 if success and decoded and decoded ~= "" then
                     local uuid = context.generateUUID()
-                    table.insert(context.liveChoices, {
+                    table.insert(context.dynamicChoices, {
                         text = "Base64 → Plain Text",
                         subText = decoded,
                         uuid = uuid,
@@ -307,7 +404,7 @@ return {
                 -- Add header option if successful
                 if headerSuccess and header and header ~= "" then
                     local headerUuid = context.generateUUID()
-                    table.insert(context.liveChoices, {
+                    table.insert(context.dynamicChoices, {
                         text = "JWT → Decoded Header",
                         subText = header,
                         uuid = headerUuid,
@@ -322,7 +419,7 @@ return {
                 -- Add payload option if successful
                 if payloadSuccess and payload and payload ~= "" then
                     local payloadUuid = context.generateUUID()
-                    table.insert(context.liveChoices, {
+                    table.insert(context.dynamicChoices, {
                         text = "JWT → Decoded Payload",
                         subText = payload,
                         uuid = payloadUuid,
@@ -365,7 +462,7 @@ return {
                         local hex = string.format("#%02x%02x%02x", r, g, b)
                         local uuid = context.generateUUID()
 
-                        table.insert(context.liveChoices, {
+                        table.insert(context.dynamicChoices, {
                             text = "RGB → HEX",
                             subText = hex,
                             uuid = uuid,
@@ -396,7 +493,7 @@ return {
                         local rgb = string.format("rgb(%d, %d, %d)", r, g, b)
                         local uuid = context.generateUUID()
 
-                        table.insert(context.liveChoices, {
+                        table.insert(context.dynamicChoices, {
                             text = "HEX → RGB",
                             subText = rgb,
                             uuid = uuid,

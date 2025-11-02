@@ -105,9 +105,6 @@ return require("martillo").setup({
       defaultBrowser = "Safari",
       redirect = {
         { match = { "*localhost*", "*127.0.0.1*", "*0.0.0.0*" }, browser = "Chromium" },
-        { match = { "*autarc.energy*" },                         browser = "Chromium" },
-        { match = { "*fly.dev*" },                               browser = "Chromium" },
-        { match = { "*linear*" },                                browser = "Linear" },
       },
       mapper = {
         { name = "googleToKagiHomepage", from = "*google.com*", to = "https://kagi.com/" },
@@ -139,11 +136,9 @@ Searchable command palette with configurable actions. Current built-in actions i
 - **Utilities**: Copy public IP, generate UUID, network status check
 - **Dynamic transformations**: Timestamp conversion, Base64 encoding/decoding, JWT decoding, color conversions
 
-![50c706b1-01b8-474b-a019-2fd2ed997a8c](https://github.com/user-attachments/assets/0a35f718-3ea5-48bd-821f-2b3cdf276125)
-
-![b3b8d12d-6628-4351-9c6e-8ecf58e3e0c4](https://github.com/user-attachments/assets/5ccf5360-1347-49e0-b542-20e0a39c59a5)
-
-![95d40333-a141-4557-b653-6fefa89f56c0](https://github.com/user-attachments/assets/6e636afb-f462-4fef-9b20-48d05c508beb)
+<img width="866" height="667" alt="Screenshot 2025-11-02 at 13 26 01" src="https://github.com/user-attachments/assets/8f86b67b-49c6-4c2c-a8bc-89f322e6a8e6" />
+<img width="866" height="667" alt="Screenshot 2025-11-02 at 13 26 18" src="https://github.com/user-attachments/assets/bffef712-c496-4dd1-8921-3803b49e7018" />
+<img width="866" height="667" alt="Screenshot 2025-11-02 at 13 26 40" src="https://github.com/user-attachments/assets/afc92d3e-8a01-47cf-9785-15ac65ef540b" />
 
 ### WindowManager
 Window positioning and resizing with keyboard shortcuts. Available actions:
@@ -157,7 +152,7 @@ Window positioning and resizing with keyboard shortcuts. Available actions:
 ### KillProcess
 Quick process killer with fuzzy search. Find and terminate unresponsive apps instantly.
 
-![8726c321-6f4c-4ca2-9684-70700c58020d](https://github.com/user-attachments/assets/f95fc249-dbfd-4e51-b7e6-f6a894e963f6)
+<img width="866" height="667" alt="Screenshot 2025-11-02 at 13 27 45" src="https://github.com/user-attachments/assets/7b99609d-3db3-4869-9a47-8838406982df" />
 
 ### ClipboardHistory
 Lightweight clipboard manager with persistent plain text history. Features:
@@ -168,7 +163,7 @@ Lightweight clipboard manager with persistent plain text history. Features:
 - No external dependencies required
 - Human-readable history file
 
-![ff32fe87-1306-4ee5-a4b8-b3a84b4767bb](https://github.com/user-attachments/assets/a0255fda-3114-4594-8ac3-be4093650cd7)
+<img width="866" height="667" alt="Screenshot 2025-11-02 at 13 27 09" src="https://github.com/user-attachments/assets/141e1891-b1dc-42a6-b472-3a4f68e16d3b" />
 
 ### BrowserRedirect
 Intelligent URL routing to different browsers based on patterns. Perfect for developers who need specific browsers for different environments.
@@ -214,26 +209,7 @@ EOF
 
 ## Configuration
 
-### Basic Setup
-
-```lua
--- ~/.hammerspoon/init.lua
-package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
-
-return require("martillo").setup {
-  -- Simple spoon
-  { "WindowManager" },
-
-  -- Spoon with configuration
-  { "ClipboardHistory",
-    config = function(spoon)
-      spoon:start()
-    end
-  },
-}
-```
-
-## Default Keybindings
+### Default Keybindings
 
 | Feature | Default Shortcut | Description |
 |---------|-----------------|-------------|
@@ -246,8 +222,6 @@ return require("martillo").setup {
 | **Window Down** | `⌘ ⇧ ↓` | Snap window to bottom half |
 | **Window Center** | `⌘ ⇧ ↵` | Center window |
 | **App Hotkeys** | `⌥ ⇧ [key]` | Launch/focus specific apps |
-
-## Configuration Options
 
 ### Spoon Specification
 

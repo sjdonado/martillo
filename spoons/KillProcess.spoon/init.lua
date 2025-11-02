@@ -4,7 +4,7 @@
 
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
 if scriptPath then
-    local sharedPath = scriptPath .. "../_shared/?.lua"
+    local sharedPath = scriptPath .. "../_internal/?.lua"
     if not package.path:find(sharedPath, 1, true) then
         package.path = sharedPath .. ";" .. package.path
     end

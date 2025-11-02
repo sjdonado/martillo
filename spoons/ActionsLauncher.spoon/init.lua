@@ -5,7 +5,7 @@
 
 local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
 if scriptPath then
-    local sharedPath = scriptPath .. "../_shared/?.lua"
+    local sharedPath = scriptPath .. "../_internal/?.lua"
     if not package.path:find(sharedPath, 1, true) then
         package.path = sharedPath .. ";" .. package.path
     end
@@ -24,9 +24,10 @@ obj.homepage = "https://github.com/sjdonado/martillo/spoons"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 obj.hotkeys = {}
+obj.actionHotkeys = {}
 obj.chooser = nil
-obj.singleActions = {}
-obj.singleHandlers = {}
+obj.staticActions = {}
+obj.staticHandlers = {}
 obj.expandHandlers = {}
 obj.originalChoices = {}
 obj.currentChoices = {}
@@ -55,7 +56,7 @@ function obj:createChooser()
     self.chooser = hs.chooser.new(function(choice)
         if not choice or not choice.uuid then return end
 
-        local handler = self.singleHandlers[choice.uuid]
+        local handler = self.staticHandlers[choice.uuid]
         if not handler then return end
 
         local result = handler()
@@ -69,7 +70,7 @@ function obj:createChooser()
                     -- Register handlers for expanded choices
                     for _, expandedChoice in ipairs(expandedChoices) do
                         if expandedChoice.uuid and expandedChoice.handler then
-                            self.singleHandlers[expandedChoice.uuid] = expandedChoice.handler
+                            self.staticHandlers[expandedChoice.uuid] = expandedChoice.handler
                             if expandedChoice.expandHandler then
                                 self.expandHandlers[expandedChoice.uuid] = expandedChoice.expandHandler
                             end
@@ -148,14 +149,21 @@ end
 ---
 --- Parameters:
 ---  * config - A table containing:
----    * single - A table of single-result action definitions (optional)
+---    * static - A table of static action definitions (optional)
 ---    * dynamic - A table of enabled dynamic query IDs (optional)
+---    * actionKeys - A table mapping action IDs to their keybindings (optional)
 function obj:setup(config)
     config = config or {}
 
+    -- Unbind any existing action hotkeys
+    for _, hotkey in ipairs(self.actionHotkeys) do
+        hotkey:delete()
+    end
+    self.actionHotkeys = {}
+
     -- Setup actions
-    self.singleActions = config.single or {}
-    self.singleHandlers = {}
+    self.staticActions = config.static or {}
+    self.staticHandlers = {}
     self.expandHandlers = {}
 
     -- Setup dynamic queries directly from config
@@ -163,9 +171,9 @@ function obj:setup(config)
 
     -- Convert actions to chooser format and store handlers
     self.originalChoices = {}
-    for i, action in ipairs(self.singleActions) do
+    for i, action in ipairs(self.staticActions) do
         local uuid = action.id or tostring(i)
-        self.singleHandlers[uuid] = action.handler
+        self.staticHandlers[uuid] = action.handler
 
         -- Store expand handler if provided
         if action.expandHandler then
@@ -187,6 +195,23 @@ function obj:setup(config)
             copyToClipboard = false,
             alias = action.alias
         }
+
+        -- Bind action keys if provided
+        if action.keys then
+            for _, keySpec in ipairs(action.keys) do
+                local mods = keySpec[1]
+                local key = keySpec[2]
+                local handler = action.handler
+
+                local hotkey = hs.hotkey.bind(mods, key, function()
+                    local result = handler()
+                    if result and type(result) == "string" and result ~= "" then
+                        hs.alert.show(result)
+                    end
+                end)
+                table.insert(self.actionHotkeys, hotkey)
+            end
+        end
     end
 
     return self
@@ -258,7 +283,7 @@ function obj:handleQueryChange(query)
     local context = {
         launcher = self,
         dynamicChoices = dynamicChoices,
-        callbacks = self.singleHandlers,
+        callbacks = self.staticHandlers,
         generateUUID = function() return self:generateUUID() end,
         createColorSwatch = function(r, g, b) return self:createColorSwatch(r, g, b) end
     }
@@ -399,14 +424,14 @@ function obj:refreshExpandedChoices()
         -- Update currentChoices from cache if available
         if _G.networkTestCache and _G.networkTestCache.results then
             -- Find the network status action to get its expandHandler
-            for _, action in ipairs(self.singleActions) do
+            for _, action in ipairs(self.staticActions) do
                 if action.id == "network_status" then
                     local newChoices = action.expandHandler()
                     if newChoices and #newChoices > 0 then
                         -- Register handlers for new choices
                         for _, expandedChoice in ipairs(newChoices) do
                             if expandedChoice.uuid and expandedChoice.handler then
-                                self.singleHandlers[expandedChoice.uuid] = expandedChoice.handler
+                                self.staticHandlers[expandedChoice.uuid] = expandedChoice.handler
                                 if expandedChoice.expandHandler then
                                     self.expandHandlers[expandedChoice.uuid] = expandedChoice.expandHandler
                                 end
@@ -449,7 +474,7 @@ function obj:addBackOption(choices)
     end
 
     -- Register the back handler
-    self.singleHandlers["back_to_main"] = backHandler
+    self.staticHandlers["back_to_main"] = backHandler
 
     local backOption = {
         text = "← Back",

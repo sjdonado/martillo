@@ -12,32 +12,61 @@ Martillo (Spanish for "hammer") offers a clean, maintainable way to configure Ha
 package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
 
 return require("martillo").setup({
+  -- Global configuration
+  leader_key = { "alt", "ctrl" },
+
   -- LaunchOrToggleFocus: App switching hotkeys
   {
     "LaunchOrToggleFocus",
     keys = {
-      { "<leader>", "c",      app = "Calendar" },
-      { "<leader>", "d",      app = "Chromium" },
-      { "<leader>", "x",      app = "Excalidraw" },
-      { "<leader>", "space",  app = "Ghostty" },
-      { "<leader>", "e",      app = "Mail" },
-      { "<leader>", "m",      app = "Music" },
-      { "<leader>", "n",      app = "Notes" },
-      { "<leader>", "r",      app = "Reminders" },
-      { "<leader>", "b",      app = "Safari" },
-      { "<leader>", "h",      app = "Yaak" },
-      { "<leader>", "z",      app = "Zed" },
+      { "<leader>", "c",  app = "Calendar" },
+      { "<leader>", "d",  app = "Chromium" },
+      { "<leader>", "x",  app = "Excalidraw" },
+      { "<leader>", ";",  app = "Ghostty" },
+      { "<leader>", "l",  app = "Linear" },
+      { "<leader>", "e",  app = "Mail" },
+      { "<leader>", "m",  app = "Music" },
+      { "<leader>", "n",  app = "Notes" },
+      { "<leader>", "p",  app = "Postico 2" },
+      { "<leader>", "r",  app = "Reminders" },
+      { "<leader>", "b",  app = "Safari" },
+      { "<leader>", "s",  app = "Slack" },
+      { "<leader>", "t",  app = "Kagi Translate" },
+      { "<leader>", "h",  app = "Yaak" },
     },
   },
 
-  -- ActionsLauncher: Command palette with actions
+  -- ActionsLauncher: Command palette with window management actions
   {
     "ActionsLauncher",
     opts = function()
       return require("config.actions")
     end,
+    actions = {
+      static = {
+        -- Window management actions
+        { "window_left_third", keys = { { "<leader>", "left" } } },
+        { "window_right_third", keys = { { "<leader>", "right" } } },
+        { "window_almost_maximize", keys = { { "<leader>", "up" } } },
+        { "window_reasonable_size", keys = { { "<leader>", "down" } } },
+        { "window_center", keys = { { "<leader>", "return" } } },
+        { "window_maximize", alias = "wm" },
+        -- System actions
+        { "toggle_caffeinate", alias = "tc" },
+        { "toggle_system_appearance", alias = "ta" },
+        { "copy_ip", alias = "gi" },
+        { "generate_uuid", alias = "gu" },
+        { "network_status" },
+      },
+      dynamic = {
+        "timestamp",
+        "colors",
+        "base64",
+        "jwt",
+      }
+    },
     keys = {
-      { "<leader>", "\\", desc = "Toggle Actions Launcher" }
+      { "<leader>", "space", desc = "Toggle Actions Launcher" },
     },
   },
 
@@ -45,19 +74,18 @@ return require("martillo").setup({
   {
     "KillProcess",
     keys = {
-      { "<leader>", "=", desc = "Toggle Kill Process" }
+      { "<leader>", "=", desc = "Toggle Kill Process" },
     },
   },
 
-  -- WindowManager: Minimal window manipulation
+  -- ClipboardHistory: Clipboard manager
   {
-    "WindowManager",
+    "ClipboardHistory",
+    config = function(spoon)
+      spoon:start()
+    end,
     keys = {
-      { '<leader>', "left",   "left_half",   desc = "Move window to left half" },
-      { '<leader>', "right",  "right_half",  desc = "Move window to right half" },
-      { '<leader>', "up",     "top_half",    desc = "Move window to top half" },
-      { '<leader>', "down",   "bottom_half", desc = "Move window to bottom half" },
-      { '<leader>', "return", "center",      desc = "Center window" },
+      { "<leader>", "-", desc = "Toggle Clipboard History" },
     },
   },
 
@@ -70,17 +98,6 @@ return require("martillo").setup({
     end,
   },
 
-  -- ClipboardHistory: Clipboard manager
-  {
-    "ClipboardHistory",
-    config = function(spoon)
-      spoon:start()
-    end,
-    keys = {
-      { "<leader>", "-", desc = "Toggle Clipboard History" }
-    },
-  },
-
   -- BrowserRedirect: Smart browser routing
   {
     "BrowserRedirect",
@@ -88,20 +105,23 @@ return require("martillo").setup({
       defaultBrowser = "Safari",
       redirect = {
         { match = { "*localhost*", "*127.0.0.1*", "*0.0.0.0*" }, browser = "Chromium" },
+        { match = { "*autarc.energy*" },                         browser = "Chromium" },
         { match = { "*fly.dev*" },                               browser = "Chromium" },
         { match = { "*linear*" },                                browser = "Linear" },
       },
       mapper = {
-        { name = "googleToKagiHomepage", from = "*google.com*",         to = "https://kagi.com/" },
-        { name = "googleToKagiSearch",   from = "*google.com*/search*", to = "https://kagi.com/search?q={query.q|encode}" }
+        { name = "googleToKagiHomepage", from = "*google.com*", to = "https://kagi.com/" },
+        {
+          name = "googleToKagiSearch",
+          from = "*google.com*/search*",
+          to = "https://kagi.com/search?q={query.q|encode}",
+        },
       },
     },
     config = function(spoon)
       spoon:start()
     end,
   },
-}, {
-  leader_key = { "alt", "ctrl" },
 })
 ```
 
@@ -117,7 +137,7 @@ Searchable command palette with configurable actions. Current built-in actions i
 - **Window management**: Maximize, almost maximize, reasonable size
 - **System controls**: Toggle dark mode, caffeinate (prevent sleep)
 - **Utilities**: Copy public IP, generate UUID, network status check
-- **Live transformations**: Timestamp conversion, Base64 encoding/decoding, JWT decoding, color conversions
+- **Dynamic transformations**: Timestamp conversion, Base64 encoding/decoding, JWT decoding, color conversions
 
 ![50c706b1-01b8-474b-a019-2fd2ed997a8c](https://github.com/user-attachments/assets/0a35f718-3ea5-48bd-821f-2b3cdf276125)
 
@@ -128,6 +148,9 @@ Searchable command palette with configurable actions. Current built-in actions i
 ### WindowManager
 Window positioning and resizing with keyboard shortcuts. Available actions:
 - **Halves**: Snap to left, right, top, or bottom half of screen
+- **Quarters**: Position in any corner (top-left, top-right, bottom-left, bottom-right)
+- **Thirds (horizontal)**: Left, center, or right third; left or right two-thirds
+- **Thirds (vertical)**: Top, middle, or bottom third; top or bottom two-thirds
 - **Maximize**: Full screen or almost maximize (90% centered)
 - **Center**: Center window at current size or reasonable size (60%×70% centered)
 
@@ -234,6 +257,7 @@ Each spoon can have these fields:
 |-------|------|-------------|
 | `[1]` | `string` | The spoon name (required) |
 | `opts` | `table\|function` | Configuration options |
+| `actions` | `table` | Filter and customize actions (ActionsLauncher only) |
 | `keys` | `table` | Keybinding definitions |
 | `config` | `function` | Post-setup configuration |
 | `init` | `function` | Pre-configuration initialization |
@@ -253,17 +277,59 @@ keys = {
 
 Use the `<leader>` placeholder anywhere inside the modifiers list to expand to your configured leader chord. Mixing `<leader>` with additional modifiers (e.g., `{ "<leader>", "cmd" }`) is supported, and an explicit error is raised if you reference `<leader>` without defining `leader_key`.
 
+### ActionsLauncher Configuration
+
+The ActionsLauncher can selectively enable actions and bind keybindings to them:
+
+```lua
+{
+  "ActionsLauncher",
+  opts = function()
+    return require("config.actions")  -- Load all available actions
+  end,
+  actions = {
+    -- Enable specific static actions with optional keybindings
+    static = {
+      "maximize_window",                                              -- Enable without keybinding
+      { "center_window", keys = { { "<leader>", "return" } } },       -- With single keybinding
+      { "window_left_third", keys = { { "<leader>", "left" } } },     -- Window to left third
+      { "window_right_third", keys = { { "<leader>", "right" } } },   -- Window to right third
+    },
+    -- Enable specific dynamic actions (cannot have keybindings)
+    dynamic = {
+      "timestamp",      -- Unix timestamp to ISO converter
+      "colors",         -- RGB/HEX color converter
+      "base64",         -- Base64 decoder
+      "jwt",            -- JWT decoder
+    }
+  },
+  keys = {
+    { "<leader>", "\\", desc = "Toggle Actions Launcher" }
+  },
+}
+```
+
+**Actions Format:**
+- Each action can be a string (action ID) or a table with `{ "action_id", keys = { ... } }`
+- The `actions` table has two categories:
+  - `static`: One-time executable actions (window management, system controls, utilities) - can have keybindings
+  - `dynamic`: Query-based transformations (timestamps, colors, base64, JWT) - cannot have keybindings
+- Keybindings use the same format as spoon keys and support `<leader>` expansion
+- If no `actions` filter is provided, all actions from `opts` are loaded
+
 ### Global Options
 
 ```lua
 return require("martillo").setup({
-  -- Spoons configuration
-}, {
-  -- Global options
+  -- Global options (non-numeric keys)
   autoReload = true,              -- Auto-reload on file change (default: true)
   alertOnLoad = true,             -- Show alert when config loads (default: true)
   alertMessage = "Martillo Ready",-- Custom load message
-  leader_key = { "alt", "shift" } -- Expand <leader> modifiers (optional)
+  leader_key = { "alt", "shift" }, -- Expand <leader> modifiers (optional)
+
+  -- Spoons configuration (numeric keys)
+  { "SpoonName", ... },
+  { "AnotherSpoon", ... },
 })
 ```
 Modifier names are case-insensitive and support common aliases such as `command`, `⌘`, `option`, or `⌥`; Martillo canonicalises them automatically for Hammerspoon.
@@ -276,8 +342,12 @@ Modifier names are case-insensitive and support common aliases such as `command`
 ```lua
 local martillo = require("martillo")
 
--- Setup with configuration
-martillo.setup(config, options)
+-- Setup with configuration (single table with spoons and options)
+martillo.setup({
+  leader_key = { "alt", "ctrl" },
+  { "SpoonName", ... },
+  { "AnotherSpoon", ... },
+})
 
 -- Get a loaded spoon
 local spoon = martillo.get("SpoonName")
@@ -307,9 +377,9 @@ martillo.reload()
 - [ ] **Fork Hammerspoon** - Custom build with enhanced chooser capabilities
 - [x] **Precompiled Spoons** - All spoons loaded and compiled by default
 - [x] **Simplified Configuration** - Single table configuration like lazy.nvim
-- [ ] **Spoon Aliases** - Set custom aliases for each spoon
-- [ ] **Enhanced Search** - Search by aliases in choosers
-- [ ] **Alias Display** - Show aliases in chooser items (right side)
+- [x] **Spoon Aliases** - Set custom aliases for each spoon
+- [x] **Enhanced Search** - Search by aliases in choosers
+- [x] **Alias Display** - Show aliases in chooser items (right side)
 
 ### Enhanced Chooser System
 - [ ] **Navigation Callbacks**:

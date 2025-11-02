@@ -34,21 +34,28 @@ Martillo is a declarative configuration framework for Hammerspoon that follows t
 ### Core Structure
 - **`martillo.lua`**: Main framework module that handles spoon loading, configuration, and hotkey binding
 - **`spoons/`**: Collection of custom Hammerspoon spoons (productivity tools)
+- **`spoons/_internal/`**: Shared internal modules (leader.lua, search.lua, window.lua)
 - **`config/`**: Optional configuration modules (like `actions.lua` for ActionsLauncher)
 
 ### Key Design Patterns
 
-1. **Declarative Configuration**: Users configure everything through a single `require("martillo").setup()` call with a table-based specification
+1. **Declarative Configuration**: Users configure everything through a single `require("martillo").setup({ ... })` call where:
+   - Global options (like `leader_key`) are non-numeric keys
+   - Spoons are numeric array entries
+
 2. **Spoon Specification Format**: Each spoon is configured with:
    - `[1]` (string): Spoon name (required)
    - `opts` (table/function): Configuration options
+   - `actions` (table): Filter and customize actions (ActionsLauncher only)
    - `keys` (table): Hotkey definitions in format `{ modifiers, key, action, desc }`
    - `config` (function): Post-setup configuration hook
    - `init` (function): Pre-configuration initialization hook
 
-3. **Hotkey Processing**: The framework automatically processes hotkey specifications and binds them using `spoon:bindHotkeys()`
+3. **Leader Key Support**: `<leader>` placeholder in hotkeys expands to configured `leader_key` modifiers
 
-4. **Spoon Loading**: Spoons are loaded from the `spoons/` directory following Hammerspoon's `.spoon` structure
+4. **Hotkey Processing**: The framework automatically processes hotkey specifications and binds them using `spoon:bindHotkeys()` or per-action keybindings
+
+5. **Shared Modules**: Internal utilities in `spoons/_internal/` for leader key handling, fuzzy search, and window management
 
 ## Built-in Spoons
 
@@ -74,105 +81,102 @@ Martillo is a declarative configuration framework for Hammerspoon that follows t
 ---
 
 ### ActionsLauncher
-**Purpose**: Searchable command palette with live transformations and system controls
+**Purpose**: Searchable command palette with selective action loading, per-action keybindings, and live transformations
 
 **Key Features**:
-- Fuzzy search across all available actions
-- Live transformations: paste content, select text, transform it in real-time
-- Extensible action system with categories
-- Custom icon support for visual identification
+- Fuzzy search across all available actions with alias support
+- Selective action loading - enable only the actions you need
+- Per-action keybindings - bind hotkeys to specific actions
+- Static actions (one-time executables) and dynamic actions (query-based transformations)
+- Alias support for quick searching (e.g., "tc" for "Toggle Caffeinate")
 
-**Built-in Action Categories**:
+**Action Categories**:
 
-1. **Window Management**:
-   - Maximize, almost maximize (90% centered)
-   - Reasonable size (60%×70% centered)
-   - Quick window positioning
+1. **Static Actions** (can have keybindings and aliases):
+   - **Window Management**: Maximize, center, quarters, thirds positioning
+   - **System Controls**: Toggle dark mode, caffeinate (prevent sleep)
+   - **Developer Utilities**: Copy IP, generate UUID, network status
 
-2. **System Controls**:
-   - Toggle dark mode
-   - Caffeinate (prevent sleep)
-   - Screen lock
-   - Volume control
-
-3. **Developer Utilities**:
-   - Copy public IP address
-   - Generate UUID
-   - Network status check
-   - Process information
-
-4. **Live Transformations** (work on clipboard or selection):
-   - **Timestamp Converter**: Unix timestamp ↔ human-readable date
-   - **Base64**: Encode/decode
-   - **JWT Decoder**: View JWT payload without external tools
-   - **Color Converter**: HEX ↔ RGB ↔ HSL
-   - **URL Encoder/Decoder**: Handle special characters
-   - **JSON Formatter**: Pretty print JSON
-   - **Hash Generator**: MD5, SHA1, SHA256
+2. **Dynamic Actions** (query-based transformations):
+   - **Timestamp Converter**: Unix timestamp ↔ ISO string (detects 10 or 13 digit numbers)
+   - **Base64**: Auto-decode valid base64 strings
+   - **JWT Decoder**: Auto-decode JWT tokens into header/payload
+   - **Color Converter**: HEX ↔ RGB with visual color swatch
 
 **Use Cases**:
-- Quick development tasks without switching to browser/tools
-- Transform clipboard content without manual copying/pasting
-- System controls without reaching for System Preferences
-- Create custom shortcuts for repeated tasks
+- Quick window management without dedicated window manager spoon
+- Transform clipboard content (paste timestamp, get ISO date)
+- System controls with searchable aliases
+- Custom action workflows with keybindings
 
 **Technical Details**:
-- Uses Hammerspoon's `hs.chooser` for UI
-- Actions are Lua functions with metadata (name, description, icon, handler)
-- Supports async actions and error handling
-- Live transformations work on pasteboard or selected text
+- Actions defined in `config/actions.lua` and filtered in spoon configuration
+- Uses `spoons/_internal/search.lua` for fuzzy ranking with alias boosting
+- Static actions support `keys` property for direct hotkey binding
+- Dynamic actions use pattern matching on query input
 
 **Configuration Example**:
 ```lua
 {
   "ActionsLauncher",
   opts = function()
-    return {
-      actions = {
-        {
-          name = "Custom Action",
-          description = "My custom action",
-          icon = "⚡",
-          handler = function()
-            hs.alert.show("Action executed!")
-          end
-        }
-      }
+    return require("config.actions")  -- Load all available actions
+  end,
+  actions = {
+    static = {
+      -- Enable specific actions with optional keybindings and aliases
+      { "window_center", keys = { { "<leader>", "return" } } },
+      { "toggle_caffeinate", alias = "tc" },
+      { "copy_ip", alias = "gi" },
+    },
+    dynamic = {
+      "timestamp",    -- Auto-converts unix timestamps
+      "colors",       -- Auto-converts color formats
+      "base64",       -- Auto-decodes base64
+      "jwt",          -- Auto-decodes JWT tokens
     }
-  end
+  },
+  keys = {
+    { "<leader>", "space", desc = "Toggle Actions Launcher" }
+  }
 }
 ```
 
 ---
 
-### WindowManager
-**Purpose**: Keyboard-driven window positioning and layout management
+### Window Management (Internal Module)
+**Purpose**: Shared library for keyboard-driven window positioning - used by ActionsLauncher, not a standalone spoon
 
-**Key Features**:
-- Snap windows to screen halves (left, right, top, bottom)
-- Maximize window or almost maximize (90% centered for better ergonomics)
-- Center window at current size or reasonable size
-- Instant window manipulation without mouse dragging
+**Location**: `spoons/_internal/window.lua`
 
-**Available Actions**:
-- `left_half` / `right_half`: Snap to left/right 50% of screen
-- `top_half` / `bottom_half`: Snap to top/bottom 50% of screen
-- `maximize`: Fill entire screen
-- `almost_maximize`: 90% centered (more comfortable for large displays)
-- `center`: Center window at current size
-- `reasonable_size`: Resize to 60%×70% and center
+**Available Positions**:
+- **Halves**: left, right, up, down (50% of screen)
+- **Quarters**: top_left, top_right, bottom_left, bottom_right (25% of screen)
+- **Thirds (horizontal)**: left_third, center_third, right_third, left_two_thirds, right_two_thirds
+- **Thirds (vertical)**: top_third, middle_third, bottom_third, top_two_thirds, bottom_two_thirds
+- **Sizing**: max (fullscreen), almost_max (90% centered), reasonable (60%×70% centered), center
 
-**Use Cases**:
-- Side-by-side code editor and browser
-- Terminal on one half, documentation on the other
-- Quick window organization during presentations
-- Consistent window sizes across different displays
+**Usage**:
+Window management is accessed through ActionsLauncher actions with IDs like `window_center`, `window_left_third`, etc. These actions can have keybindings assigned in the ActionsLauncher configuration.
+
+**Example**:
+```lua
+{
+  "ActionsLauncher",
+  actions = {
+    static = {
+      { "window_left_third", keys = { { "<leader>", "left" } } },
+      { "window_center", keys = { { "<leader>", "return" } } },
+    }
+  }
+}
+```
 
 **Technical Details**:
+- Pure Lua module (not a spoon)
 - Uses Hammerspoon's `hs.window` API
-- Works with any application window
-- Respects screen safe areas (menu bar, dock)
-- Smooth animations
+- Single `moveWindow(direction)` function
+- No external dependencies
 
 ---
 
@@ -341,7 +345,39 @@ Martillo is a declarative configuration framework for Hammerspoon that follows t
 ---
 
 ## Configuration Examples
-The framework supports both simple spoon loading and complex configurations with custom hotkeys and options. See README.md for full examples.
+
+The framework uses a single-table configuration where global options (non-numeric keys) are mixed with spoons (numeric keys):
+
+```lua
+return require("martillo").setup({
+  -- Global options
+  leader_key = { "alt", "ctrl" },
+
+  -- Spoons
+  {
+    "LaunchOrToggleFocus",
+    keys = {
+      { "<leader>", "c", app = "Calendar" },
+      { "<leader>", "b", app = "Safari" },
+    }
+  },
+
+  {
+    "ActionsLauncher",
+    opts = function() return require("config.actions") end,
+    actions = {
+      static = {
+        { "window_center", keys = { { "<leader>", "return" } } },
+        { "toggle_caffeinate", alias = "tc" },
+      },
+      dynamic = { "timestamp", "colors", "base64", "jwt" }
+    },
+    keys = { { "<leader>", "space", desc = "Toggle Actions Launcher" } }
+  },
+})
+```
+
+See README.md for complete examples.
 
 ## Development Guidelines
 

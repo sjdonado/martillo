@@ -209,20 +209,6 @@ EOF
 
 ## Configuration
 
-### Default Keybindings
-
-| Feature | Default Shortcut | Description |
-|---------|-----------------|-------------|
-| **Actions Launcher** | `⌥ ⇧ \` | Open command palette |
-| **Kill Process** | `⌥ ⇧ =` | Process killer |
-| **Clipboard History** | `⌥ ⇧ -` | Show clipboard history |
-| **Window Left** | `⌘ ⇧ ←` | Snap window to left half |
-| **Window Right** | `⌘ ⇧ →` | Snap window to right half |
-| **Window Up** | `⌘ ⇧ ↑` | Snap window to top half |
-| **Window Down** | `⌘ ⇧ ↓` | Snap window to bottom half |
-| **Window Center** | `⌘ ⇧ ↵` | Center window |
-| **App Hotkeys** | `⌥ ⇧ [key]` | Launch/focus specific apps |
-
 ### Spoon Specification
 
 Each spoon can have these fields:
@@ -378,10 +364,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 

@@ -1,7 +1,7 @@
 -- Load window management module
-local sharedPath = os.getenv("HOME") .. "/.martillo/spoons/_internal/?.lua"
-if not package.path:find(sharedPath, 1, true) then
-    package.path = sharedPath .. ";" .. package.path
+local internalPath = os.getenv("HOME") .. "/.martillo/spoons/_internal/?.lua"
+if not package.path:find(internalPath, 1, true) then
+    package.path = internalPath .. ";" .. package.path
 end
 local window = require("window")
 

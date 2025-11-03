@@ -14,7 +14,7 @@ obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 obj.menubar = nil
 obj.timer = nil
-obj.updateInterval = 180 -- Update every 3 minutes
+obj.updateInterval = 60  -- Update every 1 minute
 obj.cachedEvents = {}    -- Cache for events
 obj.lastUpdate = 0       -- Timestamp of last update
 obj.loadingTask = nil    -- Current loading task
@@ -154,7 +154,7 @@ function obj:compile()
     -- Check if Objective-C source exists
     local file = io.open(objcSourcePath, "r")
     if not file then
-        error("❌ Source file not found: " .. objcSourcePath)
+        error("Source file not found: " .. objcSourcePath)
     end
     file:close()
 
@@ -175,14 +175,14 @@ function obj:compile()
 
     local output, success = hs.execute(compileCmd)
     if not success then
-        error("❌ Failed to compile EventKit fetcher. Command: " ..
+        error("Failed to compile EventKit fetcher. Command: " ..
             compileCmd .. "\nOutput: " .. (output or "no output"))
     end
 
     -- Verify binary was created
     local finalBinaryAttr = hs.fs.attributes(binaryPath)
     if not finalBinaryAttr then
-        error("❌ Binary was not created: " .. binaryPath)
+        error("Binary was not created: " .. binaryPath)
     end
 
     self.eventkitBinary = binaryPath

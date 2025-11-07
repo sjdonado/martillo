@@ -594,6 +594,9 @@ function obj:updateChoices()
     local filteredChoices = self:getFilteredChoices()
     self.logger:d(string.format("Setting %d filtered choices in chooser", #filteredChoices))
     self.chooser:choices(filteredChoices)
+    if #filteredChoices > 0 then
+        self.chooser:selectedRow(1)  -- Always select first result
+    end
 end
 
 --- ClipboardHistory:captureFocus()
@@ -641,6 +644,7 @@ function obj:show()
     self:captureFocus()
     self.currentQuery = ""
     self:updateChoices()
+    self.chooser:selectedRow(1)  -- Select first row by default
     self.chooser:show()
 end
 
@@ -694,6 +698,9 @@ end
 --- Method
 --- Copy content to clipboard without pasting
 function obj:copyToClipboard(choice)
+    -- Explicitly hide the chooser
+    self:hide()
+
     if choice.type == "image" then
         local imagePath = choice.content
         local file = io.open(imagePath, "r")
@@ -720,10 +727,7 @@ function obj:copyToClipboard(choice)
     end
 
     hs.alert.show("📋 Copied to clipboard", 0.5)
-
-    hs.timer.doAfter(0.1, function()
-        self:restoreFocus()
-    end)
+    self:restoreFocus()
 end
 
 --- ClipboardHistory:pasteContent(choice)
@@ -731,6 +735,9 @@ end
 --- Paste content based on its type
 function obj:pasteContent(choice)
     self.logger:d("pasteContent called - type: " .. tostring(choice.type))
+
+    -- Explicitly hide the chooser before pasting
+    self:hide()
 
     if choice.type == "image" then
         self.logger:d("Pasting image from: " .. tostring(choice.content))
@@ -781,20 +788,9 @@ function obj:pasteContent(choice)
         hs.pasteboard.setContents(choice.content)
     end
 
-    hs.timer.doAfter(0.1, function()
-        local restored = self:restoreFocus()
-        local pasteDelay = restored and 0.05 or 0
-        self.logger:d(string.format("Executing paste command (restored focus: %s, delay: %.2f)", tostring(restored),
-            pasteDelay))
-
-        if pasteDelay > 0 then
-            hs.timer.doAfter(pasteDelay, function()
-                hs.eventtap.keyStroke({ "cmd" }, "v", 0)
-            end)
-        else
-            hs.eventtap.keyStroke({ "cmd" }, "v", 0)
-        end
-    end)
+    -- Restore focus and paste immediately
+    self:restoreFocus()
+    hs.eventtap.keyStroke({ "cmd" }, "v", 0)
 end
 
 --- ClipboardHistory:clear()

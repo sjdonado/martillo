@@ -20,6 +20,8 @@ obj.logger = hs.logger.new('LaunchOrToggleFocus', 'info')
 --- Method
 --- Initialize the spoon
 function obj:init()
+    -- Enable Spotlight for name searches to support PWAs and alternate app names
+    hs.application.enableSpotlightForNameSearches(true)
     return self
 end
 
@@ -31,12 +33,15 @@ end
 ---  * appName - The name of the application to launch or toggle
 function obj:launchOrToggle(appName)
     local app = hs.application.get(appName)
-    if app and app:isFrontmost() then
+    if app and type(app.isFrontmost) == "function" and app:isFrontmost() then
         -- If app is running and focused, unfocus it (hide)
         app:hide()
     else
         -- Launch or focus the app
-        hs.application.launchOrFocus(appName)
+        local success = hs.application.launchOrFocus(appName)
+        if not success then
+            self.logger.e("Failed to launch or focus: " .. appName)
+        end
     end
 end
 

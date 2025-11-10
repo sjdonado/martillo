@@ -102,12 +102,13 @@ return require("martillo").setup({
   {
     "BrowserRedirect",
     opts = {
-      defaultBrowser = "Safari",
+      default_app = "Safari",
       redirect = {
-        { match = { "*localhost*", "*127.0.0.1*", "*0.0.0.0*" }, browser = "Chromium" },
+        { match = { "*localhost*", "*127.0.0.1*", "*0.0.0.0*" }, app = "Chromium" },
+        { match = { "*meet.google*" }, app = "Google Meet" },
       },
       mapper = {
-        { name = "googleToKagiHomepage", from = "*google.com*", to = "https://kagi.com/" },
+        { name = "googleToKagiHomepage", from = "*google.com*", to = "https://kagi.com" },
         {
           name = "googleToKagiSearch",
           from = "*google.com*/search*",
@@ -334,20 +335,20 @@ martillo.reload()
 - [x] Link transformation rules before opening
 
 ### Framework Improvements
-- [ ] **Fork Hammerspoon** - Custom build with enhanced chooser capabilities
 - [x] **Precompiled Spoons** - All spoons loaded and compiled by default
 - [x] **Simplified Configuration** - Single table configuration like lazy.nvim
 - [x] **Spoon Aliases** - Set custom aliases for each spoon
 - [x] **Enhanced Search** - Search by aliases in choosers
 - [x] **Alias Display** - Show aliases in chooser items (right side)
+- [ ] **Nested Choosers** - Child choosers with parent context preservation
+- [ ] **Persistent Choosers** - Don't close on action if child process spawns
 
 ### Enhanced Chooser System
+- [ ] **Fork Hammerspoon** - Custom build with enhanced chooser capabilities
 - [ ] **Navigation Callbacks**:
   - `onScrollTop` - Trigger when scrolling to top
   - `onScrollBottom` - Trigger when scrolling to bottom
   - `onBack` - Navigation back button for nested choosers
-- [ ] **Nested Choosers** - Child choosers with parent context preservation
-- [ ] **Persistent Choosers** - Don't close on action if child process spawns
 - [ ] **Smart Refresh** - Refresh choices without losing scroll position
 - [ ] **Main Launcher** - Central chooser listing all actions and sub-launchers
 

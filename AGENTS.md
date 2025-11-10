@@ -271,19 +271,18 @@ Window management is accessed through ActionsLauncher actions with IDs like `win
 
 **Common Use Cases**:
 - Route localhost URLs to development browser (Chromium)
-- Open work apps (Linear, Jira) in specific browser
+- Open work apps (Google Meet, Linear) in specific app/browser
 - Redirect Google searches to privacy-focused alternatives (Kagi)
-- Keep personal browsing in Safari, work in Chrome
 
 **Configuration Example**:
 ```lua
 {
   "BrowserRedirect",
   opts = {
-    defaultBrowser = "Safari",
+    default_app = "Safari",
     redirect = {
-      { match = { "*localhost*", "*127.0.0.1*" }, browser = "Chromium" },
-      { match = { "*linear.app*" },               browser = "Linear" },
+      { match = { "*localhost*", "*127.0.0.1*", "*0.0.0.0*" }, app = "Chromium" },
+      { match = { "*meet.google*" }, app = "Google Meet" },
     },
     mapper = {
       { 

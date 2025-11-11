@@ -19,16 +19,36 @@ return require("martillo").setup({
 	{
 		"ActionsLauncher",
 		opts = function()
-			return require("actions")
+			-- Import preset bundles
+			local window_mgmt = require("presets.window_management")
+			local utilities = require("presets.utilities")
+			local encoders = require("presets.encoders")
+
+			-- Combine all actions
+			local actions = {}
+			for _, action in ipairs(window_mgmt) do
+				table.insert(actions, action)
+			end
+			for _, action in ipairs(utilities) do
+				table.insert(actions, action)
+			end
+			for _, action in ipairs(encoders) do
+				table.insert(actions, action)
+			end
+
+			return { actions = actions }
 		end,
 		actions = {
 			-- Window management actions
-			{ "window_left_third", keys = { { "<leader>", "left" } } },
-			{ "window_right_third", keys = { { "<leader>", "right" } } },
+			{ "window_left_two_thirds", keys = { { "<leader>", "left" } } },
+			{ "window_right_two_thirds", keys = { { "<leader>", "right" } } },
 			{ "window_almost_maximize", keys = { { "<leader>", "up" } } },
 			{ "window_reasonable_size", keys = { { "<leader>", "down" } } },
 			{ "window_center", keys = { { "<leader>", "return" } } },
 			{ "window_maximize", alias = "wm" },
+			{ "window_left_third", alias = "wlt" },
+			{ "window_right_third", alias = "wrt" },
+			{ "window_center_third", alias = "wct" },
 			-- System actions
 			{ "toggle_caffeinate", alias = "tc" },
 			{ "toggle_system_appearance", alias = "ta" },
@@ -242,29 +262,108 @@ Use the `<leader>` placeholder anywhere inside the modifiers list to expand to y
 
 ### ActionsLauncher Configuration
 
-The ActionsLauncher uses a unified `actions` interface for both static and dynamic actions:
+The ActionsLauncher uses preset bundles that can be imported on demand. Available presets:
+- **`presets.window_management`** - Window positioning and resizing actions
+- **`presets.utilities`** - System utilities (caffeinate, dark mode, IP, UUID, network status)
+- **`presets.encoders`** - Encoder/decoder actions (timestamp, base64, JWT, colors)
+
+#### Import All Presets
 
 ```lua
 {
 	"ActionsLauncher",
 	opts = function()
-		return require("actions")  -- Load all available actions
+		-- Import all preset bundles
+		local window_mgmt = require("presets.window_management")
+		local utilities = require("presets.utilities")
+		local encoders = require("presets.encoders")
+
+		-- Combine into single actions array
+		local actions = {}
+		for _, action in ipairs(window_mgmt) do
+			table.insert(actions, action)
+		end
+		for _, action in ipairs(utilities) do
+			table.insert(actions, action)
+		end
+		for _, action in ipairs(encoders) do
+			table.insert(actions, action)
+		end
+
+		return { actions = actions }
 	end,
 	actions = {
-		-- Static actions with optional keybindings and aliases
-		"maximize_window",                                            -- Enable without keybinding
-		{ "center_window", keys = { { "<leader>", "return" } } },     -- With keybinding
-		{ "window_left_third", keys = { { "<leader>", "left" } } },   -- Window to left third
-		{ "window_right_third", keys = { { "<leader>", "right" } } }, -- Window to right third
+		-- Filter and customize with keybindings and aliases
+		{ "window_left_two_thirds", keys = { { "<leader>", "left" } } },
+		{ "window_right_two_thirds", keys = { { "<leader>", "right" } } },
+		{ "window_center", keys = { { "<leader>", "return" } } },
+		{ "window_maximize", alias = "wm" },
 
-		-- Dynamic actions (open child pickers) with aliases
-		{ "timestamp", alias = "ts" },    -- Unix timestamp converter
-		{ "colors", alias = "color" },    -- Color format converter
-		{ "base64", alias = "b64" },      -- Base64 encoder/decoder
-		{ "jwt", alias = "jwt" },         -- JWT token decoder
+		-- Dynamic actions with aliases
+		{ "timestamp", alias = "ct" },
+		{ "colors", alias = "cc" },
+		{ "base64", alias = "cb" },
+		{ "jwt", alias = "cj" },
 	},
 	keys = {
-		{ "<leader>", "\\", desc = "Toggle Actions Launcher" }
+		{ "<leader>", "space", desc = "Toggle Actions Launcher" }
+	},
+}
+```
+
+#### Import Specific Presets
+
+You can also import only the presets you need:
+
+```lua
+{
+	"ActionsLauncher",
+	opts = function()
+		-- Import only window management and utilities
+		local window_mgmt = require("presets.window_management")
+		local utilities = require("presets.utilities")
+
+		local actions = {}
+		for _, action in ipairs(window_mgmt) do
+			table.insert(actions, action)
+		end
+		for _, action in ipairs(utilities) do
+			table.insert(actions, action)
+		end
+
+		return { actions = actions }
+	end,
+	actions = {
+		{ "window_maximize", alias = "wm" },
+		{ "toggle_caffeinate", alias = "tc" },
+	},
+	keys = {
+		{ "<leader>", "space", desc = "Toggle Actions Launcher" }
+	},
+}
+```
+
+#### Custom Actions
+
+You can also provide your own custom actions array:
+
+```lua
+{
+	"ActionsLauncher",
+	opts = {
+		actions = {
+			{
+				id = "my_action",
+				name = "My Custom Action",
+				description = "Does something custom",
+				handler = function()
+					hs.alert.show("Custom action!")
+				end,
+			},
+		},
+	},
+	keys = {
+		{ "<leader>", "space", desc = "Toggle Actions Launcher" }
 	},
 }
 ```
@@ -285,7 +384,10 @@ The ActionsLauncher uses a unified `actions` interface for both static and dynam
 
 **Action Examples:**
 
-See the detailed examples below for how to implement static and dynamic actions. A full list of available actions is in [`actions.lua`](actions.lua).
+See the detailed examples below for how to implement static and dynamic actions. All available preset actions can be found in the [`presets/`](presets/) directory:
+- [`presets/window_management.lua`](presets/window_management.lua) - Window positioning actions
+- [`presets/utilities.lua`](presets/utilities.lua) - System utilities
+- [`presets/encoders.lua`](presets/encoders.lua) - Encoder/decoder actions
 
 #### Static Actions
 

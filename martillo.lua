@@ -122,6 +122,11 @@ local function processActionFilters(allActions, actionFilters)
 			for _, action in ipairs(allActions) do
 				allActionsPool[action.id] = action
 			end
+		elseif allActions.actions then
+			-- New format with actions key: { actions = [...] }
+			for _, action in ipairs(allActions.actions) do
+				allActionsPool[action.id] = action
+			end
 		else
 			-- Old format: has static/dynamic keys
 			if allActions.static then

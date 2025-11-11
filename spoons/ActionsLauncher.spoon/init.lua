@@ -5,7 +5,7 @@
 --- Supports nested pickers for dynamic actions.
 
 local searchUtils = require("lib.search")
-local pickerManager = require("lib.picker")
+local navigation = require("lib.navigation")
 
 local obj = {}
 obj.__index = obj
@@ -33,7 +33,7 @@ obj.logger = hs.logger.new("ActionsLauncher", "info")
 --- Method
 --- Initialize the spoon
 function obj:init()
-	self.pickerManager = pickerManager.new()
+	self.pickerManager = navigation.new()
 	return self
 end
 
@@ -60,8 +60,22 @@ function obj:executeActionWithModifiers(choice)
 		return "OPEN_CHILD_PICKER"
 	end
 
-	-- Handle action result with clipboard/paste logic
-	pickerManager.handleActionResult(result)
+	-- Handle string results with copy/paste logic
+	if result and type(result) == "string" and result ~= "" then
+		local shiftHeld = navigation.isShiftHeld()
+
+		if shiftHeld then
+			-- Shift+Enter: Copy only (no paste)
+			hs.pasteboard.setContents(result)
+			hs.alert.show("📋 " .. result)
+		else
+			-- Regular Enter: Copy and paste
+			hs.pasteboard.setContents(result)
+			hs.alert.show("✓ " .. result)
+			-- Paste using keyStrokes
+			hs.eventtap.keyStrokes(result)
+		end
+	end
 
 	-- Close all pickers after executing action
 	self.pickerManager:clear()
@@ -98,29 +112,12 @@ function obj:createChooser()
 	-- Store reference in picker manager
 	self.pickerManager:setChooser(self.chooser)
 
-	-- Set up Shift+ESC to close all pickers
+	-- Set up Shift+ESC to close all pickers using navigation helper
 	if self.escapeKeyWatcher then
 		self.escapeKeyWatcher:stop()
 		self.escapeKeyWatcher = nil
 	end
-
-	self.escapeKeyWatcher = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
-		local keyCode = event:getKeyCode()
-		local modifiers = event:getFlags()
-
-		-- ESC key (keyCode 53) with Shift modifier
-		if keyCode == 53 and modifiers.shift then
-			-- Close all pickers
-			self.pickerManager:clear()
-			if self.chooser then
-				self.chooser:hide()
-			end
-			return true -- Consume the event
-		end
-
-		return false -- Don't consume other events
-	end)
-	self.escapeKeyWatcher:start()
+	self.escapeKeyWatcher = navigation.setupShiftEscapeWatcher(self.pickerManager, self.chooser)
 
 	-- Automatically cleanup when chooser is hidden
 	self.chooser:hideCallback(function()
@@ -194,7 +191,8 @@ function obj:setup(config)
 
 				local hotkey = hs.hotkey.bind(mods, key, function()
 					local result = handler()
-					if result and type(result) == "string" and result ~= "" then
+					-- Don't show alert for child picker actions or empty results
+					if result and type(result) == "string" and result ~= "" and result ~= "OPEN_CHILD_PICKER" then
 						hs.alert.show(result)
 					end
 				end)
@@ -262,12 +260,18 @@ function obj:openChildPicker(config)
 
 	-- Small delay to ensure smooth transition
 	hs.timer.doAfter(0.05, function()
+		-- Flag to track if chooser was closed due to selection
+		local closedBySelection = false
+
 		-- Create new chooser for child picker
 		if self.chooser then
 			self.chooser:delete()
 		end
 
 		self.chooser = hs.chooser.new(function(choice)
+			if choice then
+				closedBySelection = true
+			end
 			self:executeActionWithModifiers(choice)
 		end)
 
@@ -293,36 +297,12 @@ function obj:openChildPicker(config)
 		-- Set initial empty choices
 		self.chooser:choices({})
 
-		-- Set up DELETE key watcher for going back when query is empty
+		-- Set up DELETE key watcher for going back when query is empty using navigation helper
 		if self.deleteKeyWatcher then
 			self.deleteKeyWatcher:stop()
 			self.deleteKeyWatcher = nil
 		end
-
-		self.deleteKeyWatcher = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
-			local keyCode = event:getKeyCode()
-			local modifiers = event:getFlags()
-			local query = self.chooser and self.chooser:query() or ""
-
-			-- Shift+ESC: Close all pickers
-			if keyCode == 53 and modifiers.shift then
-				self.pickerManager:clear()
-				if self.chooser then
-					self.chooser:hide()
-				end
-				return true -- Consume the event
-			end
-
-			-- DELETE key (keyCode 51) pressed when query is empty
-			if keyCode == 51 and (not query or query == "") and self.pickerManager:hasParent() then
-				-- Navigate back to parent
-				self.chooser:hide()
-				return true -- Consume the event
-			end
-
-			return false -- Don't consume other events
-		end)
-		self.deleteKeyWatcher:start()
+		self.deleteKeyWatcher = navigation.setupDeleteKeyWatcher(self.pickerManager, self.chooser)
 
 		-- Store reference in picker manager
 		self.pickerManager:setChooser(self.chooser)
@@ -335,8 +315,8 @@ function obj:openChildPicker(config)
 				self.deleteKeyWatcher = nil
 			end
 
-			-- Check if user pressed ESC or DELETE - navigate back to parent
-			if self.pickerManager:hasParent() then
+			-- Only navigate back if NOT closed by selection
+			if not closedBySelection and self.pickerManager:hasParent() then
 				local parent = self.pickerManager:popParent()
 
 				-- Small delay before showing parent
@@ -390,29 +370,12 @@ function obj:restoreParentPicker(parentState)
 	-- Store reference in picker manager
 	self.pickerManager:setChooser(self.chooser)
 
-	-- Set up Shift+ESC to close all pickers
+	-- Set up Shift+ESC to close all pickers using navigation helper
 	if self.escapeKeyWatcher then
 		self.escapeKeyWatcher:stop()
 		self.escapeKeyWatcher = nil
 	end
-
-	self.escapeKeyWatcher = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
-		local keyCode = event:getKeyCode()
-		local modifiers = event:getFlags()
-
-		-- ESC key (keyCode 53) with Shift modifier
-		if keyCode == 53 and modifiers.shift then
-			-- Close all pickers
-			self.pickerManager:clear()
-			if self.chooser then
-				self.chooser:hide()
-			end
-			return true -- Consume the event
-		end
-
-		return false -- Don't consume other events
-	end)
-	self.escapeKeyWatcher:start()
+	self.escapeKeyWatcher = navigation.setupShiftEscapeWatcher(self.pickerManager, self.chooser)
 
 	-- Automatically cleanup when chooser is hidden
 	self.chooser:hideCallback(function()

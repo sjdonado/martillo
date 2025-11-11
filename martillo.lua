@@ -21,7 +21,7 @@ M.config = {}
 M.defaults = {
 	autoReload = true,
 	alertOnLoad = true,
-	alertMessage = "Martillo Ready",
+	alertMessage = "Martillo is ready",
 	leader_key = nil,
 }
 

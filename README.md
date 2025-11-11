@@ -23,6 +23,7 @@ return require("martillo").setup({
 			local window_mgmt = require("presets.window_management")
 			local utilities = require("presets.utilities")
 			local encoders = require("presets.encoders")
+			local clipboard = require("presets.clipboard_history")
 
 			-- Combine all actions
 			local actions = {}
@@ -33,6 +34,9 @@ return require("martillo").setup({
 				table.insert(actions, action)
 			end
 			for _, action in ipairs(encoders) do
+				table.insert(actions, action)
+			end
+			for _, action in ipairs(clipboard) do
 				table.insert(actions, action)
 			end
 
@@ -60,6 +64,8 @@ return require("martillo").setup({
 			{ "colors", alias = "cc" },
 			{ "base64", alias = "cb" },
 			{ "jwt", alias = "cj" },
+			-- Clipboard history
+			{ "clipboard_history", alias = "ch" },
 		},
 		keys = {
 			{ "<leader>", "space", desc = "Toggle Actions Launcher" },
@@ -95,16 +101,9 @@ return require("martillo").setup({
 		},
 	},
 
-	-- ClipboardHistory: Clipboard manager
-	{
-		"ClipboardHistory",
-		config = function(spoon)
-			spoon:start()
-		end,
-		keys = {
-			{ "<leader>", "-", desc = "Toggle Clipboard History" },
-		},
-	},
+	-- Note: ClipboardHistory is now accessed via ActionsLauncher
+	-- Using the clipboard_history preset action (alias: "ch")
+	-- It will be automatically loaded when the preset is imported
 
 	-- MySchedule: Calendar integration that displays today's events in the menu bar
 	{
@@ -183,6 +182,11 @@ Lightweight clipboard manager with persistent plain text history. Features:
 - Simple plain text storage (fish_history-like format)
 - Support for text, images, and file paths
 - Background clipboard monitoring
+- **Accessed via ActionsLauncher**: Use the `clipboard_history` preset action to access clipboard history from the actions palette
+- **Flexible usage**: Works standalone (via keymap) or as a child picker from ActionsLauncher
+- **Smart selection**: Enter pastes to focused window, Shift+Enter copies to clipboard only
+- **Smart navigation**: DELETE key goes back to parent picker (only when opened from ActionsLauncher), Shift+ESC closes all pickers
+- All chooser logic is managed by the preset for full control
 - No external dependencies required
 - Human-readable history file
 
@@ -266,6 +270,7 @@ The ActionsLauncher uses preset bundles that can be imported on demand. Availabl
 - **`presets.window_management`** - Window positioning and resizing actions
 - **`presets.utilities`** - System utilities (caffeinate, dark mode, IP, UUID, network status)
 - **`presets.encoders`** - Encoder/decoder actions (timestamp, base64, JWT, colors)
+- **`presets.clipboard_history`** - Opens ClipboardHistory spoon as a child picker
 
 #### Import All Presets
 
@@ -277,6 +282,7 @@ The ActionsLauncher uses preset bundles that can be imported on demand. Availabl
 		local window_mgmt = require("presets.window_management")
 		local utilities = require("presets.utilities")
 		local encoders = require("presets.encoders")
+		local clipboard = require("presets.clipboard_history")
 
 		-- Combine into single actions array
 		local actions = {}
@@ -287,6 +293,9 @@ The ActionsLauncher uses preset bundles that can be imported on demand. Availabl
 			table.insert(actions, action)
 		end
 		for _, action in ipairs(encoders) do
+			table.insert(actions, action)
+		end
+		for _, action in ipairs(clipboard) do
 			table.insert(actions, action)
 		end
 
@@ -379,8 +388,11 @@ You can also provide your own custom actions array:
 
 **Child Picker Navigation:**
 - Type to provide input for dynamic actions
+- **Enter**: Copy to clipboard and paste to focused window
+- **Shift+Enter**: Copy to clipboard only (no paste)
 - **ESC**: Close child picker and return to parent
 - **DELETE** (when query is empty): Return to parent picker
+- **Shift+ESC**: Close all pickers (parent and children)
 
 **Action Examples:**
 
@@ -388,6 +400,7 @@ See the detailed examples below for how to implement static and dynamic actions.
 - [`presets/window_management.lua`](presets/window_management.lua) - Window positioning actions
 - [`presets/utilities.lua`](presets/utilities.lua) - System utilities
 - [`presets/encoders.lua`](presets/encoders.lua) - Encoder/decoder actions
+- [`presets/clipboard_history.lua`](presets/clipboard_history.lua) - Opens ClipboardHistory as a child picker
 
 #### Static Actions
 
@@ -408,7 +421,11 @@ Static actions execute immediately when selected:
 
 #### Dynamic Actions (Child Picker Pattern)
 
-Dynamic actions open a child picker where user input is processed in real-time. Here are examples of the built-in dynamic actions:
+Dynamic actions open a child picker where user input is processed in real-time. When an item is selected:
+- **Enter**: The returned string is copied to clipboard AND pasted to focused window
+- **Shift+Enter**: The returned string is copied to clipboard only (no paste)
+
+Here are examples of the built-in dynamic actions:
 
 **Timestamp Converter:**
 
@@ -444,16 +461,14 @@ Dynamic actions open a child picker where user input is processed in real-time. 
 				local uuid = launcher:generateUUID()
 
 				launcher.handlers[uuid] = function()
-					hs.pasteboard.setContents(date)
-					return "Copied: " .. date
+					return date
 				end
 
 				return {
 					{
 						text = date,
 						subText = string.format("%.0f seconds ago", relativeTime),
-						uuid = uuid,
-						copyToClipboard = true
+						uuid = uuid
 					}
 				}
 			end
@@ -708,7 +723,7 @@ return require("martillo").setup({
 	-- Global options (non-numeric keys)
 	autoReload = true,               -- Auto-reload on file change (default: true)
 	alertOnLoad = true,              -- Show alert when config loads (default: true)
-	alertMessage = "Martillo Ready", -- Custom load message
+	alertMessage = "Martillo is ready", -- Custom load message
 	leader_key = { "alt", "shift" }, -- Expand <leader> modifiers (optional)
 
 	-- Spoons configuration (numeric keys)

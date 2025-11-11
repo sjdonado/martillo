@@ -189,4 +189,78 @@ function M.wrapWithCloseAll(callback, pickerManager, chooser)
     end
 end
 
+--- Setup keyboard event watcher for Shift+ESC (close all pickers)
+--- @param pickerManager table The picker manager instance
+--- @param chooser userdata The chooser instance
+--- @return userdata The event tap watcher
+function M.setupShiftEscapeWatcher(pickerManager, chooser)
+    local watcher = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
+        local keyCode = event:getKeyCode()
+        local modifiers = event:getFlags()
+
+        -- ESC key (keyCode 53) with Shift modifier
+        if keyCode == 53 and modifiers.shift then
+            -- Close all pickers
+            if pickerManager then
+                pickerManager:clear()
+            end
+            if chooser then
+                chooser:hide()
+            end
+            return true -- Consume the event
+        end
+
+        return false -- Don't consume other events
+    end)
+    watcher:start()
+    return watcher
+end
+
+--- Setup keyboard event watcher for DELETE key (go back to parent when query is empty)
+--- Works for both parent and child pickers
+--- @param pickerManager table The picker manager instance
+--- @param chooser userdata The chooser instance
+--- @param options table Optional configuration:
+---   - onBackToParent: function() Callback when going back to parent (child picker only)
+--- @return userdata The event tap watcher
+function M.setupDeleteKeyWatcher(pickerManager, chooser, options)
+    options = options or {}
+
+    local watcher = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
+        local keyCode = event:getKeyCode()
+        local modifiers = event:getFlags()
+        local query = chooser and chooser:query() or ""
+
+        -- Shift+ESC: Close all pickers (handled by setupShiftEscapeWatcher)
+        if keyCode == 53 and modifiers.shift then
+            if pickerManager then
+                pickerManager:clear()
+            end
+            if chooser then
+                chooser:hide()
+            end
+            return true -- Consume the event
+        end
+
+        -- DELETE key (keyCode 51) pressed when query is empty
+        if keyCode == 51 and (not query or query == "") and pickerManager:hasParent() then
+            -- Navigate back to parent
+            if chooser then
+                chooser:hide()
+            end
+
+            -- Call callback if provided (for child pickers)
+            if options.onBackToParent then
+                options.onBackToParent()
+            end
+
+            return true -- Consume the event
+        end
+
+        return false -- Don't consume other events
+    end)
+    watcher:start()
+    return watcher
+end
+
 return M

@@ -43,6 +43,35 @@ local function merge(...)
 	return result
 end
 
+-- Append all elements from multiple arrays into dest
+local function append_all(dest, ...)
+	for _, t in ipairs({ ... }) do
+		for i = 1, #t do
+			dest[#dest + 1] = t[i]
+		end
+	end
+end
+
+-- Flatten actions array if it contains nested arrays
+-- Supports both: { action1, action2 } and { {action1, action2}, {action3, action4} }
+local function flattenActions(actions)
+	if not actions or type(actions) ~= "table" or #actions == 0 then
+		return actions
+	end
+
+	-- Check if first element is an array (nested structure)
+	local firstElement = actions[1]
+	if type(firstElement) == "table" and #firstElement > 0 and not firstElement.id then
+		-- Nested arrays detected - flatten them
+		local flattened = {}
+		append_all(flattened, table.unpack(actions))
+		return flattened
+	end
+
+	-- Already flat
+	return actions
+end
+
 -- Process hotkey specification
 local function processHotkeys(spoon, keys)
 	if not keys or not spoon.bindHotkeys then
@@ -314,6 +343,13 @@ local function loadSpoon(spec)
 		-- Process opts
 		if spec.opts then
 			local opts = type(spec.opts) == "function" and spec.opts() or spec.opts
+
+			-- Flatten actions array if it contains nested arrays
+			-- This allows users to write: { actions = { window_mgmt, utilities, encoders } }
+			-- instead of manually combining all arrays
+			if opts and opts.actions then
+				opts.actions = flattenActions(opts.actions)
+			end
 
 			-- If actions filter is provided, filter and customize the opts
 			if spec.actions then

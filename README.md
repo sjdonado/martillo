@@ -25,22 +25,8 @@ return require("martillo").setup({
 			local encoders = require("presets.encoders")
 			local clipboard = require("presets.clipboard_history")
 
-			-- Combine all actions
-			local actions = {}
-			for _, action in ipairs(window_mgmt) do
-				table.insert(actions, action)
-			end
-			for _, action in ipairs(utilities) do
-				table.insert(actions, action)
-			end
-			for _, action in ipairs(encoders) do
-				table.insert(actions, action)
-			end
-			for _, action in ipairs(clipboard) do
-				table.insert(actions, action)
-			end
-
-			return { actions = actions }
+			-- Martillo automatically flattens nested arrays
+			return { actions = { window_mgmt, utilities, encoders, clipboard } }
 		end,
 		actions = {
 			-- Window management actions
@@ -278,6 +264,8 @@ The ActionsLauncher uses preset bundles that can be imported on demand. Availabl
 
 #### Import All Presets
 
+Martillo automatically flattens nested action arrays, so you can simply pass an array of preset bundles:
+
 ```lua
 {
 	"ActionsLauncher",
@@ -288,22 +276,8 @@ The ActionsLauncher uses preset bundles that can be imported on demand. Availabl
 		local encoders = require("presets.encoders")
 		local clipboard = require("presets.clipboard_history")
 
-		-- Combine into single actions array
-		local actions = {}
-		for _, action in ipairs(window_mgmt) do
-			table.insert(actions, action)
-		end
-		for _, action in ipairs(utilities) do
-			table.insert(actions, action)
-		end
-		for _, action in ipairs(encoders) do
-			table.insert(actions, action)
-		end
-		for _, action in ipairs(clipboard) do
-			table.insert(actions, action)
-		end
-
-		return { actions = actions }
+		-- Martillo automatically flattens nested arrays
+		return { actions = { window_mgmt, utilities, encoders, clipboard } }
 	end,
 	actions = {
 		-- Filter and customize with keybindings and aliases
@@ -336,15 +310,7 @@ You can also import only the presets you need:
 		local window_mgmt = require("presets.window_management")
 		local utilities = require("presets.utilities")
 
-		local actions = {}
-		for _, action in ipairs(window_mgmt) do
-			table.insert(actions, action)
-		end
-		for _, action in ipairs(utilities) do
-			table.insert(actions, action)
-		end
-
-		return { actions = actions }
+		return { actions = { window_mgmt, utilities } }
 	end,
 	actions = {
 		{ "window_maximize", alias = "wm" },

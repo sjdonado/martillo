@@ -36,10 +36,10 @@ return require("martillo").setup({
 			{ "generate_uuid", alias = "gu" },
 			{ "network_status" },
 			-- Dynamic actions (open child pickers)
-			{ "timestamp", alias = "ts" },
-			{ "colors", alias = "color" },
-			{ "base64", alias = "b64" },
-			{ "jwt", alias = "jwt" },
+			{ "timestamp", alias = "ct" },
+			{ "colors", alias = "cc" },
+			{ "base64", alias = "cb" },
+			{ "jwt", alias = "cj" },
 		},
 		keys = {
 			{ "<leader>", "space", desc = "Toggle Actions Launcher" },

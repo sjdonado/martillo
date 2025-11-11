@@ -34,8 +34,8 @@ Martillo is a declarative configuration framework for Hammerspoon that follows t
 ### Core Structure
 - **`martillo.lua`**: Main framework module that handles spoon loading, configuration, and hotkey binding
 - **`spoons/`**: Collection of custom Hammerspoon spoons (productivity tools)
-- **`spoons/_internal/`**: Shared internal modules (leader.lua, search.lua, window.lua)
-- **`config/`**: Optional configuration modules (like `actions.lua` for ActionsLauncher)
+- **`lib/`**: Shared library modules (leader.lua, search.lua, window.lua, picker.lua)
+- **`actions.lua`**: Action definitions for ActionsLauncher
 
 ### Key Design Patterns
 
@@ -55,7 +55,7 @@ Martillo is a declarative configuration framework for Hammerspoon that follows t
 
 4. **Hotkey Processing**: The framework automatically processes hotkey specifications and binds them using `spoon:bindHotkeys()` or per-action keybindings
 
-5. **Shared Modules**: Internal utilities in `spoons/_internal/` for leader key handling, fuzzy search, and window management
+5. **Shared Modules**: Internal utilities in `lib/` for leader key handling, fuzzy search, window management, and picker state management
 
 ## Built-in Spoons
 
@@ -110,31 +110,29 @@ Martillo is a declarative configuration framework for Hammerspoon that follows t
 - Custom action workflows with keybindings
 
 **Technical Details**:
-- Actions defined in `config/actions.lua` and filtered in spoon configuration
-- Uses `spoons/_internal/search.lua` for fuzzy ranking with alias boosting
+- Actions defined in `actions.lua` and filtered in spoon configuration
+- Uses `lib/search.lua` for fuzzy ranking with alias boosting
+- Uses `lib/picker.lua` for parent-child picker state management
 - Static actions support `keys` property for direct hotkey binding
-- Dynamic actions use pattern matching on query input
+- Dynamic actions open child pickers for user input processing
 
 **Configuration Example**:
 ```lua
 {
   "ActionsLauncher",
   opts = function()
-    return require("config.actions")  -- Load all available actions
+    return require("actions")  -- Load all available actions
   end,
   actions = {
-    static = {
-      -- Enable specific actions with optional keybindings and aliases
-      { "window_center", keys = { { "<leader>", "return" } } },
-      { "toggle_caffeinate", alias = "tc" },
-      { "copy_ip", alias = "gi" },
-    },
-    dynamic = {
-      "timestamp",    -- Auto-converts unix timestamps
-      "colors",       -- Auto-converts color formats
-      "base64",       -- Auto-decodes base64
-      "jwt",          -- Auto-decodes JWT tokens
-    }
+    -- Enable specific actions with optional keybindings and aliases
+    { "window_center", keys = { { "<leader>", "return" } } },
+    { "toggle_caffeinate", alias = "tc" },
+    { "copy_ip", alias = "gi" },
+    -- Dynamic actions (open child pickers)
+    { "timestamp", alias = "ts" },
+    { "colors", alias = "color" },
+    { "base64", alias = "b64" },
+    { "jwt", alias = "jwt" },
   },
   keys = {
     { "<leader>", "space", desc = "Toggle Actions Launcher" }
@@ -147,7 +145,7 @@ Martillo is a declarative configuration framework for Hammerspoon that follows t
 ### Window Management (Internal Module)
 **Purpose**: Shared library for keyboard-driven window positioning - used by ActionsLauncher, not a standalone spoon
 
-**Location**: `spoons/_internal/window.lua`
+**Location**: `lib/window.lua`
 
 **Available Positions**:
 - **Halves**: left, right, up, down (50% of screen)
@@ -363,13 +361,14 @@ return require("martillo").setup({
 
   {
     "ActionsLauncher",
-    opts = function() return require("config.actions") end,
+    opts = function() return require("actions") end,
     actions = {
-      static = {
-        { "window_center", keys = { { "<leader>", "return" } } },
-        { "toggle_caffeinate", alias = "tc" },
-      },
-      dynamic = { "timestamp", "colors", "base64", "jwt" }
+      { "window_center", keys = { { "<leader>", "return" } } },
+      { "toggle_caffeinate", alias = "tc" },
+      { "timestamp", alias = "ts" },
+      { "colors", alias = "color" },
+      { "base64", alias = "b64" },
+      { "jwt", alias = "jwt" },
     },
     keys = { { "<leader>", "space", desc = "Toggle Actions Launcher" } }
   },

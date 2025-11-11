@@ -14,15 +14,15 @@ obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 obj.hotkeys = {}
 obj.applications = {}
-obj.logger = hs.logger.new('LaunchOrToggleFocus', 'info')
+obj.logger = hs.logger.new("LaunchOrToggleFocus", "info")
 
 --- LaunchOrToggleFocus:init()
 --- Method
 --- Initialize the spoon
 function obj:init()
-    -- Enable Spotlight for name searches to support PWAs and alternate app names
-    hs.application.enableSpotlightForNameSearches(true)
-    return self
+	-- Enable Spotlight for name searches to support PWAs and alternate app names
+	hs.application.enableSpotlightForNameSearches(true)
+	return self
 end
 
 --- LaunchOrToggleFocus:launchOrToggle(appName)
@@ -32,17 +32,17 @@ end
 --- Parameters:
 ---  * appName - The name of the application to launch or toggle
 function obj:launchOrToggle(appName)
-    local app = hs.application.get(appName)
-    if app and type(app.isFrontmost) == "function" and app:isFrontmost() then
-        -- If app is running and focused, unfocus it (hide)
-        app:hide()
-    else
-        -- Launch or focus the app
-        local success = hs.application.launchOrFocus(appName)
-        if not success then
-            self.logger.e("Failed to launch or focus: " .. appName)
-        end
-    end
+	local app = hs.application.get(appName)
+	if app and type(app.isFrontmost) == "function" and app:isFrontmost() then
+		-- If app is running and focused, unfocus it (hide)
+		app:hide()
+	else
+		-- Launch or focus the app
+		local success = hs.application.launchOrFocus(appName)
+		if not success then
+			self.logger.e("Failed to launch or focus: " .. appName)
+		end
+	end
 end
 
 --- LaunchOrToggleFocus:setup(keys)
@@ -60,16 +60,16 @@ end
 ---     { { "alt", "shift" }, "g", app = "ChatGPT" }
 ---   })
 function obj:setup(keys)
-    for _, config in ipairs(keys) do
-        local mods = config[1]
-        local key = config[2]
-        if mods and key and config.app then
-            hs.hotkey.bind(mods, key, function()
-                self:launchOrToggle(config.app)
-            end)
-        end
-    end
-    return self
+	for _, config in ipairs(keys) do
+		local mods = config[1]
+		local key = config[2]
+		if mods and key and config.app then
+			hs.hotkey.bind(mods, key, function()
+				self:launchOrToggle(config.app)
+			end)
+		end
+	end
+	return self
 end
 
 --- LaunchOrToggleFocus:bindHotkeys(mapping)
@@ -86,16 +86,16 @@ end
 ---     terminal = { { "alt", "shift" }, "t" }
 ---   })
 function obj:bindHotkeys(mapping)
-    local def = {}
-    for appKey, hotkey in pairs(mapping) do
-        def[appKey] = function()
-            -- Convert appKey to proper app name (capitalize first letter)
-            local appName = appKey:gsub("^%l", string.upper)
-            self:launchOrToggle(appName)
-        end
-    end
-    hs.spoons.bindHotkeysToSpec(def, mapping)
-    return self
+	local def = {}
+	for appKey, hotkey in pairs(mapping) do
+		def[appKey] = function()
+			-- Convert appKey to proper app name (capitalize first letter)
+			local appName = appKey:gsub("^%l", string.upper)
+			self:launchOrToggle(appName)
+		end
+	end
+	hs.spoons.bindHotkeysToSpec(def, mapping)
+	return self
 end
 
 return obj

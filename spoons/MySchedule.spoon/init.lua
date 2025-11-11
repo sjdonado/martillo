@@ -20,539 +20,552 @@ obj.lastUpdate = 0       -- Timestamp of last update
 obj.loadingTask = nil    -- Current loading task
 obj.isLoading = false    -- Loading state
 obj.eventkitBinary = nil -- Cached EventKit fetcher binary
-obj.logger = hs.logger.new('MySchedule', 'info')
+obj.logger = hs.logger.new("MySchedule", "info")
 
 --- MySchedule:init()
 --- Method
 --- Initialize the spoon
 function obj:init()
-    self.menubar = hs.menubar.new(true, "MySchedule")
-    if self.menubar then
-        self.menubar:setTitle("Loading...")
-        self.menubar:setTooltip("My Schedule - Loading calendar events...")
-    end
-    -- Trigger permission dialog if needed
-    self:triggerCalendarPermissions()
-    return self
+	self.menubar = hs.menubar.new(true, "MySchedule")
+	if self.menubar then
+		self.menubar:setTitle("Loading...")
+		self.menubar:setTooltip("My Schedule - Loading calendar events...")
+	end
+	-- Trigger permission dialog if needed
+	self:triggerCalendarPermissions()
+	return self
 end
 
 --- MySchedule:start()
 --- Method
 --- Start the schedule monitoring
 function obj:start()
-    if self.menubar then
-        self:loadEventsAsync()
+	if self.menubar then
+		self:loadEventsAsync()
 
-        -- Set up timer to update every 3 minutes
-        self.timer = hs.timer.doEvery(self.updateInterval, function()
-            self:loadEventsAsync()
-        end)
-    end
-    return self
+		-- Set up timer to update every 3 minutes
+		self.timer = hs.timer.doEvery(self.updateInterval, function()
+			self:loadEventsAsync()
+		end)
+	end
+	return self
 end
 
 --- MySchedule:stop()
 --- Method
 --- Stop the schedule monitoring
 function obj:stop()
-    if self.timer then
-        self.timer:stop()
-        self.timer = nil
-    end
-    if self.loadingTask then
-        self.loadingTask:terminate()
-        self.loadingTask = nil
-    end
-    self.isLoading = false
-    -- Clear cached binary reference (don't delete - it's managed by init.lua)
-    self.eventkitBinary = nil
-    return self
+	if self.timer then
+		self.timer:stop()
+		self.timer = nil
+	end
+	if self.loadingTask then
+		self.loadingTask:terminate()
+		self.loadingTask = nil
+	end
+	self.isLoading = false
+	-- Clear cached binary reference (don't delete - it's managed by init.lua)
+	self.eventkitBinary = nil
+	return self
 end
 
 --- MySchedule:updateSchedule()
 --- Method
 --- Update the menu bar with current schedule information
 function obj:updateSchedule()
-    self.logger:d("updateSchedule called")
-    local events = self.cachedEvents
-    self.logger:d("updateSchedule - using " .. #events .. " cached events")
+	self.logger:d("updateSchedule called")
+	local events = self.cachedEvents
+	self.logger:d("updateSchedule - using " .. #events .. " cached events")
 
-    local nextEvent = self:findNextEvent(events)
-    self.logger:d("updateSchedule - nextEvent: " .. (nextEvent and nextEvent.title or "nil"))
+	local nextEvent = self:findNextEvent(events)
+	self.logger:d("updateSchedule - nextEvent: " .. (nextEvent and nextEvent.title or "nil"))
 
-    if nextEvent then
-        local timeUntil = self:formatTimeUntil(nextEvent.startTimestamp)
-        local title = string.format("%s • %s", nextEvent.title, timeUntil)
-        self.logger:d("Setting menu bar title to: " .. title)
+	if nextEvent then
+		local timeUntil = self:formatTimeUntil(nextEvent.startTimestamp)
+		local title = string.format("%s • %s", nextEvent.title, timeUntil)
+		self.logger:d("Setting menu bar title to: " .. title)
 
-        -- Truncate if too long for menu bar
-        if string.len(title) > 50 then
-            title = string.sub(nextEvent.title, 1, 30) .. "... - " .. timeUntil
-        end
+		-- Truncate if too long for menu bar
+		if string.len(title) > 50 then
+			title = string.sub(nextEvent.title, 1, 30) .. "... - " .. timeUntil
+		end
 
-        self.menubar:setTitle(title)
-        self.menubar:setTooltip(string.format("%s\n%s", nextEvent.title, nextEvent.timeRange))
-    else
-        if not self.isLoading then
-            self.logger:d("No next event, setting 'No events'")
-            self.menubar:setTitle("No events")
-            self.menubar:setTooltip("No upcoming events found")
-        else
-            self.logger:d("Still loading, keeping loading state")
-        end
-    end
+		self.menubar:setTitle(title)
+		self.menubar:setTooltip(string.format("%s\n%s", nextEvent.title, nextEvent.timeRange))
+	else
+		if not self.isLoading then
+			self.logger:d("No next event, setting 'No events'")
+			self.menubar:setTitle("No events")
+			self.menubar:setTooltip("No upcoming events found")
+		else
+			self.logger:d("Still loading, keeping loading state")
+		end
+	end
 
-    -- Update menu
-    self:setMenu(nextEvent, events)
-    self.logger:d("updateSchedule completed")
+	-- Update menu
+	self:setMenu(nextEvent, events)
+	self.logger:d("updateSchedule completed")
 end
 
 --- MySchedule:loadEventsAsync()
 --- Method
 --- Load events asynchronously using parallel AppleScript execution
 function obj:loadEventsAsync()
-    if self.isLoading then
-        return
-    end
+	if self.isLoading then
+		return
+	end
 
-    self.isLoading = true
-    -- Only show "Loading..." if we don't have cached events
-    if self.menubar and #self.cachedEvents == 0 then
-        self.menubar:setTitle("Loading...")
-    end
+	self.isLoading = true
+	-- Only show "Loading..." if we don't have cached events
+	if self.menubar and #self.cachedEvents == 0 then
+		self.menubar:setTitle("Loading...")
+	end
 
-    -- Cancel any existing task
-    if self.loadingTask then
-        self.loadingTask:terminate()
-        self.loadingTask = nil
-    end
+	-- Cancel any existing task
+	if self.loadingTask then
+		self.loadingTask:terminate()
+		self.loadingTask = nil
+	end
 
-    -- Use native EventKit APIs through Objective-C for maximum performance
-    self:loadEventsWithEventKit()
+	-- Use native EventKit APIs through Objective-C for maximum performance
+	self:loadEventsWithEventKit()
 end
 
 --- MySchedule:triggerCalendarPermissions()
 --- Method
 --- Trigger calendar permissions dialog through AppleScript
 function obj:triggerCalendarPermissions()
-    -- Use AppleScript to trigger calendar access which will show permission dialog
-    hs.task.new("/usr/bin/osascript", function(exitCode, stdOut, stdErr)
-        -- Permissions dialog should have appeared, no need to handle result
-    end, { "-e", "tell application \"Calendar\" to return count of calendars" }):start()
+	-- Use AppleScript to trigger calendar access which will show permission dialog
+	hs.task
+			.new("/usr/bin/osascript", function(exitCode, stdOut, stdErr)
+				-- Permissions dialog should have appeared, no need to handle result
+			end, { "-e", 'tell application "Calendar" to return count of calendars' })
+			:start()
 end
 
 --- MySchedule:compile()
 --- Method
 --- Compile the EventKit fetcher binary
 function obj:compile()
-    local spoonPath = hs.spoons.scriptPath()
-    local objcSourcePath = spoonPath .. "/eventkit_fetcher.m"
-    local binaryPath = spoonPath .. "/eventkit_fetcher_bin"
+	local spoonPath = hs.spoons.scriptPath()
+	local objcSourcePath = spoonPath .. "/eventkit_fetcher.m"
+	local binaryPath = spoonPath .. "/eventkit_fetcher_bin"
 
-    self.logger:i("🔨 Compiling EventKit fetcher...")
+	self.logger:i("🔨 Compiling EventKit fetcher...")
 
-    -- Check if Objective-C source exists
-    local file = io.open(objcSourcePath, "r")
-    if not file then
-        error("Source file not found: " .. objcSourcePath)
-    end
-    file:close()
+	-- Check if Objective-C source exists
+	local file = io.open(objcSourcePath, "r")
+	if not file then
+		error("Source file not found: " .. objcSourcePath)
+	end
+	file:close()
 
-    -- Check if binary already exists and is newer than source
-    local sourceAttr = hs.fs.attributes(objcSourcePath)
-    local binaryAttr = hs.fs.attributes(binaryPath)
+	-- Check if binary already exists and is newer than source
+	local sourceAttr = hs.fs.attributes(objcSourcePath)
+	local binaryAttr = hs.fs.attributes(binaryPath)
 
-    if binaryAttr and sourceAttr and binaryAttr.modification >= sourceAttr.modification then
-        self.logger:i("✅ Binary up to date")
-        self.eventkitBinary = binaryPath
-        return
-    end
+	if binaryAttr and sourceAttr and binaryAttr.modification >= sourceAttr.modification then
+		self.logger:i("✅ Binary up to date")
+		self.eventkitBinary = binaryPath
+		return
+	end
 
-    -- Compile the binary synchronously
-    local compileCmd = string.format(
-        "/usr/bin/clang -fobjc-arc -framework EventKit -framework Foundation -o %s %s",
-        binaryPath, objcSourcePath)
+	-- Compile the binary synchronously
+	local compileCmd = string.format(
+		"/usr/bin/clang -fobjc-arc -framework EventKit -framework Foundation -o %s %s",
+		binaryPath,
+		objcSourcePath
+	)
 
-    local output, success = hs.execute(compileCmd)
-    if not success then
-        error("Failed to compile EventKit fetcher. Command: " ..
-            compileCmd .. "\nOutput: " .. (output or "no output"))
-    end
+	local output, success = hs.execute(compileCmd)
+	if not success then
+		error("Failed to compile EventKit fetcher. Command: " .. compileCmd .. "\nOutput: " .. (output or "no output"))
+	end
 
-    -- Verify binary was created
-    local finalBinaryAttr = hs.fs.attributes(binaryPath)
-    if not finalBinaryAttr then
-        error("Binary was not created: " .. binaryPath)
-    end
+	-- Verify binary was created
+	local finalBinaryAttr = hs.fs.attributes(binaryPath)
+	if not finalBinaryAttr then
+		error("Binary was not created: " .. binaryPath)
+	end
 
-    self.eventkitBinary = binaryPath
-    self.logger:i("✅ Binary compiled successfully")
+	self.eventkitBinary = binaryPath
+	self.logger:i("✅ Binary compiled successfully")
 end
 
 --- MySchedule:getEventKitBinary()
 --- Method
 --- Get the pre-compiled EventKit fetcher binary path
 function obj:getEventKitBinary()
-    if self.eventkitBinary then
-        return self.eventkitBinary
-    end
+	if self.eventkitBinary then
+		return self.eventkitBinary
+	end
 
-    local spoonPath = hs.spoons.scriptPath()
-    local binaryPath = spoonPath .. "/eventkit_fetcher_bin"
+	local spoonPath = hs.spoons.scriptPath()
+	local binaryPath = spoonPath .. "/eventkit_fetcher_bin"
 
-    -- Check if binary exists (should be compiled by init.lua)
-    local binaryAttr = hs.fs.attributes(binaryPath)
-    if binaryAttr then
-        self.eventkitBinary = binaryPath
-        return binaryPath
-    end
+	-- Check if binary exists (should be compiled by init.lua)
+	local binaryAttr = hs.fs.attributes(binaryPath)
+	if binaryAttr then
+		self.eventkitBinary = binaryPath
+		return binaryPath
+	end
 
-    -- Binary not found
-    self.logger:e("EventKit binary not found at: " .. binaryPath)
-    return nil
+	-- Binary not found
+	self.logger:e("EventKit binary not found at: " .. binaryPath)
+	return nil
 end
 
 --- MySchedule:loadEventsWithEventKit()
 --- Method
 --- Load events using cached native EventKit binary
 function obj:loadEventsWithEventKit()
-    local binaryPath = self:getEventKitBinary()
-    if not binaryPath then
-        self.isLoading = false
-        self.cachedEvents = {}
-        self:updateSchedule()
-        return
-    end
+	local binaryPath = self:getEventKitBinary()
+	if not binaryPath then
+		self.isLoading = false
+		self.cachedEvents = {}
+		self:updateSchedule()
+		return
+	end
 
-    -- Run the cached binary
-    local command = binaryPath
+	-- Run the cached binary
+	local command = binaryPath
 
-    self.loadingTask = hs.task.new("/bin/sh", function(exitCode, stdOut, stdErr)
-            self.isLoading = false
-            self.loadingTask = nil
+	self.loadingTask = hs.task.new("/bin/sh", function(exitCode, stdOut, stdErr)
+		self.isLoading = false
+		self.loadingTask = nil
 
-            -- Log debug output from stderr
-            if stdErr and stdErr ~= "" then
-                self.logger:i("EventKit debug output:\n" .. stdErr)
-            end
+		-- Log debug output from stderr
+		if stdErr and stdErr ~= "" then
+			self.logger:i("EventKit debug output:\n" .. stdErr)
+		end
 
-            self.logger:i("Raw stdOut: [" .. (stdOut or "nil") .. "]")
+		self.logger:i("Raw stdOut: [" .. (stdOut or "nil") .. "]")
 
-            if exitCode == 0 and stdOut then
-                if stdOut:find("ACCESS_DENIED") then
-                    hs.alert.show(
-                        "Calendar access denied. Please grant Hammerspoon calendar access in System Preferences > Privacy & Security > Calendar")
-                    self.cachedEvents = {}
-                else
-                    self.logger:d("EventKit fetch completed")
-                    self.logger:d("Raw output: " .. stdOut)
-                    self:parseEventKitResult(stdOut)
-                end
-            else
-                self.logger:e("EventKit failed with exit code " .. exitCode .. ": " .. (stdErr or "unknown error"))
-                -- If compilation failed, it might be a permission issue
-                if stdErr and stdErr:find("permission") then
-                    hs.alert.show(
-                        "Please grant Hammerspoon calendar access in System Preferences > Privacy & Security > Calendar")
-                end
-                self.cachedEvents = {}
-                self.lastUpdate = os.time()
-            end
+		if exitCode == 0 and stdOut then
+			if stdOut:find("ACCESS_DENIED") then
+				hs.alert.show(
+					"Calendar access denied. Please grant Hammerspoon calendar access in System Preferences > Privacy & Security > Calendar"
+				)
+				self.cachedEvents = {}
+			else
+				self.logger:d("EventKit fetch completed")
+				self.logger:d("Raw output: " .. stdOut)
+				self:parseEventKitResult(stdOut)
+			end
+		else
+			self.logger:e("EventKit failed with exit code " .. exitCode .. ": " .. (stdErr or "unknown error"))
+			-- If compilation failed, it might be a permission issue
+			if stdErr and stdErr:find("permission") then
+				hs.alert.show(
+					"Please grant Hammerspoon calendar access in System Preferences > Privacy & Security > Calendar"
+				)
+			end
+			self.cachedEvents = {}
+			self.lastUpdate = os.time()
+		end
 
-            self:updateSchedule()
-        end,
-        { "-c", command })
+		self:updateSchedule()
+	end, { "-c", command })
 
-    self.loadingTask:start()
+	self.loadingTask:start()
 end
 
 --- MySchedule:parseEventKitResult(result)
 --- Method
 --- Parse EventKit result data
 function obj:parseEventKitResult(result)
-    self.logger:i("Parsing EventKit data")
-    self.logger:i("Raw result length: " .. (result and #result or 0))
-    local now = os.time()
+	self.logger:i("Parsing EventKit data")
+	self.logger:i("Raw result length: " .. (result and #result or 0))
+	local now = os.time()
 
-    if result and string.find(result, "COUNT:") then
-        local countStr = string.match(result, "COUNT:(%d+)")
-        local eventCount = tonumber(countStr) or 0
-        self.logger:i("Found " .. eventCount .. " events in raw output")
+	if result and string.find(result, "COUNT:") then
+		local countStr = string.match(result, "COUNT:(%d+)")
+		local eventCount = tonumber(countStr) or 0
+		self.logger:i("Found " .. eventCount .. " events in raw output")
 
-        if eventCount > 0 then
-            local eventData = string.match(result, "COUNT:%d+%|%|(.+)")
-            self.logger:i("Event data: " .. (eventData or "nil"))
-            if eventData then
-                local events = {}
+		if eventCount > 0 then
+			local eventData = string.match(result, "COUNT:%d+%|%|(.+)")
+			self.logger:i("Event data: " .. (eventData or "nil"))
+			if eventData then
+				local events = {}
 
-                -- Simple approach: manually parse character by character
-                -- Format: title|timeDiff|timeRange|notes|isRecurring||
-                -- Note: notes can be empty, so we might see |||| (empty notes + event separator)
-                local parts = {}
-                local current = {}
-                local i = 1
+				-- Simple approach: manually parse character by character
+				-- Format: title|timeDiff|timeRange|notes|isRecurring||
+				-- Note: notes can be empty, so we might see |||| (empty notes + event separator)
+				local parts = {}
+				local current = {}
+				local i = 1
 
-                while i <= #eventData do
-                    local char = eventData:sub(i, i)
+				while i <= #eventData do
+					local char = eventData:sub(i, i)
 
-                    if char == "|" then
-                        -- Save current field
-                        table.insert(parts, table.concat(current))
-                        current = {}
+					if char == "|" then
+						-- Save current field
+						table.insert(parts, table.concat(current))
+						current = {}
 
-                        -- Check if next char is also | (event separator or empty field)
-                        if eventData:sub(i+1, i+1) == "|" then
-                            -- Could be event separator (after 5th field) or empty field
-                            -- Check if we have exactly 5 parts - that means this is event separator
-                            if #parts == 5 then
-                                -- Event separator - process complete event
-                                self.logger:i("Complete event with 5 parts: " .. parts[1])
+						-- Check if next char is also | (event separator or empty field)
+						if eventData:sub(i + 1, i + 1) == "|" then
+							-- Could be event separator (after 5th field) or empty field
+							-- Check if we have exactly 5 parts - that means this is event separator
+							if #parts == 5 then
+								-- Event separator - process complete event
+								self.logger:i("Complete event with 5 parts: " .. parts[1])
 
-                                local title = parts[1]
-                                local timeDiff = tonumber(parts[2]) or 0
-                                local timeRange = parts[3]
-                                local eventDescription = parts[4] ~= "" and parts[4] or ""
-                                local isRecurring = parts[5] == "true"
+								local title = parts[1]
+								local timeDiff = tonumber(parts[2]) or 0
+								local timeRange = parts[3]
+								local eventDescription = parts[4] ~= "" and parts[4] or ""
+								local isRecurring = parts[5] == "true"
 
-                                local startTimestamp = now + timeDiff
-                                local meetingURL = self:extractMeetingURL(eventDescription)
+								local startTimestamp = now + timeDiff
+								local meetingURL = self:extractMeetingURL(eventDescription)
 
-                                self.logger:i(string.format("Event: '%s' timeDiff: %.0f seconds (%.1f hours)",
-                                    title, timeDiff, timeDiff/3600))
+								self.logger:i(
+									string.format(
+										"Event: '%s' timeDiff: %.0f seconds (%.1f hours)",
+										title,
+										timeDiff,
+										timeDiff / 3600
+									)
+								)
 
-                                -- Include all events from today (already filtered by EventKit predicate)
-                                self.logger:i("Including event: " .. title)
-                                table.insert(events, {
-                                    title = title,
-                                    startTimestamp = startTimestamp,
-                                    timeRange = timeRange,
-                                    timeDiff = timeDiff,
-                                    isRecurring = isRecurring,
-                                    meetingURL = meetingURL
-                                })
+								-- Include all events from today (already filtered by EventKit predicate)
+								self.logger:i("Including event: " .. title)
+								table.insert(events, {
+									title = title,
+									startTimestamp = startTimestamp,
+									timeRange = timeRange,
+									timeDiff = timeDiff,
+									isRecurring = isRecurring,
+									meetingURL = meetingURL,
+								})
 
-                                -- Reset for next event
-                                parts = {}
-                                i = i + 2  -- Skip both pipes
-                            else
-                                -- Empty field in middle of event - just skip one pipe
-                                i = i + 1
-                            end
-                        else
-                            -- Single pipe - just move forward
-                            i = i + 1
-                        end
-                    else
-                        table.insert(current, char)
-                        i = i + 1
-                    end
-                end
+								-- Reset for next event
+								parts = {}
+								i = i + 2 -- Skip both pipes
+							else
+								-- Empty field in middle of event - just skip one pipe
+								i = i + 1
+							end
+						else
+							-- Single pipe - just move forward
+							i = i + 1
+						end
+					else
+						table.insert(current, char)
+						i = i + 1
+					end
+				end
 
-                self.logger:i("Parsed " .. #events .. " events total")
+				self.logger:i("Parsed " .. #events .. " events total")
 
-                self.cachedEvents = events
-                self.lastUpdate = now
-                self.logger:d("Cached " .. #events .. " processed events")
-            end
-        else
-            self.cachedEvents = {}
-            self.lastUpdate = now
-        end
-    end
+				self.cachedEvents = events
+				self.lastUpdate = now
+				self.logger:d("Cached " .. #events .. " processed events")
+			end
+		else
+			self.cachedEvents = {}
+			self.lastUpdate = now
+		end
+	end
 end
 
 --- MySchedule:findNextEvent(events)
 --- Method
 --- Find the next upcoming event (only future events, not past ones)
 function obj:findNextEvent(events)
-    if #events == 0 then
-        self.logger:d("findNextEvent - No events provided")
-        return nil
-    end
+	if #events == 0 then
+		self.logger:d("findNextEvent - No events provided")
+		return nil
+	end
 
-    self.logger:d("findNextEvent - Processing " .. #events .. " events:")
+	self.logger:d("findNextEvent - Processing " .. #events .. " events:")
 
-    -- Sort events by timeDiff (closest to current time first)
-    local sortedEvents = {}
-    for _, event in ipairs(events) do
-        table.insert(sortedEvents, event)
-    end
-    table.sort(sortedEvents, function(a, b) return a.timeDiff < b.timeDiff end)
+	-- Sort events by timeDiff (closest to current time first)
+	local sortedEvents = {}
+	for _, event in ipairs(events) do
+		table.insert(sortedEvents, event)
+	end
+	table.sort(sortedEvents, function(a, b)
+		return a.timeDiff < b.timeDiff
+	end)
 
-    -- Debug: Print all events with their time differences
-    for i, event in ipairs(sortedEvents) do
-        self.logger:d(string.format("Event %d: '%s' (in %d seconds) - %s",
-            i, event.title, event.timeDiff, event.timeRange))
-    end
+	-- Debug: Print all events with their time differences
+	for i, event in ipairs(sortedEvents) do
+		self.logger:d(
+			string.format("Event %d: '%s' (in %d seconds) - %s", i, event.title, event.timeDiff, event.timeRange)
+		)
+	end
 
-    -- Find first event that is upcoming (timeDiff >= 0) or currently happening (started within last 30 min)
-    for i, event in ipairs(sortedEvents) do
-        -- Show events that are upcoming or recently started (within 30 minutes past)
-        if event.timeDiff >= -1800 then -- -1800 seconds = 30 minutes ago
-            self.logger:d("Selected event: " .. event.title .. " (timeDiff: " .. event.timeDiff .. ")")
-            return event
-        end
-    end
+	-- Find first event that is upcoming (timeDiff >= 0) or currently happening (started within last 30 min)
+	for i, event in ipairs(sortedEvents) do
+		-- Show events that are upcoming or recently started (within 30 minutes past)
+		if event.timeDiff >= -1800 then -- -1800 seconds = 30 minutes ago
+			self.logger:d("Selected event: " .. event.title .. " (timeDiff: " .. event.timeDiff .. ")")
+			return event
+		end
+	end
 
-    -- No upcoming events found
-    self.logger:d("No upcoming events found (all events are in the past)")
-    return nil
+	-- No upcoming events found
+	self.logger:d("No upcoming events found (all events are in the past)")
+	return nil
 end
 
 --- MySchedule:formatTimeUntil(timestamp)
 --- Method
 --- Format the time until an event
 function obj:formatTimeUntil(timestamp)
-    local now = os.time()
-    local seconds = timestamp - now
+	local now = os.time()
+	local seconds = timestamp - now
 
-    if seconds < -3600 then -- More than 1 hour past
-        return "ended"
-    elseif seconds < 0 then
-        return "now"
-    elseif seconds < 60 then
-        return "in <1m"
-    elseif seconds < 3600 then
-        local minutes = math.floor(seconds / 60)
-        return string.format("in %dm", minutes)
-    elseif seconds < 86400 then
-        local hours = math.floor(seconds / 3600)
-        local minutes = math.floor((seconds % 3600) / 60)
-        if minutes > 0 then
-            return string.format("in %dh %dm", hours, minutes)
-        else
-            return string.format("in %dh", hours)
-        end
-    else
-        local days = math.floor(seconds / 86400)
-        return string.format("in %dd", days)
-    end
+	if seconds < -3600 then -- More than 1 hour past
+		return "ended"
+	elseif seconds < 0 then
+		return "now"
+	elseif seconds < 60 then
+		return "in <1m"
+	elseif seconds < 3600 then
+		local minutes = math.floor(seconds / 60)
+		return string.format("in %dm", minutes)
+	elseif seconds < 86400 then
+		local hours = math.floor(seconds / 3600)
+		local minutes = math.floor((seconds % 3600) / 60)
+		if minutes > 0 then
+			return string.format("in %dh %dm", hours, minutes)
+		else
+			return string.format("in %dh", hours)
+		end
+	else
+		local days = math.floor(seconds / 86400)
+		return string.format("in %dd", days)
+	end
 end
 
 --- MySchedule:setMenu(nextEvent, events)
 --- Method
 --- Set up the dropdown menu with event details
 function obj:setMenu(nextEvent, events)
-    local menu = {}
+	local menu = {}
 
-    -- Today's events section
-    table.insert(menu, {
-        title = "Today's Events",
-        disabled = true
-    })
+	-- Today's events section
+	table.insert(menu, {
+		title = "Today's Events",
+		disabled = true,
+	})
 
-    if #events == 0 then
-        table.insert(menu, {
-            title = "  No events today",
-            disabled = true
-        })
-    else
-        for _, event in ipairs(events) do
-            local eventTitle = event.title
+	if #events == 0 then
+		table.insert(menu, {
+			title = "  No events today",
+			disabled = true,
+		})
+	else
+		for _, event in ipairs(events) do
+			local eventTitle = event.title
 
-            -- Truncate long titles
-            if string.len(eventTitle) > 35 then
-                eventTitle = string.sub(eventTitle, 1, 32) .. "..."
-            end
+			-- Truncate long titles
+			if string.len(eventTitle) > 35 then
+				eventTitle = string.sub(eventTitle, 1, 32) .. "..."
+			end
 
-            table.insert(menu, {
-                title = "  " .. event.timeRange .. " " .. eventTitle,
-                fn = function()
-                    if event.meetingURL then
-                        hs.urlevent.openURL(event.meetingURL)
-                        hs.alert.show("Joining meeting: " .. event.title)
-                    else
-                        hs.alert.show("No meeting URL found for: " .. event.title)
-                    end
-                end
-            })
-        end
-    end
+			table.insert(menu, {
+				title = "  " .. event.timeRange .. " " .. eventTitle,
+				fn = function()
+					if event.meetingURL then
+						hs.urlevent.openURL(event.meetingURL)
+						hs.alert.show("Joining meeting: " .. event.title)
+					else
+						hs.alert.show("No meeting URL found for: " .. event.title)
+					end
+				end,
+			})
+		end
+	end
 
-    table.insert(menu, {
-        title = "-"
-    })
+	table.insert(menu, {
+		title = "-",
+	})
 
-    table.insert(menu, {
-        title = "Open Calendar",
-        fn = function()
-            hs.application.launchOrFocus("Calendar")
-        end
-    })
+	table.insert(menu, {
+		title = "Open Calendar",
+		fn = function()
+			hs.application.launchOrFocus("Calendar")
+		end,
+	})
 
-    table.insert(menu, {
-        title = "Grant Calendar Access",
-        fn = function()
-            hs.execute("open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars'")
-            hs.alert.show("Manually grant 'Full Calendar access' and restart Hammerspoon")
-        end
-    })
+	table.insert(menu, {
+		title = "Grant Calendar Access",
+		fn = function()
+			hs.execute("open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars'")
+			hs.alert.show("Manually grant 'Full Calendar access' and restart Hammerspoon")
+		end,
+	})
 
-    table.insert(menu, {
-        title = "Refresh",
-        fn = function()
-            self:loadEventsAsync()
-        end
-    })
+	table.insert(menu, {
+		title = "Refresh",
+		fn = function()
+			self:loadEventsAsync()
+		end,
+	})
 
-    self.menubar:setMenu(menu)
+	self.menubar:setMenu(menu)
 end
 
 --- MySchedule:setUpdateInterval(seconds)
 --- Method
 --- Set the update interval
 function obj:setUpdateInterval(seconds)
-    self.updateInterval = seconds
-    if self.timer then
-        self.timer:stop()
-        self.timer = hs.timer.doEvery(self.updateInterval, function()
-            self:loadEventsAsync()
-        end)
-    end
-    return self
+	self.updateInterval = seconds
+	if self.timer then
+		self.timer:stop()
+		self.timer = hs.timer.doEvery(self.updateInterval, function()
+			self:loadEventsAsync()
+		end)
+	end
+	return self
 end
 
 --- MySchedule:extractMeetingURL(text)
 --- Method
 --- Extract meeting URL from event description text
 function obj:extractMeetingURL(text)
-    local patterns = {
-        "https://[%w%-%.]*zoom%.us/[%w%-%._~:/?#%%@!$&'()*+,;=]*",
-        "https://meet%.google%.com/[%w%-%._~:/?#%%@!$&'()*+,;=]*",
-        "https://[%w%-%.]*teams%.microsoft%.com/[%w%-%._~:/?#%%@!$&'()*+,;=]*",
-        "https://[%w%-%.]*webex%.com/[%w%-%._~:/?#%%@!$&'()*+,;=]*",
-        "https://[%w%-%.]*gotomeeting%.com/[%w%-%._~:/?#%%@!$&'()*+,;=]*"
-    }
+	local patterns = {
+		"https://[%w%-%.]*zoom%.us/[%w%-%._~:/?#%%@!$&'()*+,;=]*",
+		"https://meet%.google%.com/[%w%-%._~:/?#%%@!$&'()*+,;=]*",
+		"https://[%w%-%.]*teams%.microsoft%.com/[%w%-%._~:/?#%%@!$&'()*+,;=]*",
+		"https://[%w%-%.]*webex%.com/[%w%-%._~:/?#%%@!$&'()*+,;=]*",
+		"https://[%w%-%.]*gotomeeting%.com/[%w%-%._~:/?#%%@!$&'()*+,;=]*",
+	}
 
-    for _, pattern in ipairs(patterns) do
-        local url = string.match(text, pattern)
-        if url then
-            return url
-        end
-    end
+	for _, pattern in ipairs(patterns) do
+		local url = string.match(text, pattern)
+		if url then
+			return url
+		end
+	end
 
-    return nil
+	return nil
 end
 
 --- MySchedule:delete()
 --- Method
 --- Clean up the spoon
 function obj:delete()
-    if self.timer then
-        self.timer:stop()
-        self.timer = nil
-    end
-    if self.loadingTask then
-        self.loadingTask:terminate()
-        self.loadingTask = nil
-    end
-    if self.menubar then
-        self.menubar:delete()
-        self.menubar = nil
-    end
-    -- Clear cached binary reference (don't delete - it's managed by init.lua)
-    self.eventkitBinary = nil
-    self.isLoading = false
+	if self.timer then
+		self.timer:stop()
+		self.timer = nil
+	end
+	if self.loadingTask then
+		self.loadingTask:terminate()
+		self.loadingTask = nil
+	end
+	if self.menubar then
+		self.menubar:delete()
+		self.menubar = nil
+	end
+	-- Clear cached binary reference (don't delete - it's managed by init.lua)
+	self.eventkitBinary = nil
+	self.isLoading = false
 end
 
 return obj

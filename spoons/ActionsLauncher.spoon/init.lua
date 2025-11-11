@@ -26,6 +26,7 @@ obj.originalChoices = {}
 obj.uuidCounter = 0
 obj.pickerManager = nil
 obj.deleteKeyWatcher = nil
+obj.escapeKeyWatcher = nil
 obj.logger = hs.logger.new("ActionsLauncher", "info")
 
 --- ActionsLauncher:init()
@@ -34,6 +35,39 @@ obj.logger = hs.logger.new("ActionsLauncher", "info")
 function obj:init()
 	self.pickerManager = pickerManager.new()
 	return self
+end
+
+--- ActionsLauncher:executeActionWithModifiers(choice)
+--- Method
+--- Execute an action with modifier key detection
+---
+--- Parameters:
+---  * choice - The chosen item
+function obj:executeActionWithModifiers(choice)
+	if not choice or not choice.uuid then
+		return
+	end
+
+	local handler = self.handlers[choice.uuid]
+	if not handler then
+		return
+	end
+
+	local result = handler()
+
+	-- Handle dynamic action (opens child picker)
+	if result == "OPEN_CHILD_PICKER" then
+		return "OPEN_CHILD_PICKER"
+	end
+
+	-- Handle action result with clipboard/paste logic
+	pickerManager.handleActionResult(result)
+
+	-- Close all pickers after executing action
+	self.pickerManager:clear()
+	if self.chooser then
+		self.chooser:hide()
+	end
 end
 
 --- ActionsLauncher:createChooser()
@@ -45,32 +79,7 @@ function obj:createChooser()
 	end
 
 	self.chooser = hs.chooser.new(function(choice)
-		if not choice or not choice.uuid then
-			return
-		end
-
-		local handler = self.handlers[choice.uuid]
-		if not handler then
-			return
-		end
-
-		local result = handler()
-
-		-- Handle dynamic action (opens child picker)
-		if result == "OPEN_CHILD_PICKER" then
-			-- The handler will have set up the child picker
-			return
-		end
-
-		-- Handle normal string results
-		if result and type(result) == "string" and result ~= "" then
-			if choice.copyToClipboard then
-				hs.pasteboard.setContents(result)
-				hs.alert.show("Copied to clipboard: " .. result)
-			else
-				hs.alert.show(result)
-			end
-		end
+		self:executeActionWithModifiers(choice)
 	end)
 
 	self.chooser:rows(10)
@@ -89,8 +98,38 @@ function obj:createChooser()
 	-- Store reference in picker manager
 	self.pickerManager:setChooser(self.chooser)
 
+	-- Set up Shift+ESC to close all pickers
+	if self.escapeKeyWatcher then
+		self.escapeKeyWatcher:stop()
+		self.escapeKeyWatcher = nil
+	end
+
+	self.escapeKeyWatcher = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
+		local keyCode = event:getKeyCode()
+		local modifiers = event:getFlags()
+
+		-- ESC key (keyCode 53) with Shift modifier
+		if keyCode == 53 and modifiers.shift then
+			-- Close all pickers
+			self.pickerManager:clear()
+			if self.chooser then
+				self.chooser:hide()
+			end
+			return true -- Consume the event
+		end
+
+		return false -- Don't consume other events
+	end)
+	self.escapeKeyWatcher:start()
+
 	-- Automatically cleanup when chooser is hidden
 	self.chooser:hideCallback(function()
+		-- Stop escape key watcher
+		if self.escapeKeyWatcher then
+			self.escapeKeyWatcher:stop()
+			self.escapeKeyWatcher = nil
+		end
+
 		if self.chooser then
 			self.chooser:delete()
 			self.chooser = nil
@@ -229,24 +268,7 @@ function obj:openChildPicker(config)
 		end
 
 		self.chooser = hs.chooser.new(function(choice)
-			if not choice or not choice.uuid then
-				return
-			end
-
-			local handler = self.handlers[choice.uuid]
-			if handler then
-				local result = handler()
-
-				-- Handle string results
-				if result and type(result) == "string" and result ~= "" then
-					if choice.copyToClipboard then
-						hs.pasteboard.setContents(result)
-						hs.alert.show("Copied to clipboard: " .. result)
-					else
-						hs.alert.show(result)
-					end
-				end
-			end
+			self:executeActionWithModifiers(choice)
 		end)
 
 		self.chooser:rows(10)
@@ -279,7 +301,17 @@ function obj:openChildPicker(config)
 
 		self.deleteKeyWatcher = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
 			local keyCode = event:getKeyCode()
+			local modifiers = event:getFlags()
 			local query = self.chooser and self.chooser:query() or ""
+
+			-- Shift+ESC: Close all pickers
+			if keyCode == 53 and modifiers.shift then
+				self.pickerManager:clear()
+				if self.chooser then
+					self.chooser:hide()
+				end
+				return true -- Consume the event
+			end
 
 			-- DELETE key (keyCode 51) pressed when query is empty
 			if keyCode == 51 and (not query or query == "") and self.pickerManager:hasParent() then
@@ -339,31 +371,7 @@ function obj:restoreParentPicker(parentState)
 	self.handlers = parentState.handlers
 
 	self.chooser = hs.chooser.new(function(choice)
-		if not choice or not choice.uuid then
-			return
-		end
-
-		local handler = self.handlers[choice.uuid]
-		if not handler then
-			return
-		end
-
-		local result = handler()
-
-		-- Handle dynamic action (opens child picker)
-		if result == "OPEN_CHILD_PICKER" then
-			return
-		end
-
-		-- Handle normal string results
-		if result and type(result) == "string" and result ~= "" then
-			if choice.copyToClipboard then
-				hs.pasteboard.setContents(result)
-				hs.alert.show("Copied to clipboard: " .. result)
-			else
-				hs.alert.show(result)
-			end
-		end
+		self:executeActionWithModifiers(choice)
 	end)
 
 	self.chooser:rows(10)
@@ -382,8 +390,38 @@ function obj:restoreParentPicker(parentState)
 	-- Store reference in picker manager
 	self.pickerManager:setChooser(self.chooser)
 
+	-- Set up Shift+ESC to close all pickers
+	if self.escapeKeyWatcher then
+		self.escapeKeyWatcher:stop()
+		self.escapeKeyWatcher = nil
+	end
+
+	self.escapeKeyWatcher = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
+		local keyCode = event:getKeyCode()
+		local modifiers = event:getFlags()
+
+		-- ESC key (keyCode 53) with Shift modifier
+		if keyCode == 53 and modifiers.shift then
+			-- Close all pickers
+			self.pickerManager:clear()
+			if self.chooser then
+				self.chooser:hide()
+			end
+			return true -- Consume the event
+		end
+
+		return false -- Don't consume other events
+	end)
+	self.escapeKeyWatcher:start()
+
 	-- Automatically cleanup when chooser is hidden
 	self.chooser:hideCallback(function()
+		-- Stop escape key watcher
+		if self.escapeKeyWatcher then
+			self.escapeKeyWatcher:stop()
+			self.escapeKeyWatcher = nil
+		end
+
 		if self.chooser then
 			self.chooser:delete()
 			self.chooser = nil

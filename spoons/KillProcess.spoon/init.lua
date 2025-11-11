@@ -1,6 +1,6 @@
 --- === KillProcess ===
 ---
---- Kill processes with fuzzy search - like Raycast Kill Process
+--- Kill processes with fuzzy search
 
 local searchUtils = require("lib.search")
 

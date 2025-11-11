@@ -2,6 +2,9 @@
 -- Martillo: A declarative Hammerspoon configuration framework
 -- Fast, ergonomic and reliable productivity tools for macOS
 
+-- Add martillo to package path
+package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
+
 -- Load leader module
 local leader = require("lib.leader")
 
@@ -106,12 +109,36 @@ end
 
 -- Process action filters to enable only selected actions with custom overrides
 local function processActionFilters(allActions, actionFilters)
-	local filtered = {}
+	-- Detect if using new unified API (flat array) or old API (static/dynamic keys)
+	local isNewAPI = actionFilters[1] ~= nil and not actionFilters.static and not actionFilters.dynamic
 
-	-- Process static actions
-	if actionFilters.static and allActions.static then
-		filtered.static = {}
-		for _, selector in ipairs(actionFilters.static) do
+	if isNewAPI then
+		-- New API: actionFilters is a flat array, allActions is also a flat array
+		local allActionsPool = {}
+
+		-- Check if allActions is a flat array or old format with static/dynamic
+		if allActions[1] then
+			-- New format: flat array
+			for _, action in ipairs(allActions) do
+				allActionsPool[action.id] = action
+			end
+		else
+			-- Old format: has static/dynamic keys
+			if allActions.static then
+				for _, action in ipairs(allActions.static) do
+					allActionsPool[action.id] = action
+				end
+			end
+			if allActions.dynamic then
+				for _, action in ipairs(allActions.dynamic) do
+					allActionsPool[action.id] = action
+				end
+			end
+		end
+
+		-- Filter and process based on actionFilters
+		local filteredActions = {}
+		for _, selector in ipairs(actionFilters) do
 			local actionId, overrides
 
 			if type(selector) == "string" then
@@ -122,73 +149,121 @@ local function processActionFilters(allActions, actionFilters)
 				overrides = selector
 			end
 
-			-- Find matching action in allActions
-			for _, action in ipairs(allActions.static) do
-				if action.id == actionId then
-					-- Clone the action
-					local filteredAction = {}
-					for k, v in pairs(action) do
-						filteredAction[k] = v
-					end
+			-- Find matching action
+			local action = allActionsPool[actionId]
+			if action then
+				-- Clone the action
+				local filteredAction = {}
+				for k, v in pairs(action) do
+					filteredAction[k] = v
+				end
 
-					-- Apply keybinding overrides with leader expansion
-					if overrides.keys then
-						local expandedKeys = {}
-						for _, keyEntry in ipairs(overrides.keys) do
-							local expandedEntry = leader.expandLeaderEntry(keyEntry)
-							table.insert(expandedKeys, expandedEntry)
+				-- Apply keybinding overrides with leader expansion
+				if overrides.keys then
+					local expandedKeys = {}
+					for _, keyEntry in ipairs(overrides.keys) do
+						local expandedEntry = leader.expandLeaderEntry(keyEntry)
+						table.insert(expandedKeys, expandedEntry)
+					end
+					filteredAction.keys = expandedKeys
+				end
+
+				-- Apply alias override
+				if overrides.alias then
+					filteredAction.alias = overrides.alias
+				end
+
+				table.insert(filteredActions, filteredAction)
+			end
+		end
+
+		return { actions = filteredActions }
+	else
+		-- Old API: actionFilters has static/dynamic keys
+		local filtered = {}
+
+		-- Process static actions
+		if actionFilters.static and allActions.static then
+			filtered.static = {}
+			for _, selector in ipairs(actionFilters.static) do
+				local actionId, overrides
+
+				if type(selector) == "string" then
+					actionId = selector
+					overrides = {}
+				elseif type(selector) == "table" then
+					actionId = selector[1] or selector.id
+					overrides = selector
+				end
+
+				-- Find matching action in allActions
+				for _, action in ipairs(allActions.static) do
+					if action.id == actionId then
+						-- Clone the action
+						local filteredAction = {}
+						for k, v in pairs(action) do
+							filteredAction[k] = v
 						end
-						filteredAction.keys = expandedKeys
-					end
 
-					-- Apply alias override
-					if overrides.alias then
-						filteredAction.alias = overrides.alias
-					end
+						-- Apply keybinding overrides with leader expansion
+						if overrides.keys then
+							local expandedKeys = {}
+							for _, keyEntry in ipairs(overrides.keys) do
+								local expandedEntry = leader.expandLeaderEntry(keyEntry)
+								table.insert(expandedKeys, expandedEntry)
+							end
+							filteredAction.keys = expandedKeys
+						end
 
-					table.insert(filtered.static, filteredAction)
-					break
+						-- Apply alias override
+						if overrides.alias then
+							filteredAction.alias = overrides.alias
+						end
+
+						table.insert(filtered.static, filteredAction)
+						break
+					end
 				end
 			end
 		end
-	end
 
-	-- Process dynamic actions
-	if actionFilters.dynamic and allActions.dynamic then
-		filtered.dynamic = {}
-		for _, selector in ipairs(actionFilters.dynamic) do
-			local actionId, overrides
+		-- Process dynamic actions
+		if actionFilters.dynamic and allActions.dynamic then
+			filtered.dynamic = {}
+			for _, selector in ipairs(actionFilters.dynamic) do
+				local actionId, overrides
 
-			if type(selector) == "string" then
-				actionId = selector
-				overrides = {}
-			elseif type(selector) == "table" then
-				actionId = selector[1] or selector.id
-				overrides = selector
-			end
+				if type(selector) == "string" then
+					actionId = selector
+					overrides = {}
+				elseif type(selector) == "table" then
+					actionId = selector[1] or selector.id
+					overrides = selector
+				end
 
-			-- Validate that dynamic actions don't have keys
-			if overrides.keys then
-				error("Martillo: Cannot add keybindings to dynamic actions. Action ID: " .. actionId, 0)
-			end
+				-- Find matching action in allActions
+				for _, action in ipairs(allActions.dynamic) do
+					if action.id == actionId then
+						-- Clone the action
+						local filteredAction = {}
+						for k, v in pairs(action) do
+							filteredAction[k] = v
+						end
 
-			-- Find matching action in allActions
-			for _, action in ipairs(allActions.dynamic) do
-				if action.id == actionId then
-					-- Clone the action
-					local filteredAction = {}
-					for k, v in pairs(action) do
-						filteredAction[k] = v
+						-- Apply alias override (dynamic actions can't have keys)
+						if overrides.alias then
+							filteredAction.alias = overrides.alias
+						end
+
+						table.insert(filtered.dynamic, filteredAction)
+						break
 					end
-
-					table.insert(filtered.dynamic, filteredAction)
-					break
 				end
 			end
 		end
-	end
 
-	return filtered
+		return filtered
+	end
 end
 
 -- Ensure Martillo spoons directory is in the search path
@@ -202,12 +277,7 @@ local function ensureMartilloSpoonPath()
 			print("🔄 Added Martillo spoons to package path")
 		end
 
-		-- Add _internal directory to package.path
-		local internalPattern = martilloSpoonsDir .. "/_internal/?.spoon/init.lua"
-		if not package.path:find(internalPattern, 1, true) then
-			package.path = internalPattern .. ";" .. package.path
-			print("🔄 Added Martillo internal spoons to package path")
-		end
+		-- lib directory is already accessible at root level, no need to add to path
 	end
 end
 

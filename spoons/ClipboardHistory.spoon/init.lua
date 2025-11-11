@@ -9,6 +9,7 @@
 --- • Fast and lightweight
 
 local searchUtils = require("lib.search")
+local pickerManager = require("lib.picker")
 
 local obj = {}
 obj.__index = obj
@@ -61,15 +62,22 @@ function obj:initializeChooser()
 			return
 		end
 
-		-- Try to paste by default, fall back to copy only in specific cases
-		local shouldJustCopy = self:shouldOnlyCopy()
+		-- Check if Shift is held to determine behavior
+		-- Regular Enter: Copy only
+		-- Shift+Enter: Copy and paste
+		local shiftHeld = pickerManager.isShiftHeld()
 
-		if shouldJustCopy then
-			-- Just copy to clipboard without pasting
-			self:copyToClipboard(choice)
+		if shiftHeld then
+			-- Shift+Enter: Copy and paste (but respect copy-only apps)
+			local shouldJustCopy = self:shouldOnlyCopyForApp()
+			if shouldJustCopy then
+				self:copyToClipboard(choice)
+			else
+				self:pasteContent(choice)
+			end
 		else
-			-- Handle different content types for pasting
-			self:pasteContent(choice)
+			-- Regular Enter: Copy only (safe default)
+			self:copyToClipboard(choice)
 		end
 	end)
 
@@ -678,10 +686,11 @@ function obj:toggle()
 	end
 end
 
---- ClipboardHistory:shouldOnlyCopy()
+--- ClipboardHistory:shouldOnlyCopyForApp()
 --- Method
---- Check if we should only copy (not paste)
-function obj:shouldOnlyCopy()
+--- Check if current app is in the copy-only list
+--- Returns true if pasting should be disabled for the focused app
+function obj:shouldOnlyCopyForApp()
 	local app = self.lastFocusedApp or hs.application.frontmostApplication()
 	if not app then
 		return true

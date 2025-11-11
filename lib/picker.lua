@@ -96,4 +96,97 @@ function M:navigateBack(onRestore)
     return true
 end
 
+--- Check if Shift key is held down
+--- @return boolean True if Shift is held, false otherwise
+function M.isShiftHeld()
+    local modifiers = hs.eventtap.checkKeyboardModifiers()
+    return modifiers.shift == true
+end
+
+--- Handle action completion with clipboard and paste logic
+--- Regular Enter: Copy to clipboard only
+--- Shift+Enter: Copy to clipboard AND paste/insert
+---
+--- @param result string|any The result from the action handler
+--- @param options table Configuration options:
+---   - onPaste: function(clipboardContent) Optional custom paste function
+---   - skipClipboard: boolean If true, assume content already in clipboard
+--- @return boolean True if handled, false otherwise
+function M.handleActionResult(result, options)
+    options = options or {}
+
+    -- Only handle string results
+    if not result or type(result) ~= "string" or result == "" then
+        return false
+    end
+
+    -- Get Shift modifier state
+    local shiftHeld = M.isShiftHeld()
+
+    -- Get clipboard content (may have been set by handler already)
+    local clipboardContent = hs.pasteboard.getContents()
+
+    if shiftHeld then
+        -- Shift+Enter: Copy and paste
+        if not options.skipClipboard then
+            hs.pasteboard.setContents(result)
+            clipboardContent = result
+        end
+
+        -- Show alert
+        hs.alert.show("✓ " .. result)
+
+        -- Paste/insert content
+        if options.onPaste then
+            -- Use custom paste function if provided
+            options.onPaste(clipboardContent)
+        else
+            -- Default: use keyStrokes to paste
+            if clipboardContent and clipboardContent ~= "" then
+                hs.eventtap.keyStrokes(clipboardContent)
+            end
+        end
+    else
+        -- Regular Enter: Copy only (no paste)
+        if not options.skipClipboard then
+            hs.pasteboard.setContents(result)
+        end
+        hs.alert.show("📋 " .. result)
+    end
+
+    return true
+end
+
+--- Wrap a chooser callback to close all pickers after execution
+--- This is useful for ensuring pickers close after selecting an item
+--- @param callback function(choice) The original callback
+--- @param pickerManager table The picker manager instance
+--- @param chooser userdata The chooser instance
+--- @return function The wrapped callback
+function M.wrapWithCloseAll(callback, pickerManager, chooser)
+    return function(choice)
+        if not choice then
+            return
+        end
+
+        -- Execute the original callback
+        local result = callback(choice)
+
+        -- Don't close if opening a child picker
+        if result == "OPEN_CHILD_PICKER" then
+            return result
+        end
+
+        -- Close all pickers after action completes
+        if pickerManager then
+            pickerManager:clear()
+        end
+        if chooser then
+            chooser:hide()
+        end
+
+        return result
+    end
+end
+
 return M

@@ -2,15 +2,7 @@
 ---
 --- Kill processes with fuzzy search - like Raycast Kill Process
 
-local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
-if scriptPath then
-    local internalPath = scriptPath .. "../_internal/?.lua"
-    if not package.path:find(internalPath, 1, true) then
-        package.path = internalPath .. ";" .. package.path
-    end
-end
-
-local searchUtils = require("search")
+local searchUtils = require("lib.search")
 
 local obj = {}
 obj.__index = obj

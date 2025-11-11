@@ -2,23 +2,17 @@
 ---
 --- A customizable action palette for Hammerspoon that allows you to define and execute various actions
 --- through a searchable interface using callback functions.
+--- Supports nested pickers for dynamic actions.
 
-local scriptPath = debug.getinfo(1, "S").source:match("@(.*/)")
-if scriptPath then
-    local internalPath = scriptPath .. "../_internal/?.lua"
-    if not package.path:find(internalPath, 1, true) then
-        package.path = internalPath .. ";" .. package.path
-    end
-end
-
-local searchUtils = require("search")
+local searchUtils = require("lib.search")
+local pickerManager = require("lib.picker")
 
 local obj = {}
 obj.__index = obj
 
 -- Metadata
 obj.name = "ActionsLauncher"
-obj.version = "1.0"
+obj.version = "2.0"
 obj.author = "sjdonado"
 obj.homepage = "https://github.com/sjdonado/martillo/spoons"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
@@ -26,340 +20,428 @@ obj.license = "MIT - https://opensource.org/licenses/MIT"
 obj.hotkeys = {}
 obj.actionHotkeys = {}
 obj.chooser = nil
-obj.staticActions = {}
-obj.staticHandlers = {}
-obj.expandHandlers = {}
+obj.actions = {}
+obj.handlers = {}
 obj.originalChoices = {}
-obj.currentChoices = {}
-obj.isExpanded = false
 obj.uuidCounter = 0
-obj.dynamicQueries = nil
-obj.logger = hs.logger.new('ActionsLauncher', 'info')
+obj.pickerManager = nil
+obj.deleteKeyWatcher = nil
+obj.logger = hs.logger.new("ActionsLauncher", "info")
 
 --- ActionsLauncher:init()
 --- Method
 --- Initialize the spoon
 function obj:init()
-    -- DynamicQueries will be set from config
-    self.dynamicQueries = nil
-    return self
+	self.pickerManager = pickerManager.new()
+	return self
 end
 
 --- ActionsLauncher:createChooser()
 --- Method
 --- Create a new chooser instance
 function obj:createChooser()
-    if self.chooser then
-        self.chooser:delete()
-    end
+	if self.chooser then
+		self.chooser:delete()
+	end
 
-    self.chooser = hs.chooser.new(function(choice)
-        if not choice or not choice.uuid then return end
+	self.chooser = hs.chooser.new(function(choice)
+		if not choice or not choice.uuid then
+			return
+		end
 
-        local handler = self.staticHandlers[choice.uuid]
-        if not handler then return end
+		local handler = self.handlers[choice.uuid]
+		if not handler then
+			return
+		end
 
-        local result = handler()
+		local result = handler()
 
-        -- Check if handler returns false (expandable action)
-        if result == false then
-            local expandHandler = self.expandHandlers[choice.uuid]
-            if expandHandler then
-                local expandedChoices = expandHandler()
-                if expandedChoices and #expandedChoices > 0 then
-                    -- Register handlers for expanded choices
-                    for _, expandedChoice in ipairs(expandedChoices) do
-                        if expandedChoice.uuid and expandedChoice.handler then
-                            self.staticHandlers[expandedChoice.uuid] = expandedChoice.handler
-                            if expandedChoice.expandHandler then
-                                self.expandHandlers[expandedChoice.uuid] = expandedChoice.expandHandler
-                            end
-                        end
-                    end
+		-- Handle dynamic action (opens child picker)
+		if result == "OPEN_CHILD_PICKER" then
+			-- The handler will have set up the child picker
+			return
+		end
 
-                    -- Update state for expanded view
-                    self.currentChoices = expandedChoices
-                    self.isExpanded = true
-                    self.logger:d("Set expanded state, currentChoices count: " .. #self.currentChoices)
+		-- Handle normal string results
+		if result and type(result) == "string" and result ~= "" then
+			if choice.copyToClipboard then
+				hs.pasteboard.setContents(result)
+				hs.alert.show("Copied to clipboard: " .. result)
+			else
+				hs.alert.show(result)
+			end
+		end
+	end)
 
-                    -- Let chooser close, then immediately reopen with expanded choices
-                    hs.timer.doAfter(0.01, function()
-                        self:show()
-                    end)
-                end
-            end
-        end
+	self.chooser:rows(10)
+	self.chooser:width(40)
+	self.chooser:searchSubText(true)
+	self.chooser:placeholderText("Search actions...")
 
-        -- Handle normal string results
-        if result and type(result) == "string" and result ~= "" then
-            if choice.copyToClipboard then
-                hs.pasteboard.setContents(result)
-                hs.alert.show("Copied to clipboard: " .. result)
-            else
-                hs.alert.show(result)
-            end
-        end
-    end)
+	-- Set up query change callback for dynamic actions
+	self.chooser:queryChangedCallback(function(query)
+		self:handleQueryChange(query)
+	end)
 
-    self.chooser:rows(10)
-    self.chooser:width(40)
-    self.chooser:searchSubText(true)
-    self.chooser:placeholderText("Search actions...")
+	-- Set choices
+	self.chooser:choices(self.originalChoices)
 
-    -- Set up query change callback for interactive actions
-    self.chooser:queryChangedCallback(function(query)
-        self:handleQueryChange(query)
-    end)
+	-- Store reference in picker manager
+	self.pickerManager:setChooser(self.chooser)
 
-    -- Set choices using a function for dynamic updates
-    local function choicesProvider()
-        if self.isExpanded and #self.currentChoices > 0 then
-            -- Clean choices by removing handler functions (they're already registered)
-            local cleanedChoices = {}
-            for _, choice in ipairs(self.currentChoices) do
-                local cleanChoice = {}
-                for key, value in pairs(choice) do
-                    if key ~= "handler" and key ~= "expandHandler" then
-                        cleanChoice[key] = value
-                    end
-                end
-                table.insert(cleanedChoices, cleanChoice)
-            end
-            return cleanedChoices
-        else
-            return self.originalChoices
-        end
-    end
-
-    self.choicesProvider = choicesProvider
-    self.chooser:choices(self.choicesProvider)
-
-    -- Automatically cleanup when chooser is hidden
-    self.chooser:hideCallback(function()
-        if self.chooser then
-            self.chooser:delete()
-            self.chooser = nil
-        end
-    end)
+	-- Automatically cleanup when chooser is hidden
+	self.chooser:hideCallback(function()
+		if self.chooser then
+			self.chooser:delete()
+			self.chooser = nil
+		end
+		-- Clear picker stack when completely closed
+		if not self.pickerManager:hasParent() then
+			self.pickerManager:clear()
+		end
+	end)
 end
 
 --- ActionsLauncher:setup(config)
 --- Method
---- Setup the ActionsLauncher with actions and interactive options
+--- Setup the ActionsLauncher with actions
 ---
 --- Parameters:
 ---  * config - A table containing:
----    * static - A table of static action definitions (optional)
----    * dynamic - A table of enabled dynamic query IDs (optional)
+---    * actions - A table of action definitions
 ---    * actionKeys - A table mapping action IDs to their keybindings (optional)
 function obj:setup(config)
-    config = config or {}
+	config = config or {}
 
-    -- Unbind any existing action hotkeys
-    for _, hotkey in ipairs(self.actionHotkeys) do
-        hotkey:delete()
-    end
-    self.actionHotkeys = {}
+	-- Unbind any existing action hotkeys
+	for _, hotkey in ipairs(self.actionHotkeys) do
+		hotkey:delete()
+	end
+	self.actionHotkeys = {}
 
-    -- Setup actions
-    self.staticActions = config.static or {}
-    self.staticHandlers = {}
-    self.expandHandlers = {}
+	-- Setup actions
+	self.actions = config.actions or {}
+	self.handlers = {}
 
-    -- Setup dynamic queries directly from config
-    self.dynamicQueries = config.dynamic or {}
+	-- Convert actions to chooser format and store handlers
+	self.originalChoices = {}
+	for i, action in ipairs(self.actions) do
+		local uuid = action.id or tostring(i)
+		self.handlers[uuid] = action.handler
 
-    -- Convert actions to chooser format and store handlers
-    self.originalChoices = {}
-    for i, action in ipairs(self.staticActions) do
-        local uuid = action.id or tostring(i)
-        self.staticHandlers[uuid] = action.handler
+		local subTextParts = {}
+		if action.description and action.description ~= "" then
+			table.insert(subTextParts, action.description)
+		end
+		if action.alias and action.alias ~= "" then
+			table.insert(subTextParts, "alias: " .. action.alias)
+		end
 
-        -- Store expand handler if provided
-        if action.expandHandler then
-            self.expandHandlers[uuid] = action.expandHandler
-        end
+		self.originalChoices[i] = {
+			text = action.name,
+			subText = table.concat(subTextParts, " • "),
+			uuid = uuid,
+			copyToClipboard = false,
+			alias = action.alias,
+			isDynamic = action.isDynamic or false,
+		}
 
-        local subTextParts = {}
-        if action.description and action.description ~= "" then
-            table.insert(subTextParts, action.description)
-        end
-        if action.alias and action.alias ~= "" then
-            table.insert(subTextParts, "alias: " .. action.alias)
-        end
+		-- Bind action keys if provided
+		if action.keys then
+			for _, keySpec in ipairs(action.keys) do
+				local mods = keySpec[1]
+				local key = keySpec[2]
+				local handler = action.handler
 
-        self.originalChoices[i] = {
-            text = action.name,
-            subText = table.concat(subTextParts, " • "),
-            uuid = uuid,
-            copyToClipboard = false,
-            alias = action.alias
-        }
+				local hotkey = hs.hotkey.bind(mods, key, function()
+					local result = handler()
+					if result and type(result) == "string" and result ~= "" then
+						hs.alert.show(result)
+					end
+				end)
+				table.insert(self.actionHotkeys, hotkey)
+			end
+		end
+	end
 
-        -- Bind action keys if provided
-        if action.keys then
-            for _, keySpec in ipairs(action.keys) do
-                local mods = keySpec[1]
-                local key = keySpec[2]
-                local handler = action.handler
-
-                local hotkey = hs.hotkey.bind(mods, key, function()
-                    local result = handler()
-                    if result and type(result) == "string" and result ~= "" then
-                        hs.alert.show(result)
-                    end
-                end)
-                table.insert(self.actionHotkeys, hotkey)
-            end
-        end
-    end
-
-    return self
+	return self
 end
 
 --- ActionsLauncher:show()
 --- Method
 --- Show the actions chooser
 function obj:show()
-    self:createChooser()
-    self.chooser:show()
+	self:createChooser()
+	self.chooser:show()
 end
 
 --- ActionsLauncher:hide()
 --- Method
 --- Hide the actions chooser
 function obj:hide()
-    if self.chooser then
-        self.chooser:hide()
-    end
+	if self.chooser then
+		self.chooser:hide()
+	end
 end
 
 --- ActionsLauncher:toggle()
 --- Method
 --- Toggle the actions chooser visibility
 function obj:toggle()
-    if self.chooser and self.chooser:isVisible() then
-        self:hide()
-    else
-        self:show()
-    end
+	if self.chooser and self.chooser:isVisible() then
+		self:hide()
+	else
+		self:show()
+	end
+end
+
+--- ActionsLauncher:openChildPicker(config)
+--- Method
+--- Open a child picker for dynamic actions
+---
+--- Parameters:
+---  * config - A table containing:
+---    * placeholder - Placeholder text for the child picker
+---    * handler - Function that takes query and returns choices
+---    * parentAction - The parent action that opened this picker
+function obj:openChildPicker(config)
+	-- Save current state as parent
+	local parentState = {
+		choices = self.originalChoices,
+		placeholder = "Search actions...",
+		handlers = hs.fnutils.copy(self.handlers),
+		parentAction = config.parentAction,
+	}
+
+	self.pickerManager:pushParent(parentState)
+	self.logger:d("Opened child picker, stack depth: " .. self.pickerManager:depth())
+
+	-- Close current picker
+	if self.chooser then
+		self.chooser:hide()
+	end
+
+	-- Small delay to ensure smooth transition
+	hs.timer.doAfter(0.05, function()
+		-- Create new chooser for child picker
+		if self.chooser then
+			self.chooser:delete()
+		end
+
+		self.chooser = hs.chooser.new(function(choice)
+			if not choice or not choice.uuid then
+				return
+			end
+
+			local handler = self.handlers[choice.uuid]
+			if handler then
+				local result = handler()
+
+				-- Handle string results
+				if result and type(result) == "string" and result ~= "" then
+					if choice.copyToClipboard then
+						hs.pasteboard.setContents(result)
+						hs.alert.show("Copied to clipboard: " .. result)
+					else
+						hs.alert.show(result)
+					end
+				end
+			end
+		end)
+
+		self.chooser:rows(10)
+		self.chooser:width(40)
+		self.chooser:searchSubText(true)
+		self.chooser:placeholderText(config.placeholder or "Type input...")
+
+		-- Set up query change callback for child picker
+		self.chooser:queryChangedCallback(function(query)
+			if not query or query == "" then
+				-- Empty query - show empty results
+				local choices = config.handler("", self)
+				self.chooser:choices(choices)
+				return
+			end
+
+			-- Generate choices based on query
+			local choices = config.handler(query, self)
+			self.chooser:choices(choices)
+		end)
+
+		-- Set initial empty choices
+		self.chooser:choices({})
+
+		-- Set up DELETE key watcher for going back when query is empty
+		if self.deleteKeyWatcher then
+			self.deleteKeyWatcher:stop()
+			self.deleteKeyWatcher = nil
+		end
+
+		self.deleteKeyWatcher = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
+			local keyCode = event:getKeyCode()
+			local query = self.chooser and self.chooser:query() or ""
+
+			-- DELETE key (keyCode 51) pressed when query is empty
+			if keyCode == 51 and (not query or query == "") and self.pickerManager:hasParent() then
+				-- Navigate back to parent
+				self.chooser:hide()
+				return true -- Consume the event
+			end
+
+			return false -- Don't consume other events
+		end)
+		self.deleteKeyWatcher:start()
+
+		-- Store reference in picker manager
+		self.pickerManager:setChooser(self.chooser)
+
+		-- Automatically cleanup when chooser is hidden
+		self.chooser:hideCallback(function()
+			-- Stop DELETE key watcher
+			if self.deleteKeyWatcher then
+				self.deleteKeyWatcher:stop()
+				self.deleteKeyWatcher = nil
+			end
+
+			-- Check if user pressed ESC or DELETE - navigate back to parent
+			if self.pickerManager:hasParent() then
+				local parent = self.pickerManager:popParent()
+
+				-- Small delay before showing parent
+				hs.timer.doAfter(0.05, function()
+					self:restoreParentPicker(parent)
+				end)
+			else
+				if self.chooser then
+					self.chooser:delete()
+					self.chooser = nil
+				end
+				self.pickerManager:clear()
+			end
+		end)
+
+		self.chooser:show()
+	end)
+end
+
+--- ActionsLauncher:restoreParentPicker(parentState)
+--- Method
+--- Restore the parent picker with its original state
+---
+--- Parameters:
+---  * parentState - The saved parent state
+function obj:restoreParentPicker(parentState)
+	if self.chooser then
+		self.chooser:delete()
+	end
+
+	-- Restore handlers
+	self.handlers = parentState.handlers
+
+	self.chooser = hs.chooser.new(function(choice)
+		if not choice or not choice.uuid then
+			return
+		end
+
+		local handler = self.handlers[choice.uuid]
+		if not handler then
+			return
+		end
+
+		local result = handler()
+
+		-- Handle dynamic action (opens child picker)
+		if result == "OPEN_CHILD_PICKER" then
+			return
+		end
+
+		-- Handle normal string results
+		if result and type(result) == "string" and result ~= "" then
+			if choice.copyToClipboard then
+				hs.pasteboard.setContents(result)
+				hs.alert.show("Copied to clipboard: " .. result)
+			else
+				hs.alert.show(result)
+			end
+		end
+	end)
+
+	self.chooser:rows(10)
+	self.chooser:width(40)
+	self.chooser:searchSubText(true)
+	self.chooser:placeholderText(parentState.placeholder)
+
+	-- Set up query change callback
+	self.chooser:queryChangedCallback(function(query)
+		self:handleQueryChange(query)
+	end)
+
+	-- Restore choices
+	self.chooser:choices(parentState.choices)
+
+	-- Store reference in picker manager
+	self.pickerManager:setChooser(self.chooser)
+
+	-- Automatically cleanup when chooser is hidden
+	self.chooser:hideCallback(function()
+		if self.chooser then
+			self.chooser:delete()
+			self.chooser = nil
+		end
+		if not self.pickerManager:hasParent() then
+			self.pickerManager:clear()
+		end
+	end)
+
+	self.chooser:show()
+	self.logger:d("Restored parent picker")
 end
 
 --- ActionsLauncher:handleQueryChange(query)
 --- Method
---- Handle query changes for dynamic actions
+--- Handle query changes for search filtering
 ---
 --- Parameters:
 ---  * query - The current search query
 function obj:handleQueryChange(query)
-    -- Don't interfere with expanded state
-    if self.isExpanded then
-        return
-    end
+	if not query or query == "" then
+		if self.chooser then
+			self.chooser:choices(self.originalChoices)
+		end
+		return
+	end
 
-    if not query or query == "" then
-        self.isExpanded = false
-        self.currentChoices = {}
-        if self.chooser then
-            if self.choicesProvider then
-                self.chooser:choices(self.choicesProvider)
-            else
-                self.chooser:choices(self.originalChoices)
-            end
-            if self.chooser.refreshChoicesCallback then
-                self.chooser:refreshChoicesCallback()
-            end
-        end
-        return
-    end
+	local rankedChoices = searchUtils.rank(query, self.originalChoices, {
+		getFields = function(choice)
+			return {
+				{ value = choice.text or "",    weight = 1.0, key = "text" },
+				{ value = choice.subText or "", weight = 0.6, key = "subText" },
+				{ value = choice.alias or "",   weight = 1.2, key = "alias" },
+			}
+		end,
+		fuzzyMinQueryLength = 4,
+		tieBreaker = function(a, b)
+			local aText = a.text or ""
+			local bText = b.text or ""
+			if aText ~= bText then
+				return aText < bText
+			end
+			return (a.uuid or "") < (b.uuid or "")
+		end,
+	})
 
-    local dynamicChoices = {}
-
-    if not self.dynamicQueries or #self.dynamicQueries == 0 then
-        self:filterOriginalChoices(query)
-        return
-    end
-
-    local context = {
-        launcher = self,
-        dynamicChoices = dynamicChoices,
-        callbacks = self.staticHandlers,
-        generateUUID = function() return self:generateUUID() end,
-        createColorSwatch = function(r, g, b) return self:createColorSwatch(r, g, b) end
-    }
-
-    -- Handle all dynamic queries
-    for _, dynamicQuery in ipairs(self.dynamicQueries) do
-        if dynamicQuery.enabled and
-            ((dynamicQuery.query and dynamicQuery.query == query) or
-                (dynamicQuery.pattern and dynamicQuery.pattern(query))) then
-            dynamicQuery.handler(query, context)
-            break
-        end
-    end
-
-    -- Show results
-    if #dynamicChoices > 0 then
-        self.chooser:choices(dynamicChoices)
-    else
-        self:filterOriginalChoices(query)
-    end
-end
-
---- ActionsLauncher:filterOriginalChoices(query)
---- Method
---- Filter original choices based on query
----
---- Parameters:
----  * query - The search query
-function obj:filterOriginalChoices(query)
-    if not self.chooser then
-        return
-    end
-
-    if not query or query == "" then
-        if self.choicesProvider then
-            self.chooser:choices(self.choicesProvider)
-        else
-            self.chooser:choices(self.originalChoices)
-        end
-        if self.chooser.refreshChoicesCallback then
-            self.chooser:refreshChoicesCallback()
-        end
-        return
-    end
-
-    local rankedChoices = searchUtils.rank(query, self.originalChoices, {
-        getFields = function(choice)
-            return {
-                { value = choice.text or "",    weight = 1.0, key = "text" },
-                { value = choice.subText or "", weight = 0.6, key = "subText" },
-                { value = choice.alias or "",   weight = 1.2, key = "alias" },
-            }
-        end,
-        fuzzyMinQueryLength = 4,
-        tieBreaker = function(a, b)
-            local aText = a.text or ""
-            local bText = b.text or ""
-            if aText ~= bText then
-                return aText < bText
-            end
-            return (a.uuid or "") < (b.uuid or "")
-        end,
-    })
-
-    self.chooser:choices(rankedChoices)
+	self.chooser:choices(rankedChoices)
 end
 
 --- ActionsLauncher:generateUUID()
 --- Method
---- Generate a unique identifier for live actions
+--- Generate a unique identifier for actions
 ---
 --- Returns:
 ---  * A unique string identifier
 function obj:generateUUID()
-    self.uuidCounter = self.uuidCounter + 1
-    return "interactive_" .. tostring(self.uuidCounter) .. "_" .. tostring(os.time())
+	self.uuidCounter = self.uuidCounter + 1
+	return "action_" .. tostring(self.uuidCounter) .. "_" .. tostring(os.time())
 end
 
 --- ActionsLauncher:createColorSwatch(r, g, b)
@@ -374,117 +456,20 @@ end
 --- Returns:
 ---  * An hs.image object representing the color swatch
 function obj:createColorSwatch(r, g, b)
-    local size = { w = 20, h = 20 }
-    local canvas = hs.canvas.new(size)
+	local size = { w = 20, h = 20 }
+	local canvas = hs.canvas.new(size)
 
-    canvas[1] = {
-        type = "rectangle",
-        frame = { x = 0, y = 0, w = size.w, h = size.h },
-        fillColor = { red = r / 255, green = g / 255, blue = b / 255, alpha = 1.0 },
-        strokeColor = { red = 0.5, green = 0.5, blue = 0.5, alpha = 1.0 },
-        strokeWidth = 1
-    }
+	canvas[1] = {
+		type = "rectangle",
+		frame = { x = 0, y = 0, w = size.w, h = size.h },
+		fillColor = { red = r / 255, green = g / 255, blue = b / 255, alpha = 1.0 },
+		strokeColor = { red = 0.5, green = 0.5, blue = 0.5, alpha = 1.0 },
+		strokeWidth = 1,
+	}
 
-    local image = canvas:imageFromCanvas()
-    canvas:delete()
-    return image
-end
-
---- ActionsLauncher:setQuery(query)
---- Method
---- Set the search query programmatically
----
---- Parameters:
----  * query - The query string to set
-function obj:setQuery(query)
-    if self.chooser then
-        self.chooser:query(query)
-    end
-end
-
---- ActionsLauncher:replaceQuery(query)
---- Method
---- Set the search query and keep chooser open
----
---- Parameters:
----  * query - The query string to set
-function obj:replaceQuery(query)
-    if self.chooser then
-        self.chooser:query(query)
-        -- Trigger query change handler without recreating chooser
-        self:handleQueryChange(query)
-    end
-end
-
---- ActionsLauncher:refreshExpandedChoices()
---- Method
---- Refresh the expanded choices (used after async operations complete)
-function obj:refreshExpandedChoices()
-    if self.isExpanded then
-        -- Update currentChoices from cache if available
-        if _G.networkTestCache and _G.networkTestCache.results then
-            -- Find the network status action to get its expandHandler
-            for _, action in ipairs(self.staticActions) do
-                if action.id == "network_status" then
-                    local newChoices = action.expandHandler()
-                    if newChoices and #newChoices > 0 then
-                        -- Register handlers for new choices
-                        for _, expandedChoice in ipairs(newChoices) do
-                            if expandedChoice.uuid and expandedChoice.handler then
-                                self.staticHandlers[expandedChoice.uuid] = expandedChoice.handler
-                                if expandedChoice.expandHandler then
-                                    self.expandHandlers[expandedChoice.uuid] = expandedChoice.expandHandler
-                                end
-                            end
-                        end
-
-                        self.currentChoices = newChoices
-                        self.logger:d("Refreshed currentChoices count: " .. #self.currentChoices)
-
-                        -- Recreate chooser with new choices
-                        self:show()
-                    end
-                    break
-                end
-            end
-        end
-    end
-end
-
---- ActionsLauncher:addBackOption(choices)
---- Method
---- Add a "Back" option to a list of choices for navigation
----
---- Parameters:
----  * choices - The choices array to add the back option to
----
---- Returns:
----  * The choices array with back option added
-function obj:addBackOption(choices)
-    local backHandler = function()
-        -- Reset to original state
-        self.isExpanded = false
-        self.currentChoices = {}
-
-        if self.chooser then
-            self.chooser:query("")
-            self.chooser:refreshChoicesCallback()
-        end
-        return false -- Don't close chooser
-    end
-
-    -- Register the back handler
-    self.staticHandlers["back_to_main"] = backHandler
-
-    local backOption = {
-        text = "← Back",
-        subText = "Return to main menu",
-        uuid = "back_to_main"
-    }
-
-    -- Insert at the beginning
-    table.insert(choices, 1, backOption)
-    return choices
+	local image = canvas:imageFromCanvas()
+	canvas:delete()
+	return image
 end
 
 --- ActionsLauncher.executeShell(command, actionName)
@@ -495,19 +480,19 @@ end
 ---  * command - The shell command to execute
 ---  * actionName - The name of the action (for user feedback)
 function obj.executeShell(command, actionName)
-    local task = hs.task.new("/bin/sh", function(exitCode, stdOut, stdErr)
-        if exitCode == 0 then
-            local output = stdOut and stdOut:gsub("%s+$", "") or ""
-            if output ~= "" then
-                hs.alert.show(output)
-            else
-                hs.alert.show(actionName .. " completed")
-            end
-        else
-            hs.alert.show(actionName .. " failed: " .. (stdErr or "Unknown error"))
-        end
-    end, { "-c", command })
-    task:start()
+	local task = hs.task.new("/bin/sh", function(exitCode, stdOut, stdErr)
+		if exitCode == 0 then
+			local output = stdOut and stdOut:gsub("%s+$", "") or ""
+			if output ~= "" then
+				hs.alert.show(output)
+			else
+				hs.alert.show(actionName .. " completed")
+			end
+		else
+			hs.alert.show(actionName .. " failed: " .. (stdErr or "Unknown error"))
+		end
+	end, { "-c", command })
+	task:start()
 end
 
 --- ActionsLauncher.executeAppleScript(script, actionName)
@@ -518,17 +503,17 @@ end
 ---  * script - The AppleScript to execute
 ---  * actionName - The name of the action (for user feedback)
 function obj.executeAppleScript(script, actionName)
-    local success, result = hs.applescript.applescript(script)
-    if success then
-        if result ~= "" then
-            hs.alert.show(result)
-        else
-            hs.alert.show(actionName .. " completed")
-        end
-    else
-        hs.alert.show(actionName .. " failed: " .. (result or "Unknown error"))
-    end
-    return result
+	local success, result = hs.applescript.applescript(script)
+	if success then
+		if result ~= "" then
+			hs.alert.show(result)
+		else
+			hs.alert.show(actionName .. " completed")
+		end
+	else
+		hs.alert.show(actionName .. " failed: " .. (result or "Unknown error"))
+	end
+	return result
 end
 
 --- ActionsLauncher:bindHotkeys(mapping)
@@ -540,12 +525,16 @@ end
 ---    * show - Show the actions chooser
 ---    * toggle - Toggle the actions chooser
 function obj:bindHotkeys(mapping)
-    local def = {
-        show = function() self:show() end,
-        toggle = function() self:toggle() end
-    }
-    hs.spoons.bindHotkeysToSpec(def, mapping)
-    return self
+	local def = {
+		show = function()
+			self:show()
+		end,
+		toggle = function()
+			self:toggle()
+		end,
+	}
+	hs.spoons.bindHotkeysToSpec(def, mapping)
+	return self
 end
 
 return obj

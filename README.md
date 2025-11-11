@@ -12,114 +12,111 @@ Martillo (Spanish for "hammer") offers a clean, maintainable way to configure Ha
 package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
 
 return require("martillo").setup({
-  -- Global configuration
-  leader_key = { "alt", "ctrl" },
+	-- Global configuration
+	leader_key = { "alt", "ctrl" },
 
-  -- LaunchOrToggleFocus: App switching hotkeys
-  {
-    "LaunchOrToggleFocus",
-    keys = {
-      { "<leader>", "c",  app = "Calendar" },
-      { "<leader>", "d",  app = "Chromium" },
-      { "<leader>", "x",  app = "Excalidraw" },
-      { "<leader>", ";",  app = "Ghostty" },
-      { "<leader>", "l",  app = "Linear" },
-      { "<leader>", "e",  app = "Mail" },
-      { "<leader>", "m",  app = "Music" },
-      { "<leader>", "n",  app = "Notes" },
-      { "<leader>", "p",  app = "Postico 2" },
-      { "<leader>", "r",  app = "Reminders" },
-      { "<leader>", "b",  app = "Safari" },
-      { "<leader>", "s",  app = "Slack" },
-      { "<leader>", "t",  app = "Kagi Translate" },
-      { "<leader>", "h",  app = "Yaak" },
-    },
-  },
+	-- ActionsLauncher: Command palette with unified actions interface
+	{
+		"ActionsLauncher",
+		opts = function()
+			return require("actions")
+		end,
+		actions = {
+			-- Window management actions
+			{ "window_left_third", keys = { { "<leader>", "left" } } },
+			{ "window_right_third", keys = { { "<leader>", "right" } } },
+			{ "window_almost_maximize", keys = { { "<leader>", "up" } } },
+			{ "window_reasonable_size", keys = { { "<leader>", "down" } } },
+			{ "window_center", keys = { { "<leader>", "return" } } },
+			{ "window_maximize", alias = "wm" },
+			-- System actions
+			{ "toggle_caffeinate", alias = "tc" },
+			{ "toggle_system_appearance", alias = "ta" },
+			{ "copy_ip", alias = "gi" },
+			{ "generate_uuid", alias = "gu" },
+			{ "network_status" },
+			-- Dynamic actions (open child pickers)
+			{ "timestamp", alias = "ts" },
+			{ "colors", alias = "color" },
+			{ "base64", alias = "b64" },
+			{ "jwt", alias = "jwt" },
+		},
+		keys = {
+			{ "<leader>", "space", desc = "Toggle Actions Launcher" },
+		},
+	},
 
-  -- ActionsLauncher: Command palette with window management actions
-  {
-    "ActionsLauncher",
-    opts = function()
-      return require("config.actions")
-    end,
-    actions = {
-      static = {
-        -- Window management actions
-        { "window_left_third", keys = { { "<leader>", "left" } } },
-        { "window_right_third", keys = { { "<leader>", "right" } } },
-        { "window_almost_maximize", keys = { { "<leader>", "up" } } },
-        { "window_reasonable_size", keys = { { "<leader>", "down" } } },
-        { "window_center", keys = { { "<leader>", "return" } } },
-        { "window_maximize", alias = "wm" },
-        -- System actions
-        { "toggle_caffeinate", alias = "tc" },
-        { "toggle_system_appearance", alias = "ta" },
-        { "copy_ip", alias = "gi" },
-        { "generate_uuid", alias = "gu" },
-        { "network_status" },
-      },
-      dynamic = {
-        "timestamp",
-        "colors",
-        "base64",
-        "jwt",
-      }
-    },
-    keys = {
-      { "<leader>", "space", desc = "Toggle Actions Launcher" },
-    },
-  },
+	-- LaunchOrToggleFocus: App switching hotkeys
+	{
+		"LaunchOrToggleFocus",
+		keys = {
+			{ "<leader>", "c", app = "Calendar" },
+			{ "<leader>", "d", app = "Chromium" },
+			{ "<leader>", "x", app = "Excalidraw" },
+			{ "<leader>", ";", app = "Ghostty" },
+			{ "<leader>", "l", app = "Linear" },
+			{ "<leader>", "e", app = "Mail" },
+			{ "<leader>", "m", app = "Music" },
+			{ "<leader>", "n", app = "Notes" },
+			{ "<leader>", "p", app = "Postico 2" },
+			{ "<leader>", "r", app = "Reminders" },
+			{ "<leader>", "b", app = "Safari" },
+			{ "<leader>", "s", app = "Slack" },
+			{ "<leader>", "t", app = "Kagi Translate" },
+			{ "<leader>", "h", app = "Yaak" },
+		},
+	},
 
-  -- KillProcess: Process killer
-  {
-    "KillProcess",
-    keys = {
-      { "<leader>", "=", desc = "Toggle Kill Process" },
-    },
-  },
+	-- KillProcess: Process killer
+	{
+		"KillProcess",
+		keys = {
+			{ "<leader>", "=", desc = "Toggle Kill Process" },
+		},
+	},
 
-  -- ClipboardHistory: Clipboard manager
-  {
-    "ClipboardHistory",
-    config = function(spoon)
-      spoon:start()
-    end,
-    keys = {
-      { "<leader>", "-", desc = "Toggle Clipboard History" },
-    },
-  },
+	-- ClipboardHistory: Clipboard manager
+	{
+		"ClipboardHistory",
+		config = function(spoon)
+			spoon:start()
+		end,
+		keys = {
+			{ "<leader>", "-", desc = "Toggle Clipboard History" },
+		},
+	},
 
-  -- MySchedule: Calendar integration that displays today's events in the menu bar
-  {
-    "MySchedule",
-    config = function(spoon)
-      spoon:compile()
-      spoon:start()
-    end,
-  },
+	-- MySchedule: Calendar integration that displays today's events in the menu bar
+	{
+		"MySchedule",
+		config = function(spoon)
+			spoon:compile()
+			spoon:start()
+		end,
+	},
 
-  -- BrowserRedirect: Smart browser routing
-  {
-    "BrowserRedirect",
-    opts = {
-      default_app = "Safari",
-      redirect = {
-        { match = { "*localhost*", "*127.0.0.1*", "*0.0.0.0*" }, app = "Chromium" },
-        { match = { "*meet.google*" }, app = "Google Meet" },
-      },
-      mapper = {
-        { name = "googleToKagiHomepage", from = "*google.com*", to = "https://kagi.com" },
-        {
-          name = "googleToKagiSearch",
-          from = "*google.com*/search*",
-          to = "https://kagi.com/search?q={query.q|encode}",
-        },
-      },
-    },
-    config = function(spoon)
-      spoon:start()
-    end,
-  },
+	-- BrowserRedirect: Smart browser routing
+	{
+		"BrowserRedirect",
+		opts = {
+			default_app = "Safari",
+			redirect = {
+				{ match = { "*localhost*", "*127.0.0.1*", "*0.0.0.0*" }, app = "Chromium" },
+				{ match = { "*meet.google*" }, app = "Google Meet" },
+			},
+			mapper = {
+				{ name = "googleToKagiHomepage", from = "*google.com*", to = "https://kagi.com" },
+				{
+					name = "googleToKagiSearch",
+					from = "*google.com*/search*",
+					to = "https://kagi.com/search?q={query.q|encode}",
+				},
+			},
+		},
+		config = function(spoon)
+			spoon:start()
+		end,
+	},
 })
 ```
 
@@ -131,11 +128,16 @@ Martillo comes with these productivity spoons:
 Quick app switching with customizable hotkeys. Launch or focus apps instantly without lifting your hands from the keyboard.
 
 ### ActionsLauncher
-Searchable command palette with configurable actions. Current built-in actions include:
-- **Window management**: Maximize, almost maximize, reasonable size
+Searchable command palette with configurable actions and nested picker support. Features include:
+- **Window management**: Maximize, almost maximize, reasonable size, thirds positioning
 - **System controls**: Toggle dark mode, caffeinate (prevent sleep)
 - **Utilities**: Copy public IP, generate UUID, network status check
-- **Dynamic transformations**: Timestamp conversion, Base64 encoding/decoding, JWT decoding, color conversions
+- **Dynamic actions**: Opens child pickers for real-time transformations
+  - Timestamp conversion (unix ↔ ISO format)
+  - Color conversion (hex ↔ rgb with visual preview)
+  - Base64 encoding/decoding
+  - JWT token decoding
+- **Navigation**: ESC or DELETE (on empty query) returns to parent picker
 
 <img width="866" height="667" alt="Screenshot 2025-11-02 at 13 26 01" src="https://github.com/user-attachments/assets/8f86b67b-49c6-4c2c-a8bc-89f322e6a8e6" />
 <img width="866" height="667" alt="Screenshot 2025-11-02 at 13 26 18" src="https://github.com/user-attachments/assets/bffef712-c496-4dd1-8921-3803b49e7018" />
@@ -227,12 +229,12 @@ Each spoon can have these fields:
 
 ```lua
 keys = {
-  { modifiers, key, action, desc = "description" },
-  -- Examples:
-  { "<leader>", "\\", desc = "Toggle palette" },
-  { { "<leader>", "cmd" }, "p", desc = "Leader + cmd + p" },
-  { { "cmd", "shift" }, "left", "left_half", desc = "Move left" },
-  { { "alt" }, "space", desc = "Toggle" }, -- No action = "toggle"
+	{ modifiers, key, action, desc = "description" },
+	-- Examples:
+	{ "<leader>", "\\", desc = "Toggle palette" },
+	{ { "<leader>", "cmd" }, "p", desc = "Leader + cmd + p" },
+	{ { "cmd", "shift" }, "left", "left_half", desc = "Move left" },
+	{ { "alt" }, "space", desc = "Toggle" }, -- No action = "toggle"
 }
 ```
 
@@ -240,57 +242,376 @@ Use the `<leader>` placeholder anywhere inside the modifiers list to expand to y
 
 ### ActionsLauncher Configuration
 
-The ActionsLauncher can selectively enable actions and bind keybindings to them:
+The ActionsLauncher uses a unified `actions` interface for both static and dynamic actions:
 
 ```lua
 {
-  "ActionsLauncher",
-  opts = function()
-    return require("config.actions")  -- Load all available actions
-  end,
-  actions = {
-    -- Enable specific static actions with optional keybindings
-    static = {
-      "maximize_window",                                              -- Enable without keybinding
-      { "center_window", keys = { { "<leader>", "return" } } },       -- With single keybinding
-      { "window_left_third", keys = { { "<leader>", "left" } } },     -- Window to left third
-      { "window_right_third", keys = { { "<leader>", "right" } } },   -- Window to right third
-    },
-    -- Enable specific dynamic actions (cannot have keybindings)
-    dynamic = {
-      "timestamp",      -- Unix timestamp to ISO converter
-      "colors",         -- RGB/HEX color converter
-      "base64",         -- Base64 decoder
-      "jwt",            -- JWT decoder
-    }
-  },
-  keys = {
-    { "<leader>", "\\", desc = "Toggle Actions Launcher" }
-  },
+	"ActionsLauncher",
+	opts = function()
+		return require("actions")  -- Load all available actions
+	end,
+	actions = {
+		-- Static actions with optional keybindings and aliases
+		"maximize_window",                                            -- Enable without keybinding
+		{ "center_window", keys = { { "<leader>", "return" } } },     -- With keybinding
+		{ "window_left_third", keys = { { "<leader>", "left" } } },   -- Window to left third
+		{ "window_right_third", keys = { { "<leader>", "right" } } }, -- Window to right third
+
+		-- Dynamic actions (open child pickers) with aliases
+		{ "timestamp", alias = "ts" },    -- Unix timestamp converter
+		{ "colors", alias = "color" },    -- Color format converter
+		{ "base64", alias = "b64" },      -- Base64 encoder/decoder
+		{ "jwt", alias = "jwt" },         -- JWT token decoder
+	},
+	keys = {
+		{ "<leader>", "\\", desc = "Toggle Actions Launcher" }
+	},
 }
 ```
 
 **Actions Format:**
-- Each action can be a string (action ID) or a table with `{ "action_id", keys = { ... } }`
-- The `actions` table has two categories:
-  - `static`: One-time executable actions (window management, system controls, utilities) - can have keybindings
-  - `dynamic`: Query-based transformations (timestamps, colors, base64, JWT) - cannot have keybindings
+- Each action can be a string (action ID) or a table with `{ "action_id", keys = { ... }, alias = "..." }`
+- All actions (both static and dynamic) can have aliases for faster search
+- All actions can have optional keybindings using the `keys` field
+- Static actions execute immediately when selected
+- Dynamic actions open a child picker where user input is processed in real-time
 - Keybindings use the same format as spoon keys and support `<leader>` expansion
 - If no `actions` filter is provided, all actions from `opts` are loaded
+
+**Child Picker Navigation:**
+- Type to provide input for dynamic actions
+- **ESC**: Close child picker and return to parent
+- **DELETE** (when query is empty): Return to parent picker
+
+**Action Examples:**
+
+See the detailed examples below for how to implement static and dynamic actions. A full list of available actions is in [`actions.lua`](actions.lua).
+
+#### Static Actions
+
+Static actions execute immediately when selected:
+
+```lua
+{
+	id = "reload_config",
+	name = "Reload Config",
+	description = "Reload Hammerspoon configuration",
+	alias = "rc",
+	handler = function()
+		hs.reload()
+		return "Config reloaded"
+	end
+}
+```
+
+#### Dynamic Actions (Child Picker Pattern)
+
+Dynamic actions open a child picker where user input is processed in real-time. Here are examples of the built-in dynamic actions:
+
+**Timestamp Converter:**
+
+```lua
+{
+	id = "timestamp",
+	name = "Timestamp Converter",
+	description = "Convert unix timestamp to date",
+	alias = "ts",
+	isDynamic = true,
+	handler = function()
+		ActionsLauncher:openChildPicker({
+			placeholder = "Enter unix timestamp...",
+			parentAction = "timestamp",
+			handler = function(query, launcher)
+				if not query or query == "" then
+					return {}
+				end
+
+				local timestamp = tonumber(query)
+				if not timestamp then
+					return {
+						{
+							text = "Invalid timestamp",
+							subText = "Enter a valid unix timestamp",
+							uuid = launcher:generateUUID()
+						}
+					}
+				end
+
+				local date = os.date("%Y-%m-%d %H:%M:%S", timestamp)
+				local relativeTime = os.time() - timestamp
+				local uuid = launcher:generateUUID()
+
+				launcher.handlers[uuid] = function()
+					hs.pasteboard.setContents(date)
+					return "Copied: " .. date
+				end
+
+				return {
+					{
+						text = date,
+						subText = string.format("%.0f seconds ago", relativeTime),
+						uuid = uuid,
+						copyToClipboard = true
+					}
+				}
+			end
+		})
+		return "OPEN_CHILD_PICKER"
+	end
+}
+```
+
+**Color Converter (Hex ↔ RGB):**
+
+```lua
+{
+	id = "colors",
+	name = "Color Converter",
+	description = "Convert between color formats (hex, rgb)",
+	alias = "color",
+	isDynamic = true,
+	handler = function()
+		ActionsLauncher:openChildPicker({
+			placeholder = "Enter color (hex or rgb)...",
+			parentAction = "colors",
+			handler = function(query, launcher)
+				if not query or query == "" then
+					return {}
+				end
+
+				local results = {}
+
+				-- Try to parse as hex color (#RRGGBB or RRGGBB)
+				local hex = query:match("^#?([%x][%x][%x][%x][%x][%x])$")
+				if hex then
+					local r = tonumber(hex:sub(1, 2), 16)
+					local g = tonumber(hex:sub(3, 4), 16)
+					local b = tonumber(hex:sub(5, 6), 16)
+
+					local rgbUuid = launcher:generateUUID()
+					launcher.handlers[rgbUuid] = function()
+						local rgb = string.format("rgb(%d, %d, %d)", r, g, b)
+						hs.pasteboard.setContents(rgb)
+						return "Copied: " .. rgb
+					end
+
+					table.insert(results, {
+						text = string.format("rgb(%d, %d, %d)", r, g, b),
+						subText = "RGB format",
+						uuid = rgbUuid,
+						image = launcher:createColorSwatch(r, g, b),
+						copyToClipboard = true
+					})
+				end
+
+				-- Try to parse as RGB (rgb(r, g, b))
+				local r, g, b = query:match("rgb%s*%((%d+)%s*,%s*(%d+)%s*,%s*(%d+)%)")
+				if r and g and b then
+					r, g, b = tonumber(r), tonumber(g), tonumber(b)
+
+					local hexUuid = launcher:generateUUID()
+					launcher.handlers[hexUuid] = function()
+						local hex = string.format("#%02X%02X%02X", r, g, b)
+						hs.pasteboard.setContents(hex)
+						return "Copied: " .. hex
+					end
+
+					table.insert(results, {
+						text = string.format("#%02X%02X%02X", r, g, b),
+						subText = "Hex format",
+						uuid = hexUuid,
+						image = launcher:createColorSwatch(r, g, b),
+						copyToClipboard = true
+					})
+				end
+
+				if #results == 0 then
+					return {
+						{
+							text = "Invalid color format",
+							subText = "Try: #FF5733 or rgb(255, 87, 51)",
+							uuid = launcher:generateUUID()
+						}
+					}
+				end
+
+				return results
+			end
+		})
+		return "OPEN_CHILD_PICKER"
+	end
+}
+```
+
+**Base64 Encoder/Decoder:**
+
+```lua
+{
+	id = "base64",
+	name = "Base64 Encoder/Decoder",
+	description = "Encode or decode base64",
+	alias = "b64",
+	isDynamic = true,
+	handler = function()
+		ActionsLauncher:openChildPicker({
+			placeholder = "Enter text to encode/decode...",
+			parentAction = "base64",
+			handler = function(query, launcher)
+				if not query or query == "" then
+					return {}
+				end
+
+				local results = {}
+
+				-- Encode
+				local encoded = hs.base64.encode(query)
+				local encodeUuid = launcher:generateUUID()
+				launcher.handlers[encodeUuid] = function()
+					hs.pasteboard.setContents(encoded)
+					return "Copied encoded"
+				end
+
+				table.insert(results, {
+					text = encoded,
+					subText = "Base64 Encoded",
+					uuid = encodeUuid,
+					copyToClipboard = true
+				})
+
+				-- Try to decode
+				local success, decoded = pcall(function()
+					return hs.base64.decode(query)
+				end)
+
+				if success and decoded then
+					local decodeUuid = launcher:generateUUID()
+					launcher.handlers[decodeUuid] = function()
+						hs.pasteboard.setContents(decoded)
+						return "Copied decoded"
+					end
+
+					table.insert(results, {
+						text = decoded,
+						subText = "Base64 Decoded",
+						uuid = decodeUuid,
+						copyToClipboard = true
+					})
+				end
+
+				return results
+			end
+		})
+		return "OPEN_CHILD_PICKER"
+	end
+}
+```
+
+**JWT Decoder:**
+
+```lua
+{
+	id = "jwt",
+	name = "JWT Decoder",
+	description = "Decode JWT token",
+	alias = "jwt",
+	isDynamic = true,
+	handler = function()
+		ActionsLauncher:openChildPicker({
+			placeholder = "Paste JWT token...",
+			parentAction = "jwt",
+			handler = function(query, launcher)
+				if not query or query == "" then
+					return {}
+				end
+
+				local parts = {}
+				for part in query:gmatch("[^.]+") do
+					table.insert(parts, part)
+				end
+
+				if #parts ~= 3 then
+					return {
+						{
+							text = "Invalid JWT",
+							subText = "JWT must have 3 parts separated by dots",
+							uuid = launcher:generateUUID()
+						}
+					}
+				end
+
+				local results = {}
+
+				-- Decode header
+				local headerSuccess, header = pcall(function()
+					return hs.base64.decode(parts[1])
+				end)
+
+				if headerSuccess and header then
+					local headerUuid = launcher:generateUUID()
+					launcher.handlers[headerUuid] = function()
+						hs.pasteboard.setContents(header)
+						return "Copied header"
+					end
+
+					table.insert(results, {
+						text = header,
+						subText = "JWT Header",
+						uuid = headerUuid,
+						copyToClipboard = true
+					})
+				end
+
+				-- Decode payload
+				local payloadSuccess, payload = pcall(function()
+					return hs.base64.decode(parts[2])
+				end)
+
+				if payloadSuccess and payload then
+					local payloadUuid = launcher:generateUUID()
+					launcher.handlers[payloadUuid] = function()
+						hs.pasteboard.setContents(payload)
+						return "Copied payload"
+					end
+
+					table.insert(results, {
+						text = payload,
+						subText = "JWT Payload",
+						uuid = payloadUuid,
+						copyToClipboard = true
+					})
+				end
+
+				if #results == 0 then
+					return {
+						{
+							text = "Failed to decode JWT",
+							subText = "Invalid base64 encoding",
+							uuid = launcher:generateUUID()
+						}
+					}
+				end
+
+				return results
+			end
+		})
+		return "OPEN_CHILD_PICKER"
+	end
+}
+```
 
 ### Global Options
 
 ```lua
 return require("martillo").setup({
-  -- Global options (non-numeric keys)
-  autoReload = true,              -- Auto-reload on file change (default: true)
-  alertOnLoad = true,             -- Show alert when config loads (default: true)
-  alertMessage = "Martillo Ready",-- Custom load message
-  leader_key = { "alt", "shift" }, -- Expand <leader> modifiers (optional)
+	-- Global options (non-numeric keys)
+	autoReload = true,               -- Auto-reload on file change (default: true)
+	alertOnLoad = true,              -- Show alert when config loads (default: true)
+	alertMessage = "Martillo Ready", -- Custom load message
+	leader_key = { "alt", "shift" }, -- Expand <leader> modifiers (optional)
 
-  -- Spoons configuration (numeric keys)
-  { "SpoonName", ... },
-  { "AnotherSpoon", ... },
+	-- Spoons configuration (numeric keys)
+	{ "SpoonName", ... },
+	{ "AnotherSpoon", ... },
 })
 ```
 Modifier names are case-insensitive and support common aliases such as `command`, `⌘`, `option`, or `⌥`; Martillo canonicalises them automatically for Hammerspoon.
@@ -305,9 +626,9 @@ local martillo = require("martillo")
 
 -- Setup with configuration (single table with spoons and options)
 martillo.setup({
-  leader_key = { "alt", "ctrl" },
-  { "SpoonName", ... },
-  { "AnotherSpoon", ... },
+	leader_key = { "alt", "ctrl" },
+	{ "SpoonName", ... },
+	{ "AnotherSpoon", ... },
 })
 
 -- Get a loaded spoon
@@ -340,8 +661,9 @@ martillo.reload()
 - [x] **Spoon Aliases** - Set custom aliases for each spoon
 - [x] **Enhanced Search** - Search by aliases in choosers
 - [x] **Alias Display** - Show aliases in chooser items (right side)
-- [ ] **Nested Choosers** - Child choosers with parent context preservation
-- [ ] **Persistent Choosers** - Don't close on action if child process spawns
+- [x] **Nested Choosers** - Child choosers with parent context preservation
+- [x] **Unified Actions Interface** - Single `actions` array for static and dynamic actions
+- [x] **Nested Choosers** - Don't close on action if child process spawns
 
 ### Enhanced Chooser System
 - [ ] **Fork Hammerspoon** - Custom build with enhanced chooser capabilities

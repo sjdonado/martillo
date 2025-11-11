@@ -3,15 +3,16 @@
 -- Fast, ergonomic and reliable productivity tools for macOS
 
 -- Add martillo to package path
-package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
+local martilloPath = os.getenv("HOME") .. "/.martillo"
+package.path = package.path .. ";" .. martilloPath .. "/?.lua"
 
--- Load leader module
-local leader = require("lib.leader")
+leader = require("lib.leader")
 
 local M = {}
 
 -- Version
 M.version = "1.0.0"
+M.logger = hs.logger.new("Martillo", "debug")
 
 -- State
 M.spoons = {}
@@ -74,10 +75,10 @@ end
 -- Pre-compile spoons that have native binaries without loading them into memory
 -- Compile spoons that have native binaries (after sync)
 local function compileSpoons()
-	print("🔨 Compiling Martillo spoons with native binaries...")
+	M.logger:d("Compiling Martillo spoons with native binaries...")
 
 	-- List of spoons that require compilation
-	local compilableSpoons = { "MySchedule", "ClipboardHistory" }
+	local compilableSpoons = { "MySchedule" }
 
 	for _, spoonName in ipairs(compilableSpoons) do
 		-- Load the synced spoon from Hammerspoon's standard location
@@ -92,17 +93,16 @@ local function compileSpoons()
 					spoonInstance:compile()
 				end)
 				if compileSuccess then
-					print("✅ Compiled " .. spoonName)
+					M.logger:d("✅ Compiled " .. spoonName)
 				else
-					print("❌ Failed to compile " .. spoonName)
-					print("Error: " .. tostring(compileErr))
-					print("Stack trace:")
-					print(debug.traceback())
+					M.logger:e("Failed to compile " .. spoonName)
+					M.logger:e("Error: " .. tostring(compileErr))
+					M.logger:e("Stack trace: " .. debug.traceback())
 				end
 			end
 			-- Don't clean up - these will be used by the user's config
 		else
-			print("⚠️  Skipping compilation for " .. spoonName .. " (not found or failed to load)")
+			M.logger:w(" Skipping compilation for " .. spoonName .. " (not found or failed to load)")
 		end
 	end
 end
@@ -279,7 +279,7 @@ local function ensureMartilloSpoonPath()
 		local searchPattern = martilloSpoonsDir .. "/?.spoon/init.lua"
 		if not package.path:find(searchPattern, 1, true) then
 			package.path = searchPattern .. ";" .. package.path
-			print("🔄 Added Martillo spoons to package path")
+			M.logger:d("Added Martillo spoons to package path")
 		end
 
 		-- lib directory is already accessible at root level, no need to add to path
@@ -295,14 +295,19 @@ local function loadSpoon(spec)
 		return nil
 	end
 
+	-- Debug: Show what we're loading
+	M.logger:d("Loading spoon: " .. name)
+
 	-- Load the spoon
 	hs.loadSpoon(name)
+
 	local spoonInstance = spoon[name]
 
 	if not spoonInstance then
-		hs.alert.show("Failed to load spoon: " .. name)
-		return nil
+		M.logger:e("Failed to load spoon: " .. name .. " (spoon[" .. name .. "] is nil)")
 	end
+
+	M.logger:d("✅ Loaded spoon: " .. name)
 
 	-- Handle table specs with options
 	if type(spec) == "table" then
@@ -417,7 +422,12 @@ function M.setup(config)
 	for _, spoonSpec in ipairs(spoons) do
 		local ok, err = pcall(loadSpoon, spoonSpec)
 		if not ok then
-			hs.alert.show("Error: " .. tostring(err))
+			local spoonName = type(spoonSpec) == "string" and spoonSpec or spoonSpec[1]
+			M.logger:e("Failed to load spoon: " .. tostring(spoonName))
+			M.logger:e("Error: " .. hs.inspect(err))
+			M.logger:e("Stack trace: " .. debug.traceback())
+			hs.alert.show("Error loading " .. tostring(spoonName) .. ", check console")
+			return
 		end
 	end
 

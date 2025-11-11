@@ -241,25 +241,41 @@ end
 ---    * placeholder - Placeholder text for the child picker
 ---    * handler - Function that takes query and returns choices
 ---    * parentAction - The parent action that opened this picker
+---
+--- Navigation behavior depends on whether the picker has a parent:
+---  * With parent (opened from ActionsLauncher):
+---    - DELETE/ESC on empty query: Navigate back to parent
+---    - Enter: Execute action and close both child and parent
+---  * Without parent (opened from keymap):
+---    - DELETE/ESC on empty query: Close the picker
+---    - Enter: Execute action and close the picker
 function obj:openChildPicker(config)
-	-- Save current state as parent
-	local parentState = {
-		choices = self.originalChoices,
-		placeholder = "Search actions...",
-		handlers = hs.fnutils.copy(self.handlers),
-		parentAction = config.parentAction,
-	}
+	-- Only save parent state if ActionsLauncher's chooser is visible
+	-- This determines if we're opening from ActionsLauncher (has parent) or from keymap (standalone)
+	local hasParent = self.chooser and self.chooser:isVisible()
 
-	self.pickerManager:pushParent(parentState)
-	self.logger:d("Opened child picker, stack depth: " .. self.pickerManager:depth())
+	if hasParent then
+		local parentState = {
+			choices = self.originalChoices,
+			placeholder = "Search actions...",
+			handlers = hs.fnutils.copy(self.handlers),
+			parentAction = config.parentAction,
+		}
+		self.pickerManager:pushParent(parentState)
+		self.logger:d("Opened child picker with parent, stack depth: " .. self.pickerManager:depth())
 
-	-- Close current picker
-	if self.chooser then
+		-- Close current picker
 		self.chooser:hide()
+	else
+		self.logger:d("Opened standalone child picker (no parent)")
 	end
 
 	-- Small delay to ensure smooth transition
 	hs.timer.doAfter(0.05, function()
+		-- Capture whether we have a parent before any operations
+		-- This is used by hideCallback to determine behavior
+		local hadParentAtStart = self.pickerManager:hasParent()
+
 		-- Flag to track if chooser was closed due to selection
 		local closedBySelection = false
 
@@ -302,7 +318,7 @@ function obj:openChildPicker(config)
 			self.deleteKeyWatcher:stop()
 			self.deleteKeyWatcher = nil
 		end
-		self.deleteKeyWatcher = navigation.setupDeleteKeyWatcher(self.pickerManager, self.chooser)
+		self.deleteKeyWatcher = navigation.setupDeleteKeyWatcher(self.pickerManager, self.chooser, {})
 
 		-- Store reference in picker manager
 		self.pickerManager:setChooser(self.chooser)
@@ -315,20 +331,31 @@ function obj:openChildPicker(config)
 				self.deleteKeyWatcher = nil
 			end
 
-			-- Only navigate back if NOT closed by selection
-			if not closedBySelection and self.pickerManager:hasParent() then
-				local parent = self.pickerManager:popParent()
-
-				-- Small delay before showing parent
-				hs.timer.doAfter(0.05, function()
-					self:restoreParentPicker(parent)
-				end)
+			-- Use captured parent state, not current state
+			-- (current state may have been cleared by executeActionWithModifiers)
+			if hadParentAtStart then
+				-- Case 1: Child picker with parent (opened from ActionsLauncher)
+				if closedBySelection then
+					-- Enter pressed: Close both child and parent
+					if self.chooser then
+						self.chooser:delete()
+						self.chooser = nil
+					end
+					-- Picker manager already cleared by executeActionWithModifiers
+				else
+					-- ESC/DELETE pressed: Navigate back to parent
+					local parent = self.pickerManager:popParent()
+					hs.timer.doAfter(0.05, function()
+						self:restoreParentPicker(parent)
+					end)
+				end
 			else
+				-- Case 2: Child picker without parent (opened from keymap)
+				-- Always just close the picker
 				if self.chooser then
 					self.chooser:delete()
 					self.chooser = nil
 				end
-				self.pickerManager:clear()
 			end
 		end)
 

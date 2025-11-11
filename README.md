@@ -101,9 +101,9 @@ return require("martillo").setup({
 		},
 	},
 
-	-- Note: ClipboardHistory is now accessed via ActionsLauncher
-	-- Using the clipboard_history preset action (alias: "ch")
-	-- It will be automatically loaded when the preset is imported
+	-- Note: ClipboardHistory is now a standalone preset
+	-- All clipboard history functionality is in presets/clipboard_history.lua
+	-- No separate spoon needed - monitoring starts automatically when preset loads
 
 	-- MySchedule: Calendar integration that displays today's events in the menu bar
 	{
@@ -176,19 +176,23 @@ Quick process killer with fuzzy search. Find and terminate unresponsive apps ins
 
 <img width="866" height="667" alt="Screenshot 2025-11-02 at 13 27 45" src="https://github.com/user-attachments/assets/7b99609d-3db3-4869-9a47-8838406982df" />
 
-### ClipboardHistory
-Lightweight clipboard manager with persistent plain text history. Features:
+### Clipboard History
+Lightweight clipboard manager implemented as a standalone preset. Features:
+- **All-in-one solution**: No separate spoon required - all logic in the preset file
 - Fast fuzzy search entirely in Lua
 - Simple plain text storage (fish_history-like format)
 - Support for text, images, and file paths
-- Background clipboard monitoring
-- **Accessed via ActionsLauncher**: Use the `clipboard_history` preset action to access clipboard history from the actions palette
-- **Flexible usage**: Works standalone (via keymap) or as a child picker from ActionsLauncher
+- **Auto-start monitoring**: Clipboard watcher starts automatically when preset loads
 - **Smart selection**: Enter pastes to focused window, Shift+Enter copies to clipboard only
-- **Smart navigation**: DELETE key goes back to parent picker (only when opened from ActionsLauncher), Shift+ESC closes all pickers
-- All chooser logic is managed by the preset for full control
+- **Flexible usage**: Works standalone (via keymap) or as a child picker from ActionsLauncher
+- **Smart navigation**:
+  - When opened from ActionsLauncher: DELETE/ESC navigates back to parent, Enter closes both pickers
+  - When opened from keymap: DELETE/ESC and Enter both close the picker
+  - Shift+ESC always closes all pickers
+- **Image caching**: Images loaded once and cached for performance
 - No external dependencies required
-- Human-readable history file
+- Human-readable history file at `~/.martillo/presets/clipboard_history`
+- Screenshots saved to `~/.martillo/presets/clipboard_images/`
 
 <img width="866" height="667" alt="Screenshot 2025-11-02 at 13 27 09" src="https://github.com/user-attachments/assets/141e1891-b1dc-42a6-b472-3a4f68e16d3b" />
 
@@ -270,7 +274,7 @@ The ActionsLauncher uses preset bundles that can be imported on demand. Availabl
 - **`presets.window_management`** - Window positioning and resizing actions
 - **`presets.utilities`** - System utilities (caffeinate, dark mode, IP, UUID, network status)
 - **`presets.encoders`** - Encoder/decoder actions (timestamp, base64, JWT, colors)
-- **`presets.clipboard_history`** - Opens ClipboardHistory spoon as a child picker
+- **`presets.clipboard_history`** - Standalone clipboard history with auto-start monitoring
 
 #### Import All Presets
 
@@ -387,12 +391,22 @@ You can also provide your own custom actions array:
 - If no `actions` filter is provided, all actions from `opts` are loaded
 
 **Child Picker Navigation:**
+
+The behavior depends on how the child picker was opened:
+
+*With parent (opened from ActionsLauncher):*
 - Type to provide input for dynamic actions
-- **Enter**: Copy to clipboard and paste to focused window
-- **Shift+Enter**: Copy to clipboard only (no paste)
-- **ESC**: Close child picker and return to parent
-- **DELETE** (when query is empty): Return to parent picker
-- **Shift+ESC**: Close all pickers (parent and children)
+- **Enter**: Execute action and close both child and parent pickers
+- **Shift+Enter**: Execute action with alternate behavior and close both pickers
+- **DELETE/ESC** (when query is empty): Navigate back to parent picker
+- **Shift+ESC**: Close all pickers immediately
+
+*Without parent (opened directly from keymap):*
+- Type to provide input
+- **Enter**: Execute action and close the picker
+- **Shift+Enter**: Execute action with alternate behavior and close the picker
+- **DELETE/ESC** (when query is empty): Close the picker
+- **Shift+ESC**: Close the picker
 
 **Action Examples:**
 
@@ -400,7 +414,7 @@ See the detailed examples below for how to implement static and dynamic actions.
 - [`presets/window_management.lua`](presets/window_management.lua) - Window positioning actions
 - [`presets/utilities.lua`](presets/utilities.lua) - System utilities
 - [`presets/encoders.lua`](presets/encoders.lua) - Encoder/decoder actions
-- [`presets/clipboard_history.lua`](presets/clipboard_history.lua) - Opens ClipboardHistory as a child picker
+- [`presets/clipboard_history.lua`](presets/clipboard_history.lua) - Standalone clipboard history (no spoon needed)
 
 #### Static Actions
 

@@ -216,8 +216,10 @@ function M.setupShiftEscapeWatcher(pickerManager, chooser)
     return watcher
 end
 
---- Setup keyboard event watcher for DELETE key (go back to parent when query is empty)
---- Works for both parent and child pickers
+--- Setup keyboard event watcher for DELETE key
+--- Behavior depends on whether picker has a parent:
+--- - With parent: DELETE on empty query navigates back to parent
+--- - Without parent: DELETE on empty query closes the picker
 --- @param pickerManager table The picker manager instance
 --- @param chooser userdata The chooser instance
 --- @param options table Optional configuration:
@@ -243,15 +245,22 @@ function M.setupDeleteKeyWatcher(pickerManager, chooser, options)
         end
 
         -- DELETE key (keyCode 51) pressed when query is empty
-        if keyCode == 51 and (not query or query == "") and pickerManager:hasParent() then
-            -- Navigate back to parent
-            if chooser then
-                chooser:hide()
-            end
+        if keyCode == 51 and (not query or query == "") then
+            if pickerManager:hasParent() then
+                -- Case 1: With parent - Navigate back to parent
+                if chooser then
+                    chooser:hide()
+                end
 
-            -- Call callback if provided (for child pickers)
-            if options.onBackToParent then
-                options.onBackToParent()
+                -- Call callback if provided (for child pickers)
+                if options.onBackToParent then
+                    options.onBackToParent()
+                end
+            else
+                -- Case 2: Without parent - Close the picker
+                if chooser then
+                    chooser:hide()
+                end
             end
 
             return true -- Consume the event

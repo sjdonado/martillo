@@ -261,7 +261,7 @@ local function processActionFilters(allActions, actionFilters)
 			end
 		end
 
-		-- Process dynamic actions
+		-- Process Nested Actions
 		if actionFilters.dynamic and allActions.dynamic then
 			filtered.dynamic = {}
 			for _, selector in ipairs(actionFilters.dynamic) do
@@ -284,7 +284,7 @@ local function processActionFilters(allActions, actionFilters)
 							filteredAction[k] = v
 						end
 
-						-- Apply alias override (dynamic actions can't have keys)
+						-- Apply alias override (Nested Actions can't have keys)
 						if overrides.alias then
 							filteredAction.alias = overrides.alias
 						end

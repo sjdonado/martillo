@@ -2,7 +2,7 @@
 -- Actions for encoding, decoding, and converting various formats
 
 return {
-	-- Dynamic Actions (open child pickers)
+	-- Nested Actions
 	{
 		id = "timestamp",
 		name = "Timestamp Converter",

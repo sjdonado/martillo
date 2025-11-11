@@ -1,5 +1,5 @@
 -- Picker state management for parent-child picker relationships
--- Provides state tracking for nested pickers (subpickers)
+-- Provides state tracking for Nested Actions (child pickers)
 
 local M = {}
 

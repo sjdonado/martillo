@@ -2,7 +2,7 @@
 ---
 --- A customizable action palette for Hammerspoon that allows you to define and execute various actions
 --- through a searchable interface using callback functions.
---- Supports nested pickers for dynamic actions.
+--- Supports child pickers for Nested Actions.
 
 local searchUtils = require("lib.search")
 local navigation = require("lib.navigation")
@@ -55,7 +55,7 @@ function obj:executeActionWithModifiers(choice)
 
 	local result = handler()
 
-	-- Handle dynamic action (opens child picker)
+	-- Handle Nested Action (opens child picker)
 	if result == "OPEN_CHILD_PICKER" then
 		return "OPEN_CHILD_PICKER"
 	end
@@ -101,7 +101,7 @@ function obj:createChooser()
 	self.chooser:searchSubText(true)
 	self.chooser:placeholderText("Search actions...")
 
-	-- Set up query change callback for dynamic actions
+	-- Set up query change callback for Nested Actions
 	self.chooser:queryChangedCallback(function(query)
 		self:handleQueryChange(query)
 	end)
@@ -234,7 +234,7 @@ end
 
 --- ActionsLauncher:openChildPicker(config)
 --- Method
---- Open a child picker for dynamic actions
+--- Open a child picker for Nested Actions
 ---
 --- Parameters:
 ---  * config - A table containing:

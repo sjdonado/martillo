@@ -87,7 +87,7 @@ Martillo is a declarative configuration framework for Hammerspoon that follows t
 - Fuzzy search across all available actions with alias support
 - Selective action loading - enable only the actions you need
 - Per-action keybindings - bind hotkeys to specific actions
-- Static actions (one-time executables) and dynamic actions (query-based transformations)
+- Static actions (one-time executables) and nested actions (query-based transformations)
 - Alias support for quick searching (e.g., "tc" for "Toggle Caffeinate")
 
 **Action Categories**:
@@ -97,7 +97,7 @@ Martillo is a declarative configuration framework for Hammerspoon that follows t
    - **System Controls**: Toggle dark mode, caffeinate (prevent sleep)
    - **Developer Utilities**: Copy IP, generate UUID, network status
 
-2. **Dynamic Actions** (query-based transformations):
+2. **Nested Actions** (query-based transformations):
    - **Timestamp Converter**: Unix timestamp ↔ ISO string (detects 10 or 13 digit numbers)
    - **Base64**: Auto-decode valid base64 strings
    - **JWT Decoder**: Auto-decode JWT tokens into header/payload
@@ -114,7 +114,7 @@ Martillo is a declarative configuration framework for Hammerspoon that follows t
 - Uses `lib/search.lua` for fuzzy ranking with alias boosting
 - Uses `lib/picker.lua` for parent-child picker state management
 - Static actions support `keys` property for direct hotkey binding
-- Dynamic actions open child pickers for user input processing
+- Nested Actions open child pickers for user input processing
 
 **Configuration Example**:
 ```lua
@@ -128,7 +128,7 @@ Martillo is a declarative configuration framework for Hammerspoon that follows t
     { "window_center", keys = { { "<leader>", "return" } } },
     { "toggle_caffeinate", alias = "tc" },
     { "copy_ip", alias = "gi" },
-    -- Dynamic actions (open child pickers)
+    -- Nested Actions (open child pickers)
     { "timestamp", alias = "ts" },
     { "colors", alias = "color" },
     { "base64", alias = "b64" },
@@ -283,10 +283,10 @@ Window management is accessed through ActionsLauncher actions with IDs like `win
       { match = { "*meet.google*" }, app = "Google Meet" },
     },
     mapper = {
-      { 
-        name = "googleToKagi", 
-        from = "*google.com*/search*", 
-        to = "https://kagi.com/search?q={query.q|encode}" 
+      {
+        name = "googleToKagi",
+        from = "*google.com*/search*",
+        to = "https://kagi.com/search?q={query.q|encode}"
       }
     }
   }
@@ -386,29 +386,29 @@ See README.md for complete examples.
    ```lua
    local obj = {}
    obj.__index = obj
-   
+
    obj.name = "YourSpoon"
    obj.version = "1.0"
    obj.author = "Your Name"
    obj.license = "MIT"
-   
+
    function obj:init()
      return self
    end
-   
+
    function obj:start()
      return self
    end
-   
+
    function obj:stop()
      return self
    end
-   
+
    function obj:bindHotkeys(mapping)
      -- Handle hotkey binding
      return self
    end
-   
+
    return obj
    ```
 

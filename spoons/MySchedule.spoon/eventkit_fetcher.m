@@ -53,16 +53,16 @@ int main() {
                                                                    calendars:@[cal]];
             NSArray<EKEvent *> *calEvents = [store eventsMatchingPredicate:calPredicate];
 
-            // fprintf(stderr, "  - %s: %lu events\n",
-            //        [cal.title UTF8String],
-            //        (unsigned long)[calEvents count]);
+            fprintf(stderr, "  - %s: %lu events\n",
+                   [cal.title UTF8String],
+                   (unsigned long)[calEvents count]);
 
             // List events in this calendar
-            // for (EKEvent *evt in calEvents) {
-            //     fprintf(stderr, "    * %s at %s\n",
-            //            [evt.title UTF8String],
-            //            [[evt.startDate description] UTF8String]);
-            // }
+            for (EKEvent *evt in calEvents) {
+                fprintf(stderr, "    * %s at %s\n",
+                       [evt.title UTF8String],
+                       [[evt.startDate description] UTF8String]);
+            }
         }
 
         // Create predicate for today's events from ALL calendars
@@ -94,9 +94,9 @@ int main() {
             NSString *endTime = [timeFormatter stringFromDate:event.endDate];
             NSString *timeRange = [NSString stringWithFormat:@"%@ - %@", startTime, endTime];
 
-            // printf("%s|%.0f|%s|%s|%s||",
-            //        [title UTF8String], timeDiff, [timeRange UTF8String],
-            //        [notes UTF8String], hasRecurrence ? "true" : "false");
+            printf("%s|%.0f|%s|%s|%s||",
+                   [title UTF8String], timeDiff, [timeRange UTF8String],
+                   [notes UTF8String], hasRecurrence ? "true" : "false");
         }
     }
     return 0;

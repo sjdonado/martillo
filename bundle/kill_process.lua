@@ -11,9 +11,9 @@ local M = {
   refreshIntervalSeconds = 1,
   currentQuery = '',
   maxResults = 100,
-  logger = hs.logger.new('KillProcess', 'info'),
   iconCache = {},     -- Cache icons by bundle ID
   maxCacheSize = 100, -- Limit cache to 100 icons
+  logger = hs.logger.new('KillProcess', 'info'),
 }
 
 -- Format memory for display
@@ -606,14 +606,14 @@ return {
                 -- Shift+Enter: Copy PID to clipboard
                 local pidStr = tostring(process.pid)
                 hs.pasteboard.setContents(pidStr)
-                hs.alert.show(string.format('📋 Copied PID: %s (%s)', pidStr, process.name), 2)
+                hs.alert.show(string.format('📋 Copied %s', pidStr), _G.MARTILLO_ALERT_DURATION)
               else
                 -- Enter: Kill the process
                 local success = hs.execute(string.format('kill %d', process.pid))
                 if success then
-                  hs.alert.show(string.format('Killed: %s', process.name), 2)
+                  hs.alert.show(string.format('Killed: %s', process.name), _G.MARTILLO_ALERT_DURATION)
                 else
-                  hs.alert.show(string.format('❌ Failed to kill: %s', process.name), 2)
+                  hs.alert.show(string.format('❌ Failed to kill: %s', process.name), _G.MARTILLO_ALERT_DURATION)
                 end
               end
 

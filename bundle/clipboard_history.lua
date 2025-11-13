@@ -201,11 +201,11 @@ local function onClipboardChange()
   if hasFileURL then
     -- Resolve file URL using AppleScript
     local handle = io.popen [[
-            osascript -e 'try
-            set theFile to the clipboard as «class furl»
-            return POSIX path of theFile
-            end try' 2>&1
-        ]]
+      osascript -e 'try
+      set theFile to the clipboard as «class furl»
+      return POSIX path of theFile
+      end try' 2>&1
+    ]]
     local result = handle:read '*a'
     handle:close()
 
@@ -620,7 +620,7 @@ local function copyToClipboard(choice)
     M.logger:d 'Copied text to clipboard'
   end
 
-  hs.alert.show('📋 Copied to clipboard', 0.5)
+  hs.alert.show('📋 Copied to clipboard', _G.MARTILLO_ALERT_DURATION)
   restoreFocus()
 end
 
@@ -728,7 +728,7 @@ return {
     handler = function()
       -- Check if history is empty
       if #M.historyBuffer == 0 then
-        hs.alert.show('📋 Clipboard history is empty', 1)
+        hs.alert.show('📋 Clipboard history is empty', _G.MARTILLO_ALERT_DURATION)
         return
       end
 

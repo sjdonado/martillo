@@ -6,9 +6,9 @@ local searchUtils = require 'lib.search'
 local navigation = require 'lib.navigation'
 
 local M = {
-  logger = hs.logger.new('SafariTabs', 'info'),
   iconSize = { w = 32, h = 32 }, -- Smaller icons for better performance
-  safariIcon = nil, -- Fallback Safari icon
+  safariIcon = nil,              -- Fallback Safari icon
+  logger = hs.logger.new('SafariTabs', 'info'),
 }
 
 local function getSafariIcon()
@@ -23,47 +23,47 @@ end
 
 local function getSafariTabs()
   local script = [[
-		tell application "Safari"
-			if not running then
-				return "SAFARI_NOT_RUNNING"
-			end
+  tell application "Safari"
+    if not running then
+      return "SAFARI_NOT_RUNNING"
+    end
 
-			set tabList to {}
-			set currentWinIndex to -1
-			set currentTabIndex to -1
+    set tabList to {}
+    set currentWinIndex to -1
+    set currentTabIndex to -1
 
-			-- Get current window and tab
-			try
-				set currentWinIndex to index of front window
-				set currentTabIndex to index of current tab of front window
-			end try
+    -- Get current window and tab
+    try
+      set currentWinIndex to index of front window
+      set currentTabIndex to index of current tab of front window
+    end try
 
-			-- Iterate through all windows and tabs
-			repeat with w from 1 to count of windows
-				repeat with t from 1 to count of tabs of window w
-					set tabTitle to name of tab t of window w
-					set tabURL to URL of tab t of window w
+    -- Iterate through all windows and tabs
+    repeat with w from 1 to count of windows
+      repeat with t from 1 to count of tabs of window w
+        set tabTitle to name of tab t of window w
+        set tabURL to URL of tab t of window w
 
-					-- Determine sort priority
-					-- 0 = current tab in current window (highest priority)
-					-- 1 = other tabs in current window
-					-- 2 = tabs in other windows
-					set sortPriority to 2
-					if w = currentWinIndex then
-						if t = currentTabIndex then
-							set sortPriority to 0
-						else
-							set sortPriority to 1
-						end if
-					end if
+        -- Determine sort priority
+        -- 0 = current tab in current window (highest priority)
+        -- 1 = other tabs in current window
+        -- 2 = tabs in other windows
+        set sortPriority to 2
+        if w = currentWinIndex then
+          if t = currentTabIndex then
+            set sortPriority to 0
+          else
+            set sortPriority to 1
+          end if
+        end if
 
-					set end of tabList to {tabTitle, tabURL, w, t, sortPriority}
-				end repeat
-			end repeat
+        set end of tabList to {tabTitle, tabURL, w, t, sortPriority}
+      end repeat
+    end repeat
 
-			return tabList
-		end tell
-	]]
+    return tabList
+  end tell
+  ]]
 
   local success, result, rawOutput = hs.osascript.applescript(script)
 
@@ -116,12 +116,12 @@ end
 local function switchToTab(windowIndex, tabIndex)
   local script = string.format(
     [[
-		tell application "Safari"
-			activate
-			set index of window %d to 1
-			set current tab of window 1 to tab %d of window 1
-		end tell
-	]],
+  tell application "Safari"
+    activate
+    set index of window %d to 1
+    set current tab of window 1 to tab %d of window 1
+  end tell
+  ]],
     windowIndex,
     tabIndex
   )
@@ -166,7 +166,7 @@ local function buildChoices(tabs, query, launcher)
       getFields = function(tab)
         return {
           { value = tab.title or '', weight = 1.0, key = 'title' },
-          { value = tab.url or '', weight = 0.7, key = 'url' },
+          { value = tab.url or '',   weight = 0.7, key = 'url' },
         }
       end,
       fuzzyMinQueryLength = 3,
@@ -201,14 +201,14 @@ local function buildChoices(tabs, query, launcher)
       if shiftHeld then
         -- Shift+Enter: Copy URL to clipboard
         hs.pasteboard.setContents(tab.url)
-        hs.alert.show('📋 Copied URL', 0.5)
+        hs.alert.show(string.format('📋 Copied %s', tab.url), _G.MARTILLO_ALERT_DURATION)
       else
         -- Enter: Switch to tab
         local success = switchToTab(tab.windowIndex, tab.tabIndex)
         if success then
-          hs.alert.show('✓ Switched to tab', 0.5)
+          hs.alert.show('✓ Switched to tab', _G.MARTILLO_ALERT_DURATION)
         else
-          hs.alert.show('❌ Failed to switch to tab', 1)
+          hs.alert.show('❌ Failed to switch to tab', _G.MARTILLO_ALERT_DURATION)
         end
       end
 
@@ -233,12 +233,12 @@ return {
       local tabs, error = getSafariTabs()
 
       if error then
-        hs.alert.show(error, 1.5)
+        hs.alert.show(error, _G.MARTILLO_ALERT_DURATION)
         return
       end
 
       if not tabs or #tabs == 0 then
-        hs.alert.show('No Safari tabs found', 1)
+        hs.alert.show('No Safari tabs found', _G.MARTILLO_ALERT_DURATION)
         return
       end
 

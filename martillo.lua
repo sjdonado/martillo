@@ -22,6 +22,7 @@ M.config = {}
 M.defaults = {
 	alertOnLoad = true,
 	alertMessage = "Martillo is ready",
+	alertDuration = 1,
 	leader_key = nil,
 }
 
@@ -319,7 +320,7 @@ local function loadSpoon(spec)
 	local name = type(spec) == "string" and spec or spec[1]
 
 	if not name then
-		hs.alert.show("Invalid spoon specification")
+		hs.alert.show("Invalid spoon specification", _G.MARTILLO_ALERT_DURATION)
 		return nil
 	end
 
@@ -424,6 +425,9 @@ function M.setup(config)
 	-- Store config
 	M.config = opts
 
+	-- Make alert duration globally accessible
+	_G.MARTILLO_ALERT_DURATION = opts.alertDuration or 2
+
 	-- Sync Martillo spoons to Hammerspoon's standard location
 	ensureMartilloSpoonPath()
 
@@ -438,14 +442,14 @@ function M.setup(config)
 			M.logger:e("Failed to load spoon: " .. tostring(spoonName))
 			M.logger:e("Error: " .. hs.inspect(err))
 			M.logger:e("Stack trace: " .. debug.traceback())
-			hs.alert.show("Error loading " .. tostring(spoonName) .. ", check console")
+			hs.alert.show("Error loading " .. tostring(spoonName) .. ", check console", _G.MARTILLO_ALERT_DURATION)
 			return
 		end
 	end
 
 	-- Show load notification
 	if opts.alertOnLoad then
-		hs.alert.show(opts.alertMessage)
+		hs.alert.show(opts.alertMessage, _G.MARTILLO_ALERT_DURATION)
 	end
 
 	return M

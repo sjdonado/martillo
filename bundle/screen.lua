@@ -292,57 +292,58 @@ return {
       updateTimer = hs.timer.doEvery(1 / 60, updateLine)
 
       -- Set up mouse event watcher (down to start, up to finish)
-      clickWatcher = hs.eventtap.new({ hs.eventtap.event.types.leftMouseDown, hs.eventtap.event.types.leftMouseUp }, function(event)
-        local eventType = event:getType()
+      clickWatcher = hs.eventtap.new({ hs.eventtap.event.types.leftMouseDown, hs.eventtap.event.types.leftMouseUp },
+        function(event)
+          local eventType = event:getType()
 
-        if eventType == hs.eventtap.event.types.leftMouseDown then
-          -- Mouse down: Start measuring
-          startPoint = hs.mouse.absolutePosition()
-          return true -- Consume the event to prevent pass-through
-        elseif eventType == hs.eventtap.event.types.leftMouseUp then
-          -- Mouse up: Finish measurement
-          if startPoint then
-            local endPoint = hs.mouse.absolutePosition()
+          if eventType == hs.eventtap.event.types.leftMouseDown then
+            -- Mouse down: Start measuring
+            startPoint = hs.mouse.absolutePosition()
+            return true -- Consume the event to prevent pass-through
+          elseif eventType == hs.eventtap.event.types.leftMouseUp then
+            -- Mouse up: Finish measurement
+            if startPoint then
+              local endPoint = hs.mouse.absolutePosition()
 
-            -- Calculate distance in pixels
-            local distancePixels = math.floor(hs.geometry.point(startPoint):distance(endPoint))
+              -- Calculate distance in pixels
+              local distancePixels = math.floor(hs.geometry.point(startPoint):distance(endPoint))
 
-            -- Only measure if there was actual movement
-            if distancePixels > 0 then
-              -- Format result
-              local result = string.format('%d px', distancePixels)
+              -- Only measure if there was actual movement
+              if distancePixels > 0 then
+                -- Format result
+                local result = string.format('%d px', distancePixels)
 
-              -- Clean up
-              if updateTimer then
-                updateTimer:stop()
-                updateTimer = nil
+                -- Clean up
+                if updateTimer then
+                  updateTimer:stop()
+                  updateTimer = nil
+                end
+                if canvas then
+                  canvas:delete()
+                  canvas = nil
+                end
+                if clickWatcher then
+                  clickWatcher:stop()
+                  clickWatcher = nil
+                end
+
+                -- Copy to clipboard
+                hs.pasteboard.setContents(result)
+
+                -- Show measurement
+                hs.alert.show(string.format('📏 %s (copied)', result), _G.MARTILLO_ALERT_DURATION)
+              else
+                -- No movement, just reset
+                startPoint = nil
               end
-              if canvas then
-                canvas:delete()
-                canvas = nil
-              end
-              if clickWatcher then
-                clickWatcher:stop()
-                clickWatcher = nil
-              end
-
-              -- Copy to clipboard
-              hs.pasteboard.setContents(result)
-
-              -- Show measurement
-              hs.alert.show(string.format('📏 %s (copied)', result), 2)
-            else
-              -- No movement, just reset
-              startPoint = nil
             end
+            return true -- Consume the event to prevent pass-through
           end
-          return true -- Consume the event to prevent pass-through
-        end
-      end)
+        end)
 
       clickWatcher:start()
 
-      hs.alert.show('📏 Click and drag to measure', 1)
+      hs.alert.show('📏 Click and drag to measure', _G.MARTILLO_ALERT_DURATION)
     end,
   },
 }

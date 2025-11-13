@@ -7,18 +7,19 @@ return {
     id = 'toggle_caffeinate',
     name = 'Toggle Caffeinate',
     icon = 'tea-cup',
+    description = 'Toggle system sleep prevention',
     handler = function()
       spoon.ActionsLauncher.executeShell(
         "if pgrep caffeinate > /dev/null; then pkill caffeinate && echo 'Caffeinate disabled'; else nohup caffeinate -disu > /dev/null 2>&1 & echo 'Caffeinate enabled'; fi",
         'Toggle Caffeinate'
       )
     end,
-    description = 'Toggle system sleep prevention',
   },
   {
     id = 'toggle_system_appearance',
     name = 'Toggle System Appearance',
     icon = 'sun',
+    description = 'Toggle between light and dark mode',
     handler = function()
       spoon.ActionsLauncher.executeAppleScript(
         [[
@@ -36,16 +37,16 @@ return {
         'Toggle System Appearance'
       )
     end,
-    description = 'Toggle between light and dark mode',
   },
   -- Utility Actions
   {
     id = 'generate_uuid',
     name = 'Generate UUID',
     icon = 'key',
-    handler = function()
-      spoon.ActionsLauncher.executeShell("uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '\\n' | pbcopy && pbpaste", 'Generate UUID')
-    end,
     description = 'Generate UUID v4 and copy to clipboard',
+    handler = function()
+      spoon.ActionsLauncher.executeShell("uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '\\n' | pbcopy && pbpaste",
+        'Generate UUID', true)
+    end,
   },
 }

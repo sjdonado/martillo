@@ -64,7 +64,7 @@ return require("martillo").setup({
   {
     "ActionsLauncher",
     opts = function()
-      local window_mgmt = require("bundle.window_management")
+      local window = require("bundle.window")
       local utilities = require("bundle.utilities")
       local converters = require("bundle.converter")
       local clipboard = require("bundle.clipboard_history")

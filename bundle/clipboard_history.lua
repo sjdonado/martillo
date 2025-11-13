@@ -8,7 +8,8 @@ local navigation = require 'lib.navigation'
 local M = {
   watcher = nil,
   maxEntries = 300,
-  historyFile = nil,
+  historyFile = '~/martillo_clipboard_history',
+  historyAssets = '~/martillo_clipboard_history_assets',
   currentQuery = '',
   historyBuffer = {},
   imageCache = {},
@@ -148,13 +149,12 @@ local function onClipboardChange()
     M.logger:d '=== Processing clipboard image (screenshot) ==='
     local imageData = hs.pasteboard.readImage()
     local timestamp = os.time()
-    local presetsPath = os.getenv 'HOME' .. '/.martillo/presets'
 
     displayName = generateScreenshotName(timestamp)
-    local imagePath = presetsPath .. '/clipboard_images/' .. displayName .. '.png'
+    local imagePath = M.historyAssets .. '/' .. displayName .. '.png'
 
     -- Create images directory
-    os.execute("mkdir -p '" .. presetsPath .. "/clipboard_images'")
+    os.execute("mkdir -p '" .. M.historyAssets .. "'")
 
     -- Check if image already exists
     for i, entry in ipairs(M.historyBuffer) do
@@ -557,15 +557,24 @@ local function pasteContent(choice)
   hs.eventtap.keyStroke({ 'cmd' }, 'v', 0)
 end
 
+-- Expand tilde in path
+local function expandPath(path)
+  if path:sub(1, 1) == '~' then
+    local home = os.getenv 'HOME'
+    return home .. path:sub(2)
+  end
+  return path
+end
+
 -- Initialize clipboard monitoring
 local function initClipboardMonitoring()
   if M.watcher then
     return -- Already initialized
   end
 
-  -- Set up history file path
-  local presetsPath = os.getenv 'HOME' .. '/.martillo/presets'
-  M.historyFile = presetsPath .. '/clipboard_history'
+  -- Expand paths
+  M.historyFile = expandPath(M.historyFile)
+  M.historyAssets = expandPath(M.historyAssets)
 
   -- Set up clipboard watcher
   M.watcher = hs.pasteboard.watcher.new(onClipboardChange)

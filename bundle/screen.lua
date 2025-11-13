@@ -1,6 +1,8 @@
 -- Screen Actions Bundle
 -- Visual effects and helper tools
 
+local toast = require 'lib.toast'
+
 return {
   {
     id = 'screen_confetti',
@@ -327,11 +329,8 @@ return {
                   clickWatcher = nil
                 end
 
-                -- Copy to clipboard
                 hs.pasteboard.setContents(result)
-
-                -- Show measurement
-                hs.alert.show(string.format('📏 %s (copied)', result), _G.MARTILLO_ALERT_DURATION)
+                toast.copied(result)
               else
                 -- No movement, just reset
                 startPoint = nil

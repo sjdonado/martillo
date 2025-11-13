@@ -1,6 +1,8 @@
 -- Keyboard Actions Bundle
 -- Actions for keyboard management and automation
 
+local toast = require 'lib.toast'
+
 local M = {
 	keyboardLockTap = nil,
 	keyboardLocked = false,
@@ -86,7 +88,7 @@ local function unlockKeyboard()
 		spoon.ActionsLauncher.pickerManager:clear()
 	end
 
-	hs.alert.show('✅ Keyboard unlocked', _G.MARTILLO_ALERT_DURATION)
+	toast.success('Keyboard unlocked')
 end
 
 -- Lock the keyboard
@@ -135,7 +137,7 @@ local function startKeepAlive()
 		hs.eventtap.keyStroke({}, 'F15', 0)
 	end)
 
-	hs.alert.show('⏰ Keep-alive started (F15 every 4 min)', _G.MARTILLO_ALERT_DURATION)
+	toast.info('Keep-alive started (F15 every 4 min)', 4)
 end
 
 -- Stop keep-alive
@@ -153,7 +155,7 @@ local function stopKeepAlive()
 	end
 
 	M.keepAliveActive = false
-	hs.alert.show('⏰ Keep-alive stopped', _G.MARTILLO_ALERT_DURATION)
+	toast.success('Keep-alive stopped')
 end
 
 -- Return action definitions

@@ -1,6 +1,8 @@
 -- Network Actions Bundle
 -- Network utilities for IP information and connectivity testing
 
+local toast = require 'lib.toast'
+
 return {
   {
     id = 'network_ip_geolocation',
@@ -146,7 +148,7 @@ return {
             launcher.handlers[uuid] = function()
               if result.value ~= '' then
                 hs.pasteboard.setContents(result.value)
-                hs.alert.show('Copied: ' .. result.value)
+                toast.copied(result.value)
               end
             end
           end

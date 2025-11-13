@@ -1,6 +1,8 @@
 -- System Actions Bundle
 -- System management and monitoring actions
 
+local toast = require 'lib.toast'
+
 return {
   {
     id = 'toggle_caffeinate',
@@ -45,6 +47,7 @@ return {
     handler = function()
       local actionsLauncher = spoon.ActionsLauncher
       local updateTimer = nil
+      local isActive = true -- Flag to track if picker is still active
       local results = {
         { text = 'CPU: Loading...',     subText = 'Processor usage and load', value = '', details = '' },
         { text = 'Memory: Loading...',  subText = 'RAM usage and pressure',   value = '', details = '' },
@@ -83,7 +86,9 @@ return {
                   results[1].value = cpu .. '%'
                 end
               end
-              actionsLauncher:refresh()
+              if isActive then
+                actionsLauncher:refresh()
+              end
             end, {
               '-c',
               "top -l 2 -n 0 -F -s 0 | grep 'CPU usage' | tail -1 | awk '{print 100-$7}' | cut -d. -f1",
@@ -100,7 +105,9 @@ return {
                   results[1].subText = 'Load avg: ' .. load
                 end
               end
-              actionsLauncher:refresh()
+              if isActive then
+                actionsLauncher:refresh()
+              end
             end, { '-c', "sysctl -n vm.loadavg | awk '{print $2, $3, $4}'" })
             :start()
 
@@ -117,7 +124,9 @@ return {
                   results[2].subText = trim(used) .. ' / ' .. trim(total) .. ' remaining'
                 end
               end
-              actionsLauncher:refresh()
+              if isActive then
+                actionsLauncher:refresh()
+              end
             end, {
               '-c',
               [[
@@ -187,7 +196,9 @@ return {
                   end
                 end
               end
-              actionsLauncher:refresh()
+              if isActive then
+                actionsLauncher:refresh()
+              end
             end, { '-c', 'pmset -g batt' })
             :start()
 
@@ -219,7 +230,9 @@ return {
                   prevNetStats = { rx = rxBytes, tx = txBytes, time = currentTime }
                 end
               end
-              actionsLauncher:refresh()
+              if isActive then
+                actionsLauncher:refresh()
+              end
             end, {
               '-c',
               'netstat -ib | awk \'/en[0-9]/ && $7>0 {rx+=$7; tx+=$10} END {print rx "|" tx}\'',
@@ -244,13 +257,15 @@ return {
             launcher.handlers[uuid] = function()
               if result.value ~= '' then
                 hs.pasteboard.setContents(result.value)
-                hs.alert.show('Copied: ' .. result.value)
+                toast.copied(result.value)
               end
             end
           end
           return choices
         end,
         onClose = function()
+          -- Set flag to prevent further refresh attempts
+          isActive = false
           -- Stop the update timer when picker closes
           if updateTimer then
             updateTimer:stop()

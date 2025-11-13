@@ -4,6 +4,7 @@
 
 local searchUtils = require 'lib.search'
 local navigation = require 'lib.navigation'
+local toast = require 'lib.toast'
 
 local M = {
   iconSize = { w = 32, h = 32 }, -- Smaller icons for better performance
@@ -201,14 +202,14 @@ local function buildChoices(tabs, query, launcher)
       if shiftHeld then
         -- Shift+Enter: Copy URL to clipboard
         hs.pasteboard.setContents(tab.url)
-        hs.alert.show(string.format('📋 Copied %s', tab.url), _G.MARTILLO_ALERT_DURATION)
+        toast.copied(tab.url)
       else
         -- Enter: Switch to tab
         local success = switchToTab(tab.windowIndex, tab.tabIndex)
         if success then
-          hs.alert.show('✓ Switched to tab', _G.MARTILLO_ALERT_DURATION)
+          toast.success('Switched to tab')
         else
-          hs.alert.show('❌ Failed to switch to tab', _G.MARTILLO_ALERT_DURATION)
+          toast.error('Failed to switch to tab')
         end
       end
 
@@ -233,12 +234,12 @@ return {
       local tabs, error = getSafariTabs()
 
       if error then
-        hs.alert.show(error, _G.MARTILLO_ALERT_DURATION)
+        toast.error(error)
         return
       end
 
       if not tabs or #tabs == 0 then
-        hs.alert.show('No Safari tabs found', _G.MARTILLO_ALERT_DURATION)
+        toast.error('No Safari tabs found')
         return
       end
 

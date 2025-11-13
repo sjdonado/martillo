@@ -1,6 +1,5 @@
 -- Window Management Actions Bundle
 -- Actions for positioning and resizing windows
--- Self-contained with all window management functions included
 
 -- Get the focused window with retry logic
 local function getFocusedWindow()

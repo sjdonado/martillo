@@ -1,10 +1,10 @@
 -- Kill Process Preset
 -- Process killer with fuzzy search
--- All-in-one solution without requiring a separate spoon
 
 local searchUtils = require 'lib.search'
 local navigation = require 'lib.navigation'
 local icons = require 'lib.icons'
+local toast = require 'lib.toast'
 
 local M = {
   refreshTimer = nil,
@@ -606,14 +606,14 @@ return {
                 -- Shift+Enter: Copy PID to clipboard
                 local pidStr = tostring(process.pid)
                 hs.pasteboard.setContents(pidStr)
-                hs.alert.show(string.format('📋 Copied %s', pidStr), _G.MARTILLO_ALERT_DURATION)
+                toast.copied(pidStr)
               else
                 -- Enter: Kill the process
                 local success = hs.execute(string.format('kill %d', process.pid))
                 if success then
-                  hs.alert.show(string.format('Killed: %s', process.name), _G.MARTILLO_ALERT_DURATION)
+                  toast.success('Killed: ' .. process.name)
                 else
-                  hs.alert.show(string.format('❌ Failed to kill: %s', process.name), _G.MARTILLO_ALERT_DURATION)
+                  toast.error('Failed to kill: ' .. process.name)
                 end
               end
 

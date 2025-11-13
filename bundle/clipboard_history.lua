@@ -1,10 +1,10 @@
 -- Clipboard History Preset
 -- Persistent clipboard history with fuzzy search
--- All-in-one solution without requiring a separate spoon
 
 local searchUtils = require 'lib.search'
 local navigation = require 'lib.navigation'
 local icons = require 'lib.icons'
+local toast = require 'lib.toast'
 
 local M = {
   watcher = nil,
@@ -620,7 +620,7 @@ local function copyToClipboard(choice)
     M.logger:d 'Copied text to clipboard'
   end
 
-  hs.alert.show('📋 Copied to clipboard', _G.MARTILLO_ALERT_DURATION)
+  toast.copied()
   restoreFocus()
 end
 
@@ -728,7 +728,7 @@ return {
     handler = function()
       -- Check if history is empty
       if #M.historyBuffer == 0 then
-        hs.alert.show('📋 Clipboard history is empty', _G.MARTILLO_ALERT_DURATION)
+        toast.info('Clipboard history is empty')
         return
       end
 

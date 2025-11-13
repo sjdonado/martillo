@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Declarative Configuration**: Single-line setup inspired by [lazy.nvim](https://github.com/folke/lazy.nvim)
 - **Zero Dependencies**: Pure Lua implementation with no external libraries or compilation required
 - **Developer-First**: Built by developers, for developers who want powerful automation without leaving the keyboard
-- **Extensible**: Easy to create custom spoons and actions
+- **Extensible**: Easy to create custom bundles and actions with beautiful 3D icons
 - **Performance**: Lightweight, fast, and runs entirely in the background
 
 ### Current Status
@@ -19,405 +19,258 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Core functionality is stable and ready for daily use
 - Active development with regular improvements
 
-## Commands
-
-This is a Lua-based Hammerspoon configuration framework. Since this is a pure Lua project, there are no npm/bun commands. However, you can use these commands for development:
-
-- **Test configuration**: Copy the project to `~/.martillo` and test in Hammerspoon directly
-- **Reload Hammerspoon**: Use Hammerspoon's built-in reload functionality or `hs.reload()` in the console
-- **Check logs**: Open Hammerspoon Console to see debug output and errors
-
 ## Architecture
-
-Martillo is a declarative configuration framework for Hammerspoon that follows these key patterns:
 
 ### Core Structure
 - **`martillo.lua`**: Main framework module that handles spoon loading, configuration, and hotkey binding
 - **`spoons/`**: Collection of custom Hammerspoon spoons (productivity tools)
-- **`lib/`**: Shared library modules (leader.lua, search.lua, window.lua, picker.lua)
-- **`actions.lua`**: Action definitions for ActionsLauncher
+- **`bundle/`**: Action bundles (window_management, clipboard_history, converter, utilities, etc.)
+- **`lib/`**: Shared library modules (icons, search, navigation, window, leader)
+- **`assets/`**: Static resources (120 3D icons from 3dicons.co)
 
 ### Key Design Patterns
 
-1. **Declarative Configuration**: Users configure everything through a single `require("martillo").setup({ ... })` call where:
-   - Global options (like `leader_key`) are non-numeric keys
-   - Spoons are numeric array entries
+1. **Declarative Configuration**: Users configure everything through a single `require("martillo").setup({ ... })` call
 
-2. **Spoon Specification Format**: Each spoon is configured with:
-   - `[1]` (string): Spoon name (required)
-   - `opts` (table/function): Configuration options
-   - `actions` (table): Filter and customize actions (ActionsLauncher only)
-   - `keys` (table): Hotkey definitions in format `{ modifiers, key, action, desc }`
-   - `config` (function): Post-setup configuration hook
-   - `init` (function): Pre-configuration initialization hook
+2. **Action Bundles**: Modular action collections in `bundle/` directory that can be selectively imported
 
-3. **Leader Key Support**: `<leader>` placeholder in hotkeys expands to configured `leader_key` modifiers
+3. **3D Icon System** (`lib/icons.lua`):
+   - 120 beautiful icons from 3dicons.co in `assets/icons/`
+   - `icons.getIcon(name)` - Get icon by name
+   - `icons.ICON_SIZE` - Standard icon size ({ w = 32, h = 32 })
+   - Automatic caching for performance
+   - Parent icon inheritance for child pickers
 
-4. **Hotkey Processing**: The framework automatically processes hotkey specifications and binds them using `spoon:bindHotkeys()` or per-action keybindings
+4. **Leader Key Support**: `<leader>` placeholder in hotkeys expands to configured `leader_key` modifiers
 
-5. **Shared Modules**: Internal utilities in `lib/` for leader key handling, fuzzy search, window management, and picker state management
+5. **Shared Modules**:
+   - `lib/icons.lua` - Icon management with caching
+   - `lib/search.lua` - Fuzzy search with ranking
+   - `lib/navigation.lua` - Picker state management
+   - `lib/window.lua` - Window positioning
+   - `lib/leader.lua` - Leader key expansion
 
 ## Built-in Spoons
 
-### LaunchOrToggleFocus
-**Purpose**: Ultra-fast application switching without touching the mouse
-
-**Key Features**:
-- Launch or focus applications with single hotkey press
-- Smart toggle: if app is already focused, press again to switch to previous app
-- Configurable hotkey mappings for each application
-- Supports any installed macOS application
-
-**Use Cases**:
-- Quick switching between development tools (terminal, editor, browser)
-- Instant access to communication apps (Mail, Messages)
-- Keyboard-driven workflow without Alt+Tab
-
-**Technical Details**:
-- Uses Hammerspoon's `hs.application` API for app management
-- Tracks previously focused app for toggle functionality
-- Handles edge cases (app not installed, multiple windows, etc.)
-
----
-
 ### ActionsLauncher
-**Purpose**: Searchable command palette with selective action loading, per-action keybindings, and live transformations
+**Purpose**: Searchable command palette with selective action loading, per-action keybindings, and 3D icons
 
 **Key Features**:
-- Fuzzy search across all available actions with alias support
-- Selective action loading - enable only the actions you need
-- Per-action keybindings - bind hotkeys to specific actions
-- Static actions (one-time executables) and nested actions (query-based transformations)
-- Alias support for quick searching (e.g., "tc" for "Toggle Caffeinate")
+- Fuzzy search with alias support
+- Beautiful 3D icons for all actions
+- Icon inheritance for child pickers
+- Per-action keybindings
+- Nested actions (query-based transformations)
 
-**Action Categories**:
-
-1. **Static Actions** (can have keybindings and aliases):
-   - **Window Management**: Maximize, center, quarters, thirds positioning
-   - **System Controls**: Toggle dark mode, caffeinate (prevent sleep)
-   - **Developer Utilities**: Copy IP, generate UUID, network status
-
-2. **Nested Actions** (query-based transformations):
-   - **Timestamp Converter**: Unix timestamp ↔ ISO string (detects 10 or 13 digit numbers)
-   - **Base64**: Auto-decode valid base64 strings
-   - **JWT Decoder**: Auto-decode JWT tokens into header/payload
-   - **Color Converter**: HEX ↔ RGB with visual color swatch
-
-**Use Cases**:
-- Quick window management without dedicated window manager spoon
-- Transform clipboard content (paste timestamp, get ISO date)
-- System controls with searchable aliases
-- Custom action workflows with keybindings
-
-**Technical Details**:
-- Actions defined in `actions.lua` and filtered in spoon configuration
-- Uses `lib/search.lua` for fuzzy ranking with alias boosting
-- Uses `lib/picker.lua` for parent-child picker state management
-- Static actions support `keys` property for direct hotkey binding
-- Nested Actions open child pickers for user input processing
-
-**Configuration Example**:
+**Configuration**:
 ```lua
 {
   "ActionsLauncher",
   opts = function()
-    return require("actions")  -- Load all available actions
+    -- Import action bundles
+    return { actions = { require("bundle.window_management"), require("bundle.utilities") } }
   end,
   actions = {
-    -- Enable specific actions with optional keybindings and aliases
     { "window_center", keys = { { "<leader>", "return" } } },
-    { "toggle_caffeinate", alias = "tc" },
-    { "copy_ip", alias = "gi" },
-    -- Nested Actions (open child pickers)
-    { "timestamp", alias = "ts" },
-    { "colors", alias = "color" },
-    { "base64", alias = "b64" },
-    { "jwt", alias = "jwt" },
+    { "clipboard_history", alias = "ch" },
   },
-  keys = {
-    { "<leader>", "space", desc = "Toggle Actions Launcher" }
-  }
+  keys = { { "<leader>", "space" } }
 }
 ```
 
----
-
-### Window Management (Internal Module)
-**Purpose**: Shared library for keyboard-driven window positioning - used by ActionsLauncher, not a standalone spoon
-
-**Location**: `lib/window.lua`
-
-**Available Positions**:
-- **Halves**: left, right, up, down (50% of screen)
-- **Quarters**: top_left, top_right, bottom_left, bottom_right (25% of screen)
-- **Thirds (horizontal)**: left_third, center_third, right_third, left_two_thirds, right_two_thirds
-- **Thirds (vertical)**: top_third, middle_third, bottom_third, top_two_thirds, bottom_two_thirds
-- **Sizing**: max (fullscreen), almost_max (90% centered), reasonable (60%×70% centered), center
-
-**Usage**:
-Window management is accessed through ActionsLauncher actions with IDs like `window_center`, `window_left_third`, etc. These actions can have keybindings assigned in the ActionsLauncher configuration.
-
-**Example**:
-```lua
-{
-  "ActionsLauncher",
-  actions = {
-    static = {
-      { "window_left_third", keys = { { "<leader>", "left" } } },
-      { "window_center", keys = { { "<leader>", "return" } } },
-    }
-  }
-}
-```
-
-**Technical Details**:
-- Pure Lua module (not a spoon)
-- Uses Hammerspoon's `hs.window` API
-- Single `moveWindow(direction)` function
-- No external dependencies
-
----
-
-### KillProcess
-**Purpose**: Fast process termination with fuzzy search
+### LaunchOrToggleFocus
+**Purpose**: Ultra-fast application switching
 
 **Key Features**:
-- Fuzzy search through running processes
-- Shows process name, PID, and CPU/memory usage
-- Force quit unresponsive applications
-- Safe process filtering (prevents killing system processes)
+- Single hotkey per app
+- Smart toggle (if focused, switch to previous app)
+- Works with any macOS application
 
-**Use Cases**:
-- Kill frozen applications without Activity Monitor
-- Quick cleanup of development servers
-- Emergency process termination
-- Find and stop resource-heavy processes
-
-**Technical Details**:
-- Uses `ps aux` to get process list
-- Filters out kernel processes and critical system processes
-- Shows real-time CPU and memory usage
-- Uses `kill -9` for force termination
-
-**Safety Features**:
-- Requires confirmation before killing processes
-- Filters out system-critical processes
-- Shows clear process information before termination
-
----
-
-### ClipboardHistory
-**Purpose**: Never lose copied content with searchable clipboard history
+### MySchedule
+**Purpose**: Calendar integration in menu bar
 
 **Key Features**:
-- Persistent plain text history (survives Hammerspoon restarts)
-- Fast fuzzy search entirely in Lua (no external dependencies)
-- Support for text, images, and file paths
-- Smart preview with file type detection
-- Copy or paste from history
-
-**Storage Format**:
-- Uses fish_history-like plain text format
-- Human-readable and editable
-- Stored in `~/.martillo/spoons/ClipboardHistory.spoon/clipboard_history`
-- Images saved in `images/` subdirectory
-
-**Search Features**:
-- Exact match (highest priority)
-- Prefix match (high priority)
-- Contains match (medium priority)
-- Fuzzy character-by-character matching (lower priority)
-
-**Smart Behavior**:
-- Auto-paste in most apps
-- Copy-only mode for Finder and System Settings
-- Duplicate detection (moves existing entry to top)
-- Configurable maximum entries (default: 300)
-
-**Use Cases**:
-- Recover accidentally overwritten clipboard
-- Access frequently copied snippets
-- Search through past clipboard items
-- Copy multiple items and paste in sequence
-
-**Technical Details**:
-- Pure Lua implementation (no C++ compilation)
-- Background clipboard monitoring with `hs.pasteboard.watcher`
-- File type detection for images, videos, documents, code
-- Smart preview generation with icons
-
-**File Format Example**:
-```
-- content: Hello World
-  when: 1729262400
-  type: text
-- content: /path/to/image.png
-  when: 1729262300
-  type: image
-```
-
----
+- Today's events with countdown timers
+- Clickable meeting URLs
+- Native macOS EventKit integration
+- Requires compilation (`spoon:compile()`)
 
 ### BrowserRedirect
-**Purpose**: Intelligent URL routing to different browsers based on patterns
+**Purpose**: Intelligent URL routing to different browsers
 
 **Key Features**:
 - Pattern-based URL matching
-- Multiple browser targets
 - URL transformation/mapping rules
-- Development vs production environment routing
+- Development vs production routing
 
-**Common Use Cases**:
-- Route localhost URLs to development browser (Chromium)
-- Open work apps (Google Meet, Linear) in specific app/browser
-- Redirect Google searches to privacy-focused alternatives (Kagi)
+## Action Bundles
 
-**Configuration Example**:
+### bundle/window_management.lua
+Window positioning actions with computer icon:
+- Maximize, center, reasonable size
+- Halves, quarters, thirds
+
+### bundle/clipboard_history.lua
+Clipboard manager with automatic monitoring:
+- Persistent history with fuzzy search
+- Support for text, images, files
+- File size and line count display
+- 3D icons for different file types
+- Inherits parent icon as fallback
+
+### bundle/converter.lua
+Live transformation actions:
+- Time converter (clock icon)
+- Color converter (color-palette icon)
+- Base64 encoder/decoder (text icon)
+- JWT decoder (key icon)
+
+### bundle/utilities.lua
+System utilities:
+- Toggle caffeinate (cup icon)
+- Toggle dark mode (sun icon)
+- Generate UUID (key icon)
+- Copy IP (wifi icon)
+- Network speed test (flash icon)
+
+### bundle/kill_process.lua
+Process killer with fuzzy search:
+- Real-time process list
+- Memory and CPU usage display
+- App icons for processes
+- Fallback icon for system processes
+
+### bundle/martillo.lua
+Martillo management:
+- Reload configuration (rocket icon)
+- Update Martillo (forward icon)
+
+## Technical Details
+
+### Icon System
+
+**Location**: `lib/icons.lua`
+
+**Key Functions**:
 ```lua
-{
-  "BrowserRedirect",
-  opts = {
-    default_app = "Safari",
-    redirect = {
-      { match = { "*localhost*", "*127.0.0.1*", "*0.0.0.0*" }, app = "Chromium" },
-      { match = { "*meet.google*" }, app = "Google Meet" },
-    },
-    mapper = {
-      {
-        name = "googleToKagi",
-        from = "*google.com*/search*",
-        to = "https://kagi.com/search?q={query.q|encode}"
-      }
-    }
+-- Get icon by name
+local icon = icons.getIcon("star")
+
+-- Standard size constant
+icons.ICON_SIZE  -- { w = 32, h = 32 }
+
+-- Get all available icons
+icons.getAvailableIcons()
+
+-- Clear cache
+icons.clearCache()
+```
+
+**Icon Inheritance**:
+- Parent actions pass their icon to child pickers via `parentIcon` config
+- Child items inherit parent icon as fallback
+- Specific icons override inherited icons
+
+**File Extension Mapping** (in clipboard_history):
+- Uses dictionary `extensionToIcon` for O(1) lookups
+- Maps extensions to icon names: pdf→file-text, mp3→music, mp4→video-camera, etc.
+
+### Search System
+
+**Location**: `lib/search.lua`
+
+**Features**:
+- Exact match (highest priority)
+- Prefix match
+- Contains match
+- Fuzzy character-by-character matching
+- Alias boosting
+- Custom scoring adjustments
+
+### Navigation System
+
+**Location**: `lib/navigation.lua`
+
+**Features**:
+- Parent-child picker state management
+- DELETE/ESC navigation back to parent
+- Shift+ESC closes all pickers
+- Modifier key detection (Shift, etc.)
+
+## Development Guidelines
+
+### Adding Icons to Actions
+
+```lua
+return {
+  {
+    id = "my_action",
+    name = "My Action",
+    icon = "star",  -- Icon name from assets/icons/
+    description = "Does something cool",
+    handler = function()
+      -- Action code
+    end
   }
 }
 ```
 
-**Technical Details**:
-- Intercepts URL open events
-- Pattern matching with wildcards
-- Query parameter extraction and transformation
-- Fallback to default browser if no match
+### Using Icons in Code
 
----
-
-### MySchedule
-**Purpose**: Display today's calendar events in the menu bar with countdown timers
-
-**Key Features**:
-- Shows upcoming meetings in menu bar
-- Real-time countdown to next event
-- Clickable meeting URLs (Zoom, Meet, Teams)
-- Native macOS Calendar integration
-
-**Display Format**:
-- Menu bar shows next event with time remaining
-- Dropdown shows full day schedule
-- Meeting links are clickable for instant join
-
-**Use Cases**:
-- Always know what's next without checking calendar
-- One-click meeting join
-- Time awareness during work day
-- Meeting preparation reminders
-
-**Technical Details**:
-- Uses macOS EventKit API via Objective-C bridge
-- Requires calendar access permission
-- Updates every minute
-- Timezone-aware date handling
-- Compiled Objective-C component for calendar access
-
-**Setup**:
 ```lua
-{
-  "MySchedule",
-  config = function(spoon)
-    spoon:compile()  -- Compile Objective-C calendar bridge
-    spoon:start()
+local icons = require("lib.icons")
+
+-- Get icon
+local myIcon = icons.getIcon("rocket")
+
+-- Use standard size
+local size = icons.ICON_SIZE
+
+-- Set on chooser entry
+choiceEntry.image = icons.getIcon("copy")
+```
+
+### File Extension to Icon Mapping
+
+In `bundle/clipboard_history.lua`, use the dictionary pattern:
+
+```lua
+local extensionToIcon = {
+  pdf = 'file-text',
+  mp3 = 'music',
+  mp4 = 'video-camera',
+  psd = 'paint-brush',
+  -- ... more mappings
+}
+
+local iconName = extensionToIcon[extension] or 'file'
+local icon = icons.getIcon(iconName)
+```
+
+### Parent Icon Inheritance
+
+```lua
+-- In parent action
+spoon.ActionsLauncher:openChildPicker{
+  parentIcon = icons.getIcon('copy'),
+  handler = function(query, launcher)
+    local parentIcon = launcher:getParentIcon()
+
+    for _, item in ipairs(items) do
+      local choice = buildChoice(item)
+
+      -- Fallback to parent icon
+      if not choice.image and parentIcon then
+        choice.image = parentIcon
+      end
+    end
   end
 }
 ```
 
----
-
-## Configuration Examples
-
-The framework uses a single-table configuration where global options (non-numeric keys) are mixed with spoons (numeric keys):
-
-```lua
-return require("martillo").setup({
-  -- Global options
-  leader_key = { "alt", "ctrl" },
-
-  -- Spoons
-  {
-    "LaunchOrToggleFocus",
-    keys = {
-      { "<leader>", "c", app = "Calendar" },
-      { "<leader>", "b", app = "Safari" },
-    }
-  },
-
-  {
-    "ActionsLauncher",
-    opts = function() return require("actions") end,
-    actions = {
-      { "window_center", keys = { { "<leader>", "return" } } },
-      { "toggle_caffeinate", alias = "tc" },
-      { "timestamp", alias = "ts" },
-      { "colors", alias = "color" },
-      { "base64", alias = "b64" },
-      { "jwt", alias = "jwt" },
-    },
-    keys = { { "<leader>", "space", desc = "Toggle Actions Launcher" } }
-  },
-})
-```
-
-See README.md for complete examples.
-
-## Development Guidelines
-
-### Adding New Spoons
-
-1. Create directory: `spoons/YourSpoon.spoon/`
-2. Create `init.lua` with standard spoon structure:
-   ```lua
-   local obj = {}
-   obj.__index = obj
-
-   obj.name = "YourSpoon"
-   obj.version = "1.0"
-   obj.author = "Your Name"
-   obj.license = "MIT"
-
-   function obj:init()
-     return self
-   end
-
-   function obj:start()
-     return self
-   end
-
-   function obj:stop()
-     return self
-   end
-
-   function obj:bindHotkeys(mapping)
-     -- Handle hotkey binding
-     return self
-   end
-
-   return obj
-   ```
-
-3. Add to README.md documentation
-4. Test with Hammerspoon reload
-
 ### Code Style
 
-- Use 2-space indentation
+- Use 2-space indentation (with tabs in some files)
 - Follow Lua naming conventions (camelCase for functions, PascalCase for classes)
 - Add documentation comments for public APIs
 - Use `hs.logger` for debugging output
@@ -425,32 +278,24 @@ See README.md for complete examples.
 
 ### Testing
 
-- Test in actual Hammerspoon environment (no unit test framework)
+- Test in actual Hammerspoon environment
 - Use Hammerspoon Console for debugging
 - Test edge cases (app not installed, no network, etc.)
-- Verify hotkeys don't conflict with system shortcuts
+- Verify hotkeys don't conflict
 
 ## Important Notes
 
 - This is a pure Lua project - no Node.js, package managers, or build tools
-- All spoons follow Hammerspoon's standard spoon structure with `init.lua` files
-- The framework handles automatic reloading when configuration files change
-- Users configure everything in their `~/.hammerspoon/init.lua` file
-- Testing requires actual Hammerspoon installation and macOS environment
-- Some spoons (like MySchedule) may require compilation of Objective-C components
-
-## Roadmap
-
-See README.md for the full roadmap. Key upcoming features:
-
-- Fork Hammerspoon with enhanced chooser capabilities
-- Nested chooser system for complex workflows
-- Main launcher integrating all spoons
-- Snippet expansion system
-- Emoji picker
+- All spoons follow Hammerspoon's standard spoon structure
+- Icon files are in PNG format (50-100KB each)
+- Icons are cached automatically by `lib/icons.lua`
+- Bundle files use `bundle/` not `presets/` (updated from earlier versions)
+- Extension mapping uses dictionary lookups, not if/elseif chains
+- Parent icon inheritance allows consistent fallback behavior
 
 ## Resources
 
 - [Hammerspoon Documentation](http://www.hammerspoon.org/docs/)
 - [Lua 5.4 Reference](https://www.lua.org/manual/5.4/)
 - [lazy.nvim](https://github.com/folke/lazy.nvim) - Configuration style inspiration
+- [3dicons.co](https://3dicons.co/) - Icon source

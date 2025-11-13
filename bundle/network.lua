@@ -1,3 +1,6 @@
+-- Network Actions Bundle
+-- Network utilities for IP information and connectivity testing
+
 return {
   {
     id = 'network_copy_ip',

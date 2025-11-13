@@ -55,7 +55,6 @@ return {
       local clickWatcher = nil
       local particles = {}
 
-      -- Confetti colors
       local colors = {
         { red = 1.0, green = 0.2, blue = 0.2 }, -- Red
         { red = 1.0, green = 0.8, blue = 0.0 }, -- Yellow
@@ -65,7 +64,6 @@ return {
         { red = 0.8, green = 0.4, blue = 1.0 }, -- Purple
       }
 
-      -- Create a confetti particle
       local function createParticle(screen)
         local screenFrame = screen:fullFrame()
         return {

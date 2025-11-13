@@ -1,4 +1,3 @@
--- window.lua
 -- Window management utilities for Martillo
 
 local M = {}

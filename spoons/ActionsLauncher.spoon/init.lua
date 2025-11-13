@@ -1,22 +1,13 @@
---- === ActionsLauncher ===
----
 --- A customizable action palette for Hammerspoon that allows you to define and execute various actions
 --- through a searchable interface using callback functions.
 --- Supports child pickers for Nested Actions.
 
-local searchUtils = require("lib.search")
-local navigation = require("lib.navigation")
-local icons = require("lib.icons")
+local searchUtils = require 'lib.search'
+local navigation = require 'lib.navigation'
+local icons = require 'lib.icons'
 
 local obj = {}
 obj.__index = obj
-
--- Metadata
-obj.name = "ActionsLauncher"
-obj.version = "2.0"
-obj.author = "sjdonado"
-obj.homepage = "https://github.com/sjdonado/martillo/spoons"
-obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 obj.hotkeys = {}
 obj.actionHotkeys = {}
@@ -29,7 +20,7 @@ obj.pickerManager = nil
 obj.deleteKeyWatcher = nil
 obj.escapeKeyWatcher = nil
 obj.currentChildHandler = nil
-obj.logger = hs.logger.new("ActionsLauncher", "info")
+obj.logger = hs.logger.new('ActionsLauncher', 'info')
 
 --- ActionsLauncher:init()
 --- Method
@@ -58,22 +49,22 @@ function obj:executeActionWithModifiers(choice)
 	local result = handler()
 
 	-- Handle Nested Action (opens child picker)
-	if result == "OPEN_CHILD_PICKER" then
-		return "OPEN_CHILD_PICKER"
+	if result == 'OPEN_CHILD_PICKER' then
+		return 'OPEN_CHILD_PICKER'
 	end
 
 	-- Handle string results with copy/paste logic
-	if result and type(result) == "string" and result ~= "" then
+	if result and type(result) == 'string' and result ~= '' then
 		local shiftHeld = navigation.isShiftHeld()
 
 		if shiftHeld then
 			-- Shift+Enter: Copy only (no paste)
 			hs.pasteboard.setContents(result)
-			hs.alert.show("📋 " .. result)
+			hs.alert.show('📋 Copied ' .. result, _G.MARTILLO_ALERT_DURATION)
 		else
 			-- Regular Enter: Copy and paste
 			hs.pasteboard.setContents(result)
-			hs.alert.show("✓ " .. result)
+			hs.alert.show('✅ ' .. result, _G.MARTILLO_ALERT_DURATION)
 			-- Paste using keyStrokes
 			hs.eventtap.keyStrokes(result)
 		end
@@ -101,7 +92,7 @@ function obj:createChooser()
 	self.chooser:rows(10)
 	self.chooser:width(40)
 	self.chooser:searchSubText(true)
-	self.chooser:placeholderText("Search actions...")
+	self.chooser:placeholderText 'Search actions...'
 
 	-- Set up query change callback for Nested Actions
 	self.chooser:queryChangedCallback(function(query)
@@ -168,16 +159,16 @@ function obj:setup(config)
 		self.handlers[uuid] = action.handler
 
 		local subTextParts = {}
-		if action.description and action.description ~= "" then
+		if action.description and action.description ~= '' then
 			table.insert(subTextParts, action.description)
 		end
-		if action.alias and action.alias ~= "" then
-			table.insert(subTextParts, "alias: " .. action.alias)
+		if action.alias and action.alias ~= '' then
+			table.insert(subTextParts, 'alias: ' .. action.alias)
 		end
 
 		local choice = {
 			text = action.name,
-			subText = table.concat(subTextParts, " • "),
+			subText = table.concat(subTextParts, ' • '),
 			uuid = uuid,
 			copyToClipboard = false,
 			alias = action.alias,
@@ -204,8 +195,8 @@ function obj:setup(config)
 				local hotkey = hs.hotkey.bind(mods, key, function()
 					local result = handler()
 					-- Don't show alert for child picker actions or empty results
-					if result and type(result) == "string" and result ~= "" and result ~= "OPEN_CHILD_PICKER" then
-						hs.alert.show(result)
+					if result and type(result) == 'string' and result ~= '' and result ~= 'OPEN_CHILD_PICKER' then
+						hs.alert.show(result, _G.MARTILLO_ALERT_DURATION or 2)
 					end
 				end)
 				table.insert(self.actionHotkeys, hotkey)
@@ -250,17 +241,17 @@ end
 --- This is useful when data changes and the picker needs to be updated
 function obj:refresh()
 	if not self.chooser or not self.chooser:isVisible() then
-		self.logger:w("Cannot refresh: no visible chooser")
+		self.logger:w 'Cannot refresh: no visible chooser'
 		return
 	end
 
 	if not self.currentChildHandler then
-		self.logger:w("Cannot refresh: no child handler stored")
+		self.logger:w 'Cannot refresh: no child handler stored'
 		return
 	end
 
 	-- Get current query
-	local query = self.chooser:query() or ""
+	local query = self.chooser:query() or ''
 
 	-- Call handler to get updated choices
 	local choices = self.currentChildHandler(query, self)
@@ -268,7 +259,7 @@ function obj:refresh()
 	-- Update chooser with new choices
 	if choices then
 		self.chooser:choices(choices)
-		self.logger:d("Refreshed picker with " .. #choices .. " choices")
+		self.logger:d('Refreshed picker with ' .. #choices .. ' choices')
 	end
 end
 
@@ -300,17 +291,17 @@ function obj:openChildPicker(config)
 	if hasParent then
 		local parentState = {
 			choices = self.originalChoices,
-			placeholder = "Search actions...",
+			placeholder = 'Search actions...',
 			handlers = hs.fnutils.copy(self.handlers),
 			parentAction = config.parentAction,
 		}
 		self.pickerManager:pushParent(parentState)
-		self.logger:d("Opened child picker with parent, stack depth: " .. self.pickerManager:depth())
+		self.logger:d('Opened child picker with parent, stack depth: ' .. self.pickerManager:depth())
 
 		-- Close current picker
 		self.chooser:hide()
 	else
-		self.logger:d("Opened standalone child picker (no parent)")
+		self.logger:d 'Opened standalone child picker (no parent)'
 	end
 
 	-- Small delay to ensure smooth transition
@@ -337,13 +328,13 @@ function obj:openChildPicker(config)
 		self.chooser:rows(10)
 		self.chooser:width(40)
 		self.chooser:searchSubText(true)
-		self.chooser:placeholderText(config.placeholder or "Type input...")
+		self.chooser:placeholderText(config.placeholder or 'Type input...')
 
 		-- Set up query change callback for child picker
 		self.chooser:queryChangedCallback(function(query)
-			if not query or query == "" then
+			if not query or query == '' then
 				-- Empty query - show results from handler
-				local choices = config.handler("", self)
+				local choices = config.handler('', self)
 				self.chooser:choices(choices)
 				return
 			end
@@ -354,7 +345,7 @@ function obj:openChildPicker(config)
 		end)
 
 		-- Set initial choices by calling handler with empty query
-		local initialChoices = config.handler("", self)
+		local initialChoices = config.handler('', self)
 		self.chooser:choices(initialChoices)
 
 		-- Set up DELETE key watcher for going back when query is empty using navigation helper
@@ -469,7 +460,7 @@ function obj:restoreParentPicker(parentState)
 	end)
 
 	self.chooser:show()
-	self.logger:d("Restored parent picker")
+	self.logger:d 'Restored parent picker'
 end
 
 --- ActionsLauncher:handleQueryChange(query)
@@ -479,7 +470,7 @@ end
 --- Parameters:
 ---  * query - The current search query
 function obj:handleQueryChange(query)
-	if not query or query == "" then
+	if not query or query == '' then
 		if self.chooser then
 			self.chooser:choices(self.originalChoices)
 		end
@@ -489,19 +480,19 @@ function obj:handleQueryChange(query)
 	local rankedChoices = searchUtils.rank(query, self.originalChoices, {
 		getFields = function(choice)
 			return {
-				{ value = choice.text or "",    weight = 1.0, key = "text" },
-				{ value = choice.subText or "", weight = 0.6, key = "subText" },
-				{ value = choice.alias or "",   weight = 1.2, key = "alias" },
+				{ value = choice.text or '',    weight = 1.0, key = 'text' },
+				{ value = choice.subText or '', weight = 0.6, key = 'subText' },
+				{ value = choice.alias or '',   weight = 1.2, key = 'alias' },
 			}
 		end,
 		fuzzyMinQueryLength = 4,
 		tieBreaker = function(a, b)
-			local aText = a.text or ""
-			local bText = b.text or ""
+			local aText = a.text or ''
+			local bText = b.text or ''
 			if aText ~= bText then
 				return aText < bText
 			end
-			return (a.uuid or "") < (b.uuid or "")
+			return (a.uuid or '') < (b.uuid or '')
 		end,
 	})
 
@@ -516,7 +507,7 @@ end
 ---  * A unique string identifier
 function obj:generateUUID()
 	self.uuidCounter = self.uuidCounter + 1
-	return "action_" .. tostring(self.uuidCounter) .. "_" .. tostring(os.time())
+	return 'action_' .. tostring(self.uuidCounter) .. '_' .. tostring(os.time())
 end
 
 --- ActionsLauncher:createColorSwatch(r, g, b)
@@ -535,7 +526,7 @@ function obj:createColorSwatch(r, g, b)
 	local canvas = hs.canvas.new(size)
 
 	canvas[1] = {
-		type = "rectangle",
+		type = 'rectangle',
 		frame = { x = 0, y = 0, w = size.w, h = size.h },
 		fillColor = { red = r / 255, green = g / 255, blue = b / 255, alpha = 1.0 },
 		strokeColor = { red = 0.5, green = 0.5, blue = 0.5, alpha = 1.0 },
@@ -547,46 +538,58 @@ function obj:createColorSwatch(r, g, b)
 	return image
 end
 
---- ActionsLauncher.executeShell(command, actionName)
+--- ActionsLauncher.executeShell(command, actionName, copyToClipboard)
 --- Function
 --- Execute a shell command with error handling and user feedback
 ---
 --- Parameters:
 ---  * command - The shell command to execute
 ---  * actionName - The name of the action (for user feedback)
-function obj.executeShell(command, actionName)
-	local task = hs.task.new("/bin/sh", function(exitCode, stdOut, stdErr)
+---  * copyToClipboard - Optional boolean flag to copy the output to clipboard (default: false)
+function obj.executeShell(command, actionName, copyToClipboard)
+	local task = hs.task.new('/bin/sh', function(exitCode, stdOut, stdErr)
 		if exitCode == 0 then
-			local output = stdOut and stdOut:gsub("%s+$", "") or ""
-			if output ~= "" then
-				hs.alert.show(output)
+			local output = stdOut and stdOut:gsub('%s+$', '') or ''
+			if output ~= '' then
+				if copyToClipboard then
+					hs.pasteboard.setContents(output)
+					hs.alert.show('📋 Copied ' .. output, _G.MARTILLO_ALERT_DURATION)
+				else
+					hs.alert.show('✅ ' .. output, _G.MARTILLO_ALERT_DURATION)
+				end
 			else
-				hs.alert.show(actionName .. " completed")
+				hs.alert.show('✅ ' .. actionName .. ' completed', _G.MARTILLO_ALERT_DURATION)
 			end
 		else
-			hs.alert.show(actionName .. " failed: " .. (stdErr or "Unknown error"))
+			hs.alert.show(actionName .. ' failed: ' .. (stdErr or 'Unknown error'), _G.MARTILLO_ALERT_DURATION)
 		end
-	end, { "-c", command })
+	end, { '-c', command })
 	task:start()
 end
 
---- ActionsLauncher.executeAppleScript(script, actionName)
+--- ActionsLauncher.executeAppleScript(script, actionName, copyToClipboard)
 --- Function
 --- Execute an AppleScript with error handling and user feedback
 ---
 --- Parameters:
 ---  * script - The AppleScript to execute
 ---  * actionName - The name of the action (for user feedback)
-function obj.executeAppleScript(script, actionName)
+---  * copyToClipboard - Optional boolean flag to copy the result to clipboard (default: false)
+function obj.executeAppleScript(script, actionName, copyToClipboard)
 	local success, result = hs.applescript.applescript(script)
 	if success then
-		if result ~= "" then
-			hs.alert.show(result)
+		if result ~= '' then
+			if copyToClipboard then
+				hs.pasteboard.setContents(result)
+				hs.alert.show('📋 Copied ' .. result, _G.MARTILLO_ALERT_DURATION)
+			else
+				hs.alert.show('✅ ' .. result, _G.MARTILLO_ALERT_DURATION)
+			end
 		else
-			hs.alert.show(actionName .. " completed")
+			hs.alert.show('✅ ' .. actionName .. ' completed', _G.MARTILLO_ALERT_DURATION)
 		end
 	else
-		hs.alert.show(actionName .. " failed: " .. (result or "Unknown error"))
+		hs.alert.show(actionName .. ' failed: ' .. (result or 'Unknown error'), _G.MARTILLO_ALERT_DURATION)
 	end
 	return result
 end

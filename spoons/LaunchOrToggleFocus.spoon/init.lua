@@ -1,16 +1,7 @@
---- === LaunchOrToggleFocus ===
----
 --- Launch applications or toggle focus if already running
 
 local obj = {}
 obj.__index = obj
-
--- Metadata
-obj.name = "LaunchOrToggleFocus"
-obj.version = "1.0"
-obj.author = "sjdonado"
-obj.homepage = "https://github.com/sjdonado/martillo/spoons"
-obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 obj.hotkeys = {}
 obj.applications = {}

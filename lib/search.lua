@@ -1,9 +1,6 @@
--- shared search utility for Martillo spoons
--- Provides rank-based fuzzy search with configurable weights and tie breakers.
+-- Provides rank-based fuzzy search with configurable weights and tie breakers
 
 local M = {}
-
-M.VERSION = '0.1.0'
 
 local DEFAULT_WEIGHTS = {
   exact = 1000,

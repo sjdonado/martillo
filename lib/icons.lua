@@ -1,4 +1,3 @@
--- Icons Helper
 -- Provides access to 3D icons and file type icon mappings
 
 local M = {

@@ -1,17 +1,8 @@
---- === BrowserRedirect ===
----
 --- Intelligent URL routing to different applications based on patterns
 --- Includes customizable link mapping interface
 
 local obj = {}
 obj.__index = obj
-
--- Metadata
-obj.name = "BrowserRedirect"
-obj.version = "2.0"
-obj.author = "sjdonado"
-obj.homepage = "https://github.com/sjdonado/martillo/spoons"
-obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 obj.default_app = "Safari"
 obj.redirect = {}

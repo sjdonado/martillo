@@ -3,8 +3,6 @@
 
 local M = {}
 
-M.VERSION = '1.0.0'
-
 --- Create a new picker manager
 --- @return table PickerManager instance
 function M.new()
@@ -134,7 +132,7 @@ function M.handleActionResult(result, options)
     end
 
     -- Show alert
-    hs.alert.show('✓ ' .. result)
+    hs.alert.show('✓ ' .. result, _G.MARTILLO_ALERT_DURATION)
 
     -- Paste/insert content
     if options.onPaste then
@@ -151,7 +149,7 @@ function M.handleActionResult(result, options)
     if not options.skipClipboard then
       hs.pasteboard.setContents(result)
     end
-    hs.alert.show('📋 ' .. result)
+    hs.alert.show('📋 ' .. result, _G.MARTILLO_ALERT_DURATION)
   end
 
   return true

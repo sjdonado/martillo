@@ -1,4 +1,3 @@
--- leader.lua
 -- Leader key handling for Martillo hotkey configuration
 
 local M = {}

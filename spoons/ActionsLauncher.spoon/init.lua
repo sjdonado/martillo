@@ -27,6 +27,7 @@ obj.uuidCounter = 0
 obj.pickerManager = nil
 obj.deleteKeyWatcher = nil
 obj.escapeKeyWatcher = nil
+obj.currentChildHandler = nil
 obj.logger = hs.logger.new("ActionsLauncher", "info")
 
 --- ActionsLauncher:init()
@@ -232,6 +233,34 @@ function obj:toggle()
 	end
 end
 
+--- ActionsLauncher:refresh()
+--- Method
+--- Refresh the current child picker by calling its handler again
+--- This is useful when data changes and the picker needs to be updated
+function obj:refresh()
+	if not self.chooser or not self.chooser:isVisible() then
+		self.logger:w("Cannot refresh: no visible chooser")
+		return
+	end
+
+	if not self.currentChildHandler then
+		self.logger:w("Cannot refresh: no child handler stored")
+		return
+	end
+
+	-- Get current query
+	local query = self.chooser:query() or ""
+
+	-- Call handler to get updated choices
+	local choices = self.currentChildHandler(query, self)
+
+	-- Update chooser with new choices
+	if choices then
+		self.chooser:choices(choices)
+		self.logger:d("Refreshed picker with " .. #choices .. " choices")
+	end
+end
+
 --- ActionsLauncher:openChildPicker(config)
 --- Method
 --- Open a child picker for Nested Actions
@@ -250,6 +279,9 @@ end
 ---    - DELETE/ESC on empty query: Close the picker
 ---    - Enter: Execute action and close the picker
 function obj:openChildPicker(config)
+	-- Store handler for refresh functionality
+	self.currentChildHandler = config.handler
+
 	-- Only save parent state if ActionsLauncher's chooser is visible
 	-- This determines if we're opening from ActionsLauncher (has parent) or from keymap (standalone)
 	local hasParent = self.chooser and self.chooser:isVisible()
@@ -299,7 +331,7 @@ function obj:openChildPicker(config)
 		-- Set up query change callback for child picker
 		self.chooser:queryChangedCallback(function(query)
 			if not query or query == "" then
-				-- Empty query - show empty results
+				-- Empty query - show results from handler
 				local choices = config.handler("", self)
 				self.chooser:choices(choices)
 				return
@@ -310,8 +342,9 @@ function obj:openChildPicker(config)
 			self.chooser:choices(choices)
 		end)
 
-		-- Set initial empty choices
-		self.chooser:choices({})
+		-- Set initial choices by calling handler with empty query
+		local initialChoices = config.handler("", self)
+		self.chooser:choices(initialChoices)
 
 		-- Set up DELETE key watcher for going back when query is empty using navigation helper
 		if self.deleteKeyWatcher then
@@ -330,6 +363,9 @@ function obj:openChildPicker(config)
 				self.deleteKeyWatcher:stop()
 				self.deleteKeyWatcher = nil
 			end
+
+			-- Clear child handler
+			self.currentChildHandler = nil
 
 			-- Use captured parent state, not current state
 			-- (current state may have been cleared by executeActionWithModifiers)

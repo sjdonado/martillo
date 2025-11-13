@@ -142,15 +142,15 @@ return {
               text = result.text,
               subText = result.subText,
               uuid = uuid,
+              copyToClipboard = true,
             })
-
             -- Copy value to clipboard when selected
-            launcher.handlers[uuid] = function()
-              if result.value ~= '' then
-                hs.pasteboard.setContents(result.value)
-                toast.copied(result.value)
-              end
-            end
+            -- launcher.handlers[uuid] = function()
+            --   if result.value ~= '' then
+            --     hs.pasteboard.setContents(result.value)
+            --     toast.copied(result.value)
+            --   end
+            -- end
           end
           return choices
         end,

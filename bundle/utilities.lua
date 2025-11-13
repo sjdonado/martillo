@@ -100,7 +100,6 @@ return {
 		icon = 'text',
 		description = 'Count characters, words, sentences, and paragraphs in text',
 		handler = function()
-			-- Get clipboard content
 			local clipboardText = hs.pasteboard.getContents() or ''
 
 			spoon.ActionsLauncher:openChildPicker({

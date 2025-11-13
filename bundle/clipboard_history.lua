@@ -751,11 +751,9 @@ return {
           for i, rawEntry in ipairs(filteredRawEntries) do
             local formattedChoice = buildFormattedChoice(rawEntry, true)
 
-            -- Generate UUID for this choice
             local uuid = launcher:generateUUID()
             formattedChoice.uuid = uuid
 
-            -- Register handler for this choice
             launcher.handlers[uuid] = function()
               local shiftHeld = pickerManager.isShiftHeld()
 

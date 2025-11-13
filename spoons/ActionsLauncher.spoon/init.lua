@@ -315,7 +315,7 @@ function obj:openChildPicker(config)
 	end
 
 	-- Small delay to ensure smooth transition
-	hs.timer.doAfter(0.05, function()
+	hs.timer.doAfter(0, function()
 		-- Capture whether we have a parent before any operations
 		-- This is used by hideCallback to determine behavior
 		local hadParentAtStart = self.pickerManager:hasParent()
@@ -413,7 +413,7 @@ function obj:openChildPicker(config)
 						self.chooser = nil
 					end
 					-- Launcher stays active - we're just going back to parent
-					hs.timer.doAfter(0.05, function()
+					hs.timer.doAfter(0, function()
 						self:restoreParentPicker(parent)
 					end)
 				end

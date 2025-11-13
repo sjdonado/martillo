@@ -20,7 +20,6 @@ M.config = {}
 
 -- Default configuration
 M.defaults = {
-	autoReload = true,
 	alertOnLoad = true,
 	alertMessage = "Martillo is ready",
 	leader_key = nil,
@@ -402,29 +401,6 @@ local function loadSpoon(spec)
 	return spoonInstance
 end
 
--- Setup auto-reload
-local function setupAutoReload()
-	local function reloadConfig(files)
-		local doReload = false
-		for _, file in pairs(files) do
-			if file:sub(-4) == ".lua" then
-				doReload = true
-				break
-			end
-		end
-		if doReload then
-			hs.reload()
-		end
-	end
-
-	-- Watch both Hammerspoon and Martillo directories
-	hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", reloadConfig):start()
-	local martilloPath = os.getenv("HOME") .. "/.martillo/"
-	if hs.fs.attributes(martilloPath) then
-		hs.pathwatcher.new(martilloPath, reloadConfig):start()
-	end
-end
-
 -- Main setup function
 function M.setup(config)
 	-- Extract spoons (numeric keys) and options (non-numeric keys)
@@ -465,11 +441,6 @@ function M.setup(config)
 			hs.alert.show("Error loading " .. tostring(spoonName) .. ", check console")
 			return
 		end
-	end
-
-	-- Setup auto-reload
-	if opts.autoReload then
-		setupAutoReload()
 	end
 
 	-- Show load notification

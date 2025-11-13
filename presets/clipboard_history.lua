@@ -5,7 +5,6 @@
 local searchUtils = require("lib.search")
 local navigation = require("lib.navigation")
 
--- Module state
 local M = {
 	watcher = nil,
 	maxEntries = 300,
@@ -13,6 +12,8 @@ local M = {
 	currentQuery = "",
 	historyBuffer = {},
 	imageCache = {},
+	thumbnailSize = { w = 32, h = 32 }, -- Smaller thumbnails for better performance
+	maxCacheSize = 50, -- Limit cache to 50 images
 	lastFocusedApp = nil,
 	lastFocusedWindow = nil,
 	logger = hs.logger.new("ClipboardHistory", "debug"),
@@ -220,6 +221,18 @@ local function getImageFromCache(imagePath)
 		return M.imageCache[imagePath]
 	end
 
+	-- Check cache size and evict oldest if necessary
+	local cacheSize = 0
+	for _ in pairs(M.imageCache) do
+		cacheSize = cacheSize + 1
+	end
+
+	if cacheSize >= M.maxCacheSize then
+		-- Simple eviction: clear entire cache when limit reached
+		M.logger:d("Image cache full, clearing cache")
+		M.imageCache = {}
+	end
+
 	local file = io.open(imagePath, "r")
 	if not file then
 		return nil
@@ -231,15 +244,11 @@ local function getImageFromCache(imagePath)
 		return nil
 	end
 
-	-- Resize to max 64x64
-	local size = image:size()
-	if size.w > 64 or size.h > 64 then
-		local scale = math.min(64 / size.w, 64 / size.h)
-		image = image:setSize({ w = size.w * scale, h = size.h * scale })
-	end
+	-- Resize to fixed thumbnail size for consistent performance
+	local resized = image:setSize(M.thumbnailSize)
 
-	M.imageCache[imagePath] = image
-	return image
+	M.imageCache[imagePath] = resized
+	return resized
 end
 
 -- Fuzzy search on raw entries
@@ -285,7 +294,11 @@ local function fuzzySearchRawEntries(query, entries)
 end
 
 -- Build formatted choice from raw entry
-local function buildFormattedChoice(rawEntry)
+-- Note: Images are loaded lazily only for filtered results to improve performance
+local function buildFormattedChoice(rawEntry, loadImages)
+	-- loadImages parameter allows caller to defer image loading if needed
+	loadImages = loadImages == nil and true or loadImages
+
 	local function getFileExtension(filePath)
 		if not filePath then
 			return nil
@@ -365,12 +378,16 @@ local function buildFormattedChoice(rawEntry)
 	}
 
 	-- Handle different content types for preview
+	-- Only load images if requested (for performance)
 	if entry.type == "image" and entry.content then
-		local imagePath = entry.content
-		local image = getImageFromCache(imagePath)
-		if image then
-			choiceEntry.image = image
-			choiceEntry.text = getFileDisplayName(entry.content) or "Image"
+		choiceEntry.text = getFileDisplayName(entry.content) or "Image"
+
+		if loadImages then
+			local imagePath = entry.content
+			local image = getImageFromCache(imagePath)
+			if image then
+				choiceEntry.image = image
+			end
 		end
 	elseif entry.type == "file" and entry.content then
 		local filePath = entry.content
@@ -379,14 +396,14 @@ local function buildFormattedChoice(rawEntry)
 
 		choiceEntry.text = getFileDisplayName(filePath) or preview
 
-		if fileType == "image" or fileType == "video" then
+		if (fileType == "image" or fileType == "video") and loadImages then
 			local image = getImageFromCache(filePath)
 			if image then
 				choiceEntry.image = image
 			else
 				choiceEntry.text = (getFileDisplayName(filePath) or preview) .. " (file not found)"
 			end
-		else
+		elseif fileType ~= "image" and fileType ~= "video" then
 			local file = io.open(filePath, "r")
 			if not file then
 				choiceEntry.text = (getFileDisplayName(filePath) or preview) .. " (file not found)"
@@ -397,19 +414,6 @@ local function buildFormattedChoice(rawEntry)
 	end
 
 	return choiceEntry
-end
-
--- Get filtered choices
-local function getFilteredChoices()
-	local filteredRawEntries = fuzzySearchRawEntries(M.currentQuery, M.historyBuffer)
-
-	local formattedChoices = {}
-	for _, rawEntry in ipairs(filteredRawEntries) do
-		local formattedChoice = buildFormattedChoice(rawEntry)
-		table.insert(formattedChoices, formattedChoice)
-	end
-
-	return formattedChoices
 end
 
 -- Capture focus before showing picker
@@ -604,9 +608,12 @@ return {
 					local filteredRawEntries = fuzzySearchRawEntries(M.currentQuery, M.historyBuffer)
 
 					-- Build choices with handlers
+					-- Only load images for first 30 results to improve performance
+					local maxImagesLoad = 30
 					local choices = {}
-					for _, rawEntry in ipairs(filteredRawEntries) do
-						local formattedChoice = buildFormattedChoice(rawEntry)
+					for i, rawEntry in ipairs(filteredRawEntries) do
+						local shouldLoadImages = i <= maxImagesLoad
+						local formattedChoice = buildFormattedChoice(rawEntry, shouldLoadImages)
 
 						-- Generate UUID for this choice
 						local uuid = launcher:generateUUID()

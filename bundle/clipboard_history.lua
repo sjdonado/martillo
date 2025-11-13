@@ -536,7 +536,7 @@ local function buildFormattedChoice(rawEntry, loadImages)
     end
   elseif entry.type == 'text' and loadImages then
     -- Show text icon for text entries
-    local icon = icons.getIcon 'text'
+    local icon = icons.getIcon 'copy'
     if icon then
       choiceEntry.image = icon
     end

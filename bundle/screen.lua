@@ -143,7 +143,7 @@ return {
   {
     id = 'screen_ruler',
     name = 'Screen Ruler',
-    icon = 'target',
+    icon = 'eyedropper',
     description = 'Measure distance in pixels between two points',
     handler = function()
       -- State variables
@@ -342,8 +342,6 @@ return {
         end)
 
       clickWatcher:start()
-
-      hs.alert.show('📏 Click and drag to measure', _G.MARTILLO_ALERT_DURATION)
     end,
   },
 }

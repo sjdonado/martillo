@@ -1,6 +1,8 @@
 -- Picker state management for parent-child picker relationships
 -- Provides state tracking for Nested Actions (child pickers)
 
+local toast = require 'lib.toast'
+
 local M = {}
 
 --- Create a new picker manager
@@ -9,6 +11,7 @@ function M.new()
   local manager = {
     stack = {},
     currentChooser = nil,
+    isLauncherActive = false, -- Tracks if ActionsLauncher is active (not a standalone picker)
     logger = hs.logger.new('PickerManager', 'info'),
   }
 
@@ -61,6 +64,23 @@ end
 function M:clear()
   self.stack = {}
   self.logger:d 'Cleared picker stack'
+end
+
+--- Mark ActionsLauncher as active (showing main launcher or child pickers)
+function M:setLauncherActive()
+  self.isLauncherActive = true
+end
+
+--- Mark ActionsLauncher as inactive (all pickers closed)
+function M:setLauncherInactive()
+  self.isLauncherActive = false
+end
+
+--- Check if we should push the current picker as a parent for a new child
+--- Returns true if we're in ActionsLauncher context (main launcher or already in a child)
+--- @return boolean
+function M:shouldHaveParent()
+  return self.isLauncherActive
 end
 
 --- Set the current chooser instance
@@ -131,8 +151,7 @@ function M.handleActionResult(result, options)
       clipboardContent = result
     end
 
-    -- Show alert
-    hs.alert.show('✓ ' .. result, _G.MARTILLO_ALERT_DURATION)
+    toast.success(result)
 
     -- Paste/insert content
     if options.onPaste then
@@ -201,6 +220,7 @@ function M.setupShiftEscapeWatcher(pickerManager, chooser)
       -- Close all pickers
       if pickerManager then
         pickerManager:clear()
+        pickerManager:setLauncherInactive()
       end
       if chooser then
         chooser:hide()
@@ -214,10 +234,10 @@ function M.setupShiftEscapeWatcher(pickerManager, chooser)
   return watcher
 end
 
---- Setup keyboard event watcher for DELETE key
+--- Setup keyboard event watcher for DELETE and ESC keys
 --- Behavior depends on whether picker has a parent:
---- - With parent: DELETE on empty query navigates back to parent
---- - Without parent: DELETE on empty query closes the picker
+--- - With parent: DELETE/ESC on empty query navigates back to parent
+--- - Without parent: DELETE/ESC on empty query closes the picker
 --- @param pickerManager table The picker manager instance
 --- @param chooser userdata The chooser instance
 --- @param options table Optional configuration:
@@ -235,10 +255,38 @@ function M.setupDeleteKeyWatcher(pickerManager, chooser, options)
     if keyCode == 53 and modifiers.shift then
       if pickerManager then
         pickerManager:clear()
+        pickerManager:setLauncherInactive()
       end
       if chooser then
         chooser:hide()
       end
+      return true -- Consume the event
+    end
+
+    -- ESC key (keyCode 53) without shift modifier, when query is empty
+    -- Note: We allow other modifiers (cmd, alt, ctrl) to pass through
+    if keyCode == 53 and not modifiers.shift and (not query or query == '') then
+      if pickerManager:hasParent() then
+        -- Case 1: With parent - Navigate back to parent
+        if chooser then
+          chooser:hide()
+        end
+
+        -- Call callback if provided (for child pickers)
+        if options.onBackToParent then
+          options.onBackToParent()
+        end
+      else
+        -- Case 2: Without parent - Close the picker
+        -- If we're closing the top-level picker, mark launcher as inactive
+        if pickerManager then
+          pickerManager:setLauncherInactive()
+        end
+        if chooser then
+          chooser:hide()
+        end
+      end
+
       return true -- Consume the event
     end
 
@@ -256,6 +304,10 @@ function M.setupDeleteKeyWatcher(pickerManager, chooser, options)
         end
       else
         -- Case 2: Without parent - Close the picker
+        -- If we're closing the top-level picker, mark launcher as inactive
+        if pickerManager then
+          pickerManager:setLauncherInactive()
+        end
         if chooser then
           chooser:hide()
         end

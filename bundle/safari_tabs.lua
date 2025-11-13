@@ -3,7 +3,7 @@
 -- Lists tabs by recency (current tab first, then other tabs in active window, then other windows)
 
 local searchUtils = require 'lib.search'
-local navigation = require 'lib.navigation'
+local pickerManager = require 'lib.picker'
 local toast = require 'lib.toast'
 
 local M = {
@@ -197,7 +197,7 @@ local function buildChoices(tabs, query, launcher)
 
     -- Register handler for this choice
     launcher.handlers[uuid] = function()
-      local shiftHeld = navigation.isShiftHeld()
+      local shiftHeld = pickerManager.isShiftHeld()
 
       if shiftHeld then
         -- Shift+Enter: Copy URL to clipboard

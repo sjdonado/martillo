@@ -3,7 +3,7 @@
 --- Supports child pickers for Nested Actions.
 
 local searchUtils = require 'lib.search'
-local navigation = require 'lib.navigation'
+local pickerManager = require 'lib.picker'
 local icons = require 'lib.icons'
 
 local obj = {}
@@ -26,7 +26,7 @@ obj.logger = hs.logger.new('ActionsLauncher', 'info')
 --- Method
 --- Initialize the spoon
 function obj:init()
-	self.pickerManager = navigation.new()
+	self.pickerManager = pickerManager.new()
 	return self
 end
 
@@ -55,7 +55,7 @@ function obj:executeActionWithModifiers(choice)
 
 	-- Handle string results with copy/paste logic
 	if result and type(result) == 'string' and result ~= '' then
-		local shiftHeld = navigation.isShiftHeld()
+		local shiftHeld = pickerManager.isShiftHeld()
 
 		if shiftHeld then
 			-- Shift+Enter: Copy only (no paste)
@@ -72,6 +72,7 @@ function obj:executeActionWithModifiers(choice)
 
 	-- Close all pickers after executing action
 	self.pickerManager:clear()
+	self.pickerManager:setLauncherInactive()
 	if self.chooser then
 		self.chooser:hide()
 	end
@@ -105,12 +106,12 @@ function obj:createChooser()
 	-- Store reference in picker manager
 	self.pickerManager:setChooser(self.chooser)
 
-	-- Set up Shift+ESC to close all pickers using navigation helper
+	-- Set up Shift+ESC to close all pickers using pickerManager helper
 	if self.escapeKeyWatcher then
 		self.escapeKeyWatcher:stop()
 		self.escapeKeyWatcher = nil
 	end
-	self.escapeKeyWatcher = navigation.setupShiftEscapeWatcher(self.pickerManager, self.chooser)
+	self.escapeKeyWatcher = pickerManager.setupShiftEscapeWatcher(self.pickerManager, self.chooser)
 
 	-- Automatically cleanup when chooser is hidden
 	self.chooser:hideCallback(function()
@@ -125,6 +126,9 @@ function obj:createChooser()
 			self.chooser = nil
 		end
 		-- Clear picker stack when completely closed
+		-- Note: We don't call setLauncherInactive() here because this hideCallback
+		-- fires before executeActionWithModifiers completes, and we need isLauncherActive
+		-- to remain true so child pickers can detect they have a parent
 		if not self.pickerManager:hasParent() then
 			self.pickerManager:clear()
 		end
@@ -212,6 +216,8 @@ end
 --- Show the actions chooser
 function obj:show()
 	self:createChooser()
+	-- Mark launcher as active so child pickers know they have a parent
+	self.pickerManager:setLauncherActive()
 	self.chooser:show()
 end
 
@@ -222,6 +228,8 @@ function obj:hide()
 	if self.chooser then
 		self.chooser:hide()
 	end
+	-- Mark launcher as inactive when explicitly hiding
+	self.pickerManager:setLauncherInactive()
 end
 
 --- ActionsLauncher:toggle()
@@ -273,7 +281,7 @@ end
 ---    * handler - Function that takes query and returns choices
 ---    * parentAction - The parent action that opened this picker
 ---
---- Navigation behavior depends on whether the picker has a parent:
+--- pickerManager behavior depends on whether the picker has a parent:
 ---  * With parent (opened from ActionsLauncher):
 ---    - DELETE/ESC on empty query: Navigate back to parent
 ---    - Enter: Execute action and close both child and parent
@@ -284,9 +292,9 @@ function obj:openChildPicker(config)
 	-- Store handler for refresh functionality
 	self.currentChildHandler = config.handler
 
-	-- Only save parent state if ActionsLauncher's chooser is visible
-	-- This determines if we're opening from ActionsLauncher (has parent) or from keymap (standalone)
-	local hasParent = self.chooser and self.chooser:isVisible()
+	-- Ask pickerManager if we should have a parent
+	-- This returns true if ActionsLauncher is active (main launcher or already in a child)
+	local hasParent = self.pickerManager:shouldHaveParent()
 
 	if hasParent then
 		local parentState = {
@@ -298,8 +306,10 @@ function obj:openChildPicker(config)
 		self.pickerManager:pushParent(parentState)
 		self.logger:d('Opened child picker with parent, stack depth: ' .. self.pickerManager:depth())
 
-		-- Close current picker
-		self.chooser:hide()
+		-- Close current picker if still visible
+		if self.chooser then
+			self.chooser:hide()
+		end
 	else
 		self.logger:d 'Opened standalone child picker (no parent)'
 	end
@@ -348,12 +358,12 @@ function obj:openChildPicker(config)
 		local initialChoices = config.handler('', self)
 		self.chooser:choices(initialChoices)
 
-		-- Set up DELETE key watcher for going back when query is empty using navigation helper
+		-- Set up DELETE key watcher for going back when query is empty using pickerManager helper
 		if self.deleteKeyWatcher then
 			self.deleteKeyWatcher:stop()
 			self.deleteKeyWatcher = nil
 		end
-		self.deleteKeyWatcher = navigation.setupDeleteKeyWatcher(self.pickerManager, self.chooser, {})
+		self.deleteKeyWatcher = pickerManager.setupDeleteKeyWatcher(self.pickerManager, self.chooser, {})
 
 		-- Store reference in picker manager
 		self.pickerManager:setChooser(self.chooser)
@@ -364,6 +374,11 @@ function obj:openChildPicker(config)
 			if self.deleteKeyWatcher then
 				self.deleteKeyWatcher:stop()
 				self.deleteKeyWatcher = nil
+			end
+
+			-- Call onClose callback if provided (for cleanup like stopping timers)
+			if config.onClose then
+				config.onClose()
 			end
 
 			-- Clear child handler
@@ -380,20 +395,36 @@ function obj:openChildPicker(config)
 						self.chooser = nil
 					end
 					-- Picker manager already cleared by executeActionWithModifiers
+					-- setLauncherInactive already called in executeActionWithModifiers
 				else
 					-- ESC/DELETE pressed: Navigate back to parent
 					local parent = self.pickerManager:popParent()
+					if not parent then
+						if self.chooser then
+							self.chooser:delete()
+							self.chooser = nil
+						end
+						self.pickerManager:setLauncherInactive()
+						return
+					end
+					-- Delete current chooser before restoring parent
+					if self.chooser then
+						self.chooser:delete()
+						self.chooser = nil
+					end
+					-- Launcher stays active - we're just going back to parent
 					hs.timer.doAfter(0.05, function()
 						self:restoreParentPicker(parent)
 					end)
 				end
 			else
 				-- Case 2: Child picker without parent (opened from keymap)
-				-- Always just close the picker
+				-- Always just close the picker and set inactive
 				if self.chooser then
 					self.chooser:delete()
 					self.chooser = nil
 				end
+				self.pickerManager:setLauncherInactive()
 			end
 		end)
 
@@ -435,12 +466,12 @@ function obj:restoreParentPicker(parentState)
 	-- Store reference in picker manager
 	self.pickerManager:setChooser(self.chooser)
 
-	-- Set up Shift+ESC to close all pickers using navigation helper
+	-- Set up Shift+ESC to close all pickers using pickerManager helper
 	if self.escapeKeyWatcher then
 		self.escapeKeyWatcher:stop()
 		self.escapeKeyWatcher = nil
 	end
-	self.escapeKeyWatcher = navigation.setupShiftEscapeWatcher(self.pickerManager, self.chooser)
+	self.escapeKeyWatcher = pickerManager.setupShiftEscapeWatcher(self.pickerManager, self.chooser)
 
 	-- Automatically cleanup when chooser is hidden
 	self.chooser:hideCallback(function()
@@ -460,7 +491,6 @@ function obj:restoreParentPicker(parentState)
 	end)
 
 	self.chooser:show()
-	self.logger:d 'Restored parent picker'
 end
 
 --- ActionsLauncher:handleQueryChange(query)

@@ -2,7 +2,7 @@
 -- Persistent clipboard history with fuzzy search
 
 local searchUtils = require 'lib.search'
-local navigation = require 'lib.navigation'
+local pickerManager = require 'lib.picker'
 local icons = require 'lib.icons'
 local toast = require 'lib.toast'
 
@@ -757,7 +757,7 @@ return {
 
             -- Register handler for this choice
             launcher.handlers[uuid] = function()
-              local shiftHeld = navigation.isShiftHeld()
+              local shiftHeld = pickerManager.isShiftHeld()
 
               if shiftHeld then
                 -- Shift+Enter: Copy only

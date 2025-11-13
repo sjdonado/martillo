@@ -5,6 +5,7 @@
 -- Add martillo to package path
 local martilloPath = os.getenv("HOME") .. "/.martillo"
 package.path = package.path .. ";" .. martilloPath .. "/?.lua"
+package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?/init.lua"
 
 leader = require("lib.leader")
 
@@ -20,8 +21,6 @@ M.config = {}
 
 -- Default configuration
 M.defaults = {
-	alertOnLoad = true,
-	alertMessage = "Martillo is ready",
 	alertDuration = 1,
 	leader_key = nil,
 }
@@ -300,6 +299,129 @@ local function processActionFilters(allActions, actionFilters)
 	end
 end
 
+-- Load all action bundles from bundle directory
+local function loadBundleActions()
+	local bundleDir = martilloPath .. "/bundle"
+	local actions = {}
+
+	M.logger:d("Loading bundle actions from: " .. bundleDir)
+
+	-- Check if bundle directory exists
+	local attr = hs.fs.attributes(bundleDir)
+	if not attr or attr.mode ~= "directory" then
+		M.logger:w("Bundle directory not found: " .. bundleDir)
+		return actions
+	end
+
+	-- Iterate through all .lua files in bundle directory
+	for file in hs.fs.dir(bundleDir) do
+		if file:match("%.lua$") and file ~= "." and file ~= ".." then
+			local filePath = bundleDir .. "/" .. file
+			M.logger:d("Loading bundle: " .. file)
+
+			local success, result = pcall(function()
+				return dofile(filePath)
+			end)
+
+			if success then
+				if type(result) == "table" then
+					-- Bundle returns an array of actions
+					for _, action in ipairs(result) do
+						table.insert(actions, action)
+					end
+					M.logger:d("✅ Loaded " .. #result .. " actions from " .. file)
+				else
+					M.logger:w("Bundle " .. file .. " did not return a table, skipping")
+				end
+			else
+				M.logger:e("Failed to load bundle: " .. file)
+				M.logger:e("Error: " .. tostring(result))
+				-- Don't fail entire load, just skip this bundle
+			end
+		end
+	end
+
+	M.logger:d("Total bundle actions loaded: " .. #actions)
+	return actions
+end
+
+-- Load all action stores from store directory subfolders
+local function loadStoreActions()
+	local storeDir = martilloPath .. "/store"
+	local actions = {}
+
+	M.logger:d("Loading store actions from: " .. storeDir)
+
+	-- Check if store directory exists
+	local attr = hs.fs.attributes(storeDir)
+	if not attr or attr.mode ~= "directory" then
+		M.logger:w("Store directory not found: " .. storeDir)
+		return actions
+	end
+
+	-- Iterate through subdirectories in store
+	for item in hs.fs.dir(storeDir) do
+		if item ~= "." and item ~= ".." then
+			local itemPath = storeDir .. "/" .. item
+			local itemAttr = hs.fs.attributes(itemPath)
+
+			-- Check if it's a directory
+			if itemAttr and itemAttr.mode == "directory" then
+				local initPath = itemPath .. "/init.lua"
+				local initAttr = hs.fs.attributes(initPath)
+
+				-- Check if init.lua exists
+				if initAttr and initAttr.mode == "file" then
+					M.logger:d("Loading store: " .. item)
+
+					local success, result = pcall(function()
+						return dofile(initPath)
+					end)
+
+					if success then
+						if type(result) == "table" then
+							-- Store returns an array of actions
+							for _, action in ipairs(result) do
+								table.insert(actions, action)
+							end
+							M.logger:d("✅ Loaded " .. #result .. " actions from " .. item)
+						else
+							M.logger:w("Store " .. item .. " did not return a table, skipping")
+						end
+					else
+						M.logger:e("Failed to load store: " .. item)
+						M.logger:e("Error: " .. tostring(result))
+						-- Don't fail entire load, just skip this store
+					end
+				end
+			end
+		end
+	end
+
+	M.logger:d("Total store actions loaded: " .. #actions)
+	return actions
+end
+
+-- Get all actions from bundles and stores
+function M.getAllActions()
+	local allActions = {}
+
+	-- Load bundle actions
+	local bundleActions = loadBundleActions()
+	for _, action in ipairs(bundleActions) do
+		table.insert(allActions, action)
+	end
+
+	-- Load store actions
+	local storeActions = loadStoreActions()
+	for _, action in ipairs(storeActions) do
+		table.insert(allActions, action)
+	end
+
+	M.logger:d("Total actions loaded: " .. #allActions)
+	return allActions
+end
+
 -- Ensure Martillo spoons directory is in the search path
 local function ensureMartilloSpoonPath()
 	local martilloSpoonsDir = os.getenv("HOME") .. "/.martillo/spoons"
@@ -341,13 +463,29 @@ local function loadSpoon(spec)
 	-- Handle table specs with options
 	if type(spec) == "table" then
 		-- Process opts
-		if spec.opts then
-			local opts = type(spec.opts) == "function" and spec.opts() or spec.opts
+		local opts = nil
 
+		if spec.opts then
+			opts = type(spec.opts) == "function" and spec.opts() or spec.opts
+		end
+
+		-- Auto-load actions for ActionsLauncher if not provided
+		if name == "ActionsLauncher" then
+			if not opts then
+				opts = {}
+			end
+			if not opts.actions then
+				M.logger:d("Auto-loading actions from bundle and store for ActionsLauncher")
+				opts.actions = M.getAllActions()
+			end
+		end
+
+		-- Process the opts if we have any
+		if opts then
 			-- Flatten actions array if it contains nested arrays
 			-- This allows users to write: { actions = { window_mgmt, utilities, encoders } }
 			-- instead of manually combining all arrays
-			if opts and opts.actions then
+			if opts.actions then
 				opts.actions = flattenActions(opts.actions)
 			end
 
@@ -447,10 +585,18 @@ function M.setup(config)
 		end
 	end
 
-	-- Show load notification
-	if opts.alertOnLoad then
-		hs.alert.show(opts.alertMessage, _G.MARTILLO_ALERT_DURATION)
-	end
+	-- Open ActionsLauncher on load
+	-- Store timer reference to prevent garbage collection
+	M.openTimer = hs.timer.doAfter(0.1, function()
+		if spoon.ActionsLauncher then
+			spoon.ActionsLauncher:show()
+		else
+			M.logger:e("ActionsLauncher spoon not found in global spoon table")
+			M.logger:e("Available spoons: " .. hs.inspect(spoon))
+		end
+		-- Clear timer reference after execution
+		M.openTimer = nil
+	end)
 
 	return M
 end

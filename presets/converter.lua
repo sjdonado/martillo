@@ -1,10 +1,9 @@
--- Encoders/Decoders Actions Bundle
+-- Converter Actions Bundle
 -- Actions for encoding, decoding, and converting various formats
 
 return {
-	-- Nested Actions
 	{
-		id = "timestamp",
+		id = "converter_timestamp",
 		name = "Timestamp Converter",
 		description = "Convert unix timestamp to date",
 		handler = function()
@@ -55,7 +54,7 @@ return {
 	},
 
 	{
-		id = "base64",
+		id = "converter_base64",
 		name = "Base64 Encoder/Decoder",
 		description = "Encode or decode base64",
 		handler = function()
@@ -110,7 +109,7 @@ return {
 	},
 
 	{
-		id = "jwt",
+		id = "converter_jwt",
 		name = "JWT Decoder",
 		description = "Decode JWT token",
 		handler = function()
@@ -197,9 +196,8 @@ return {
 			return "OPEN_CHILD_PICKER"
 		end,
 	},
-
 	{
-		id = "colors",
+		id = "converter_colors",
 		name = "Color Converter",
 		description = "Convert between color formats (hex, rgb)",
 		handler = function()

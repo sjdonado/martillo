@@ -226,6 +226,7 @@ return {
   {
     id = 'safari_tabs',
     name = 'Safari Tabs',
+    icon = 'explorer',
     description = 'Switch to Safari tabs with fuzzy search',
     handler = function()
       -- Get Safari tabs

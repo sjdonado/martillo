@@ -6,6 +6,7 @@
 
 local searchUtils = require("lib.search")
 local navigation = require("lib.navigation")
+local icons = require("lib.icons")
 
 local obj = {}
 obj.__index = obj
@@ -174,7 +175,7 @@ function obj:setup(config)
 			table.insert(subTextParts, "alias: " .. action.alias)
 		end
 
-		self.originalChoices[i] = {
+		local choice = {
 			text = action.name,
 			subText = table.concat(subTextParts, " • "),
 			uuid = uuid,
@@ -182,6 +183,16 @@ function obj:setup(config)
 			alias = action.alias,
 			isDynamic = action.isDynamic or false,
 		}
+
+		-- Add icon if specified
+		if action.icon then
+			local icon = icons.getIcon(action.icon)
+			if icon then
+				choice.image = icon
+			end
+		end
+
+		self.originalChoices[i] = choice
 
 		-- Bind action keys if provided
 		if action.keys then

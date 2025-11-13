@@ -4,23 +4,23 @@
 
 local searchUtils = require 'lib.search'
 local navigation = require 'lib.navigation'
+local icons = require 'lib.icons'
 
 local M = {
   refreshTimer = nil,
   refreshIntervalSeconds = 1,
   currentQuery = '',
-  maxResults = 1000,
+  maxResults = 100,
   logger = hs.logger.new('KillProcess', 'info'),
-  iconCache = {}, -- Cache icons by bundle ID
+  iconCache = {},     -- Cache icons by bundle ID
   maxCacheSize = 100, -- Limit cache to 100 icons
-  iconSize = { w = 32, h = 32 }, -- Smaller icons for better performance
 }
 
 -- Format memory for display
 local function formatMemory(memKB)
   if memKB >= 1024 * 1024 then -- >= 1GB
     return string.format('%.1f GB', memKB / (1024 * 1024))
-  elseif memKB >= 1024 then -- >= 1MB
+  elseif memKB >= 1024 then    -- >= 1MB
     return string.format('%.0f MB', memKB / 1024)
   else
     return string.format('%.0f KB', memKB)
@@ -147,14 +147,14 @@ local function isMainAppProcess(command, baseAppName, appProcessList)
 
   -- Check if this looks like a helper process based on command content
   if
-    command:match '[Hh]elper'
-    or command:match 'GPU'
-    or command:match 'Renderer'
-    or command:match 'Content'
-    or command:match 'Utility'
-    or command:match 'Network'
-    or command:match '--type='
-    or command:match '--variation'
+      command:match '[Hh]elper'
+      or command:match 'GPU'
+      or command:match 'Renderer'
+      or command:match 'Content'
+      or command:match 'Utility'
+      or command:match 'Network'
+      or command:match '--type='
+      or command:match '--variation'
   then
     return false
   end
@@ -222,38 +222,36 @@ end
 
 -- Get app icon for a process (with caching and resizing)
 local function getAppIcon(pid)
-  if not pid then
-    return nil
-  end
+  if pid then
+    local appbundle = hs.application.applicationForPID(pid)
+    if appbundle then
+      local bundleID = appbundle:bundleID()
+      if bundleID then
+        -- Check cache first
+        if M.iconCache[bundleID] then
+          return M.iconCache[bundleID]
+        end
 
-  local appbundle = hs.application.applicationForPID(pid)
-  if appbundle then
-    local bundleID = appbundle:bundleID()
-    if bundleID then
-      -- Check cache first
-      if M.iconCache[bundleID] then
-        return M.iconCache[bundleID]
-      end
+        -- Check cache size and evict if necessary
+        local cacheSize = 0
+        for _ in pairs(M.iconCache) do
+          cacheSize = cacheSize + 1
+        end
 
-      -- Check cache size and evict if necessary
-      local cacheSize = 0
-      for _ in pairs(M.iconCache) do
-        cacheSize = cacheSize + 1
-      end
+        if cacheSize >= M.maxCacheSize then
+          -- Simple eviction: clear entire cache when limit reached
+          M.logger:d 'Icon cache full, clearing cache'
+          M.iconCache = {}
+        end
 
-      if cacheSize >= M.maxCacheSize then
-        -- Simple eviction: clear entire cache when limit reached
-        M.logger:d 'Icon cache full, clearing cache'
-        M.iconCache = {}
-      end
-
-      -- Load and resize icon
-      local icon = hs.image.imageFromAppBundle(bundleID)
-      if icon then
-        -- Resize for better performance
-        local resized = icon:setSize(M.iconSize)
-        M.iconCache[bundleID] = resized
-        return resized
+        -- Load and resize icon
+        local icon = hs.image.imageFromAppBundle(bundleID)
+        if icon then
+          -- Resize for better performance
+          local resized = icon:setSize(icons.ICON_SIZE)
+          M.iconCache[bundleID] = resized
+          return resized
+        end
       end
     end
   end
@@ -262,7 +260,7 @@ local function getAppIcon(pid)
   if not M.iconCache['__fallback__'] then
     local fallback = hs.image.iconForFileType 'public.unix-executable'
     if fallback then
-      M.iconCache['__fallback__'] = fallback:setSize(M.iconSize)
+      M.iconCache['__fallback__'] = fallback:setSize(icons.ICON_SIZE)
     end
   end
   return M.iconCache['__fallback__']
@@ -425,7 +423,8 @@ local function getProcessList()
 
       local totalMemDisplay = formatMemory(totalMem)
       local subText =
-        string.format('PID: %d | Total CPU: %.1f%% | Total Memory: %s | %s | %d processes', main.pid, totalCpu, totalMemDisplay, main.fullPath or '', #list)
+          string.format('PID: %d | Total CPU: %.1f%% | Total Memory: %s | %s | %d processes', main.pid, totalCpu,
+            totalMemDisplay, main.fullPath or '', #list)
 
       table.insert(aggregatedProcesses, {
         text = bucket.name,
@@ -447,7 +446,8 @@ local function getProcessList()
 
   -- Debug logging
   M.logger:d(
-    string.format('Processed %d lines, %d parsed, %d raw processes, returning %d aggregated processes', lineCount, processedCount, rawProcessCount, #processes)
+    string.format('Processed %d lines, %d parsed, %d raw processes, returning %d aggregated processes', lineCount,
+      processedCount, rawProcessCount, #processes)
   )
 
   -- Limit results to maxResults
@@ -506,8 +506,8 @@ local function getFilteredChoices()
     getFields = function(process)
       return {
         { value = process.name or process.text or '', weight = 1.0, key = 'name' },
-        { value = process.fullPath or '', weight = 0.6, key = 'path' },
-        { value = process.subText or '', weight = 0.3, key = 'details' },
+        { value = process.fullPath or '',             weight = 0.6, key = 'path' },
+        { value = process.subText or '',              weight = 0.3, key = 'details' },
       }
     end,
     adjustScore = function(process, context)
@@ -557,6 +557,7 @@ return {
   {
     id = 'kill_process',
     name = 'Kill Process',
+    icon = 'trash-can',
     description = 'Kill processes with fuzzy search',
     handler = function()
       -- Get ActionsLauncher instance
@@ -580,10 +581,13 @@ return {
             local uuid = launcher:generateUUID()
 
             -- Load icon lazily, only for filtered results (performance optimization)
-            -- Only load icons for app processes to further improve performance
+            -- Load app icons for app processes, fallback icon for system processes
             local icon = nil
             if isAppProcessEntry(process) then
               icon = getAppIcon(process.pid)
+            else
+              -- Use fallback icon for non-app processes to avoid default Hammerspoon icon
+              icon = getAppIcon(nil) -- getAppIcon returns fallback when no valid app found
             end
 
             -- Create choice entry
@@ -591,7 +595,7 @@ return {
               text = process.text,
               subText = process.subText,
               uuid = uuid,
-              image = icon, -- Add app icon (loaded on demand)
+              image = icon, -- Add app icon or fallback icon
             }
 
             -- Register handler for this choice

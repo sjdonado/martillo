@@ -5,6 +5,7 @@ return {
 	{
 		id = "converter_time",
 		name = "Time Converter",
+		icon = "clock",
 		description = "Convert between multiple time formats (timestamp, ISO, date, etc.)",
 		handler = function()
 			spoon.ActionsLauncher:openChildPicker({
@@ -252,6 +253,7 @@ return {
 	{
 		id = "converter_base64",
 		name = "Base64 Encoder/Decoder",
+		icon = "calculator",
 		description = "Encode or decode base64",
 		handler = function()
 			spoon.ActionsLauncher:openChildPicker({
@@ -306,6 +308,7 @@ return {
 	{
 		id = "converter_jwt",
 		name = "JWT Decoder",
+		icon = "calculator",
 		description = "Decode JWT token",
 		handler = function()
 			spoon.ActionsLauncher:openChildPicker({
@@ -394,6 +397,7 @@ return {
 	{
 		id = "converter_colors",
 		name = "Color Converter",
+		icon = "color-palette",
 		description = "Convert between color formats (hex, rgb)",
 		handler = function()
 			spoon.ActionsLauncher:openChildPicker({

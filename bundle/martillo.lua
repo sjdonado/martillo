@@ -5,6 +5,7 @@ return {
 	{
 		id = "martillo_reload",
 		name = "Reload Martillo",
+		icon = "axe",
 		handler = function()
 			hs.reload()
 		end,
@@ -13,6 +14,7 @@ return {
 	{
 		id = "martillo_update",
 		name = "Update Martillo",
+		icon = "axe",
 		handler = function()
 			spoon.ActionsLauncher.executeShell(
 				"cd ~/.martillo && git pull",

@@ -4,20 +4,94 @@
 
 local searchUtils = require 'lib.search'
 local navigation = require 'lib.navigation'
+local icons = require 'lib.icons'
 
 local M = {
   watcher = nil,
   maxEntries = 300,
-  historyFile = '~/martillo_clipboard_history',
-  historyAssets = '~/martillo_clipboard_history_assets',
+  historyFile = '~/.martillo_clipboard_history',
+  historyAssets = '~/.martillo_clipboard_history_assets',
   currentQuery = '',
   historyBuffer = {},
   imageCache = {},
-  thumbnailSize = { w = 32, h = 32 }, -- Smaller thumbnails for better performance
-  maxCacheSize = 50, -- Limit cache to 50 images
+  maxImageCacheSize = 100,
   lastFocusedApp = nil,
   lastFocusedWindow = nil,
   logger = hs.logger.new('ClipboardHistory', 'debug'),
+}
+
+-- Map file extensions to appropriate 3D icons
+local extensionToIcon = {
+  -- Documents
+  pdf = 'file-text',
+  doc = 'file-text',
+  docx = 'file-text',
+  txt = 'file-text',
+  rtf = 'file-text',
+  md = 'file-text',
+  markdown = 'file-text',
+  -- Spreadsheets
+  xls = 'file-text',
+  xlsx = 'file-text',
+  csv = 'file-text',
+  -- Code files
+  js = 'file-text',
+  ts = 'file-text',
+  jsx = 'file-text',
+  tsx = 'file-text',
+  py = 'file-text',
+  lua = 'file-text',
+  rb = 'file-text',
+  java = 'file-text',
+  c = 'file-text',
+  cpp = 'file-text',
+  h = 'file-text',
+  hpp = 'file-text',
+  go = 'file-text',
+  rs = 'file-text',
+  swift = 'file-text',
+  kt = 'file-text',
+  php = 'file-text',
+  html = 'file-text',
+  css = 'file-text',
+  scss = 'file-text',
+  json = 'file-text',
+  xml = 'file-text',
+  yaml = 'file-text',
+  yml = 'file-text',
+  toml = 'file-text',
+  sh = 'file-text',
+  bash = 'file-text',
+  zsh = 'file-text',
+  -- Audio
+  mp3 = 'music',
+  wav = 'music',
+  flac = 'music',
+  aac = 'music',
+  ogg = 'music',
+  m4a = 'music',
+  -- Video
+  mp4 = 'video-camera',
+  mov = 'video-camera',
+  avi = 'video-camera',
+  mkv = 'video-camera',
+  wmv = 'video-camera',
+  flv = 'video-camera',
+  webm = 'video-camera',
+  m4v = 'video-camera',
+  -- Design files
+  psd = 'paint-brush',
+  ai = 'paint-brush',
+  sketch = 'paint-brush',
+  xd = 'paint-brush',
+  fig = 'figma',
+  -- Archives
+  zip = 'file',
+  rar = 'file',
+  tar = 'file',
+  gz = 'file',
+  ['7z'] = 'file',
+  bz2 = 'file',
 }
 
 -- Escape special characters for YAML-like format
@@ -227,7 +301,7 @@ local function getImageFromCache(imagePath)
     cacheSize = cacheSize + 1
   end
 
-  if cacheSize >= M.maxCacheSize then
+  if cacheSize >= M.maxImageCacheSize then
     -- Simple eviction: clear entire cache when limit reached
     M.logger:d 'Image cache full, clearing cache'
     M.imageCache = {}
@@ -245,7 +319,7 @@ local function getImageFromCache(imagePath)
   end
 
   -- Resize to fixed thumbnail size for consistent performance
-  local resized = image:setSize(M.thumbnailSize)
+  local resized = image:setSize(icons.ICON_SIZE)
 
   M.imageCache[imagePath] = resized
   return resized
@@ -265,7 +339,7 @@ local function fuzzySearchRawEntries(query, entries)
         local filename = getFileDisplayName(entry.content)
         if filename and filename ~= '' then
           return {
-            { value = filename, weight = 1.0, key = 'filename' },
+            { value = filename,            weight = 1.0, key = 'filename' },
             { value = entry.content or '', weight = 0.4, key = 'path' },
           }
         end
@@ -367,7 +441,44 @@ local function buildFormattedChoice(rawEntry, loadImages)
     timeDisplay = os.date('%H:%M', entry.timestamp)
   end
 
-  local subText = string.format('%s • %s %s', entry.type or 'text', dateDisplay, timeDisplay)
+  -- Calculate size for display
+  local sizeDisplay = ''
+  if entry.type == 'text' and entry.content then
+    local contentLength = #entry.content
+    local sizeStr = ''
+    if contentLength < 1024 then
+      sizeStr = string.format('%d bytes', contentLength)
+    elseif contentLength < 1024 * 1024 then
+      sizeStr = string.format('%.1f KB', contentLength / 1024)
+    else
+      sizeStr = string.format('%.1f MB', contentLength / (1024 * 1024))
+    end
+
+    -- Count lines
+    local lineCount = 1
+    for _ in entry.content:gmatch '\n' do
+      lineCount = lineCount + 1
+    end
+
+    sizeDisplay = string.format('%s, %d %s', sizeStr, lineCount, lineCount == 1 and 'line' or 'lines')
+  elseif (entry.type == 'image' or entry.type == 'file') and entry.content then
+    -- Try to get file size
+    local filePath = entry.content
+    local file = io.open(filePath, 'r')
+    if file then
+      local size = file:seek 'end'
+      file:close()
+      if size < 1024 then
+        sizeDisplay = string.format('%d bytes', size)
+      elseif size < 1024 * 1024 then
+        sizeDisplay = string.format('%.1f KB', size / 1024)
+      else
+        sizeDisplay = string.format('%.1f MB', size / (1024 * 1024))
+      end
+    end
+  end
+
+  local subText = string.format('%s • %s %s', sizeDisplay, dateDisplay, timeDisplay)
 
   local choiceEntry = {
     text = preview,
@@ -409,7 +520,25 @@ local function buildFormattedChoice(rawEntry, loadImages)
         choiceEntry.text = (getFileDisplayName(filePath) or preview) .. ' (file not found)'
       else
         file:close()
+        -- Get file type icon for non-image/video files
+        if loadImages and extension then
+          extension = extension:lower()
+
+          local iconName = extensionToIcon[extension] or 'file'
+
+          -- Get icon from icons helper (no fallback, let it handle missing icons)
+          local icon = icons.getIcon(iconName)
+          if icon then
+            choiceEntry.image = icon
+          end
+        end
       end
+    end
+  elseif entry.type == 'text' and loadImages then
+    -- Show text icon for text entries
+    local icon = icons.getIcon 'text'
+    if icon then
+      choiceEntry.image = icon
     end
   end
 
@@ -523,14 +652,14 @@ local function pasteContent(choice)
     local filePath = choice.content
     local extension = filePath:match '%.([^%.]+)$'
     local isImage = extension
-      and (
-        extension:lower() == 'png'
-        or extension:lower() == 'jpg'
-        or extension:lower() == 'jpeg'
-        or extension:lower() == 'gif'
-        or extension:lower() == 'webp'
-        or extension:lower() == 'bmp'
-      )
+        and (
+          extension:lower() == 'png'
+          or extension:lower() == 'jpg'
+          or extension:lower() == 'jpeg'
+          or extension:lower() == 'gif'
+          or extension:lower() == 'webp'
+          or extension:lower() == 'bmp'
+        )
 
     if isImage then
       M.logger:d 'File is an image, loading as image data'
@@ -594,6 +723,7 @@ return {
   {
     id = 'clipboard_history',
     name = 'Clipboard History',
+    icon = 'copy',
     description = 'Search and paste from clipboard history',
     handler = function()
       -- Check if history is empty
@@ -617,12 +747,9 @@ return {
           local filteredRawEntries = fuzzySearchRawEntries(M.currentQuery, M.historyBuffer)
 
           -- Build choices with handlers
-          -- Only load images for first 30 results to improve performance
-          local maxImagesLoad = 30
           local choices = {}
           for i, rawEntry in ipairs(filteredRawEntries) do
-            local shouldLoadImages = i <= maxImagesLoad
-            local formattedChoice = buildFormattedChoice(rawEntry, shouldLoadImages)
+            local formattedChoice = buildFormattedChoice(rawEntry, true)
 
             -- Generate UUID for this choice
             local uuid = launcher:generateUUID()

@@ -6,6 +6,7 @@ return {
   {
     id = 'toggle_caffeinate',
     name = 'Toggle Caffeinate',
+    icon = 'tea-cup',
     handler = function()
       spoon.ActionsLauncher.executeShell(
         "if pgrep caffeinate > /dev/null; then pkill caffeinate && echo 'Caffeinate disabled'; else nohup caffeinate -disu > /dev/null 2>&1 & echo 'Caffeinate enabled'; fi",
@@ -17,6 +18,7 @@ return {
   {
     id = 'toggle_system_appearance',
     name = 'Toggle System Appearance',
+    icon = 'sun',
     handler = function()
       spoon.ActionsLauncher.executeAppleScript(
         [[
@@ -40,6 +42,7 @@ return {
   {
     id = 'generate_uuid',
     name = 'Generate UUID',
+    icon = 'key',
     handler = function()
       spoon.ActionsLauncher.executeShell("uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '\\n' | pbcopy && pbpaste", 'Generate UUID')
     end,

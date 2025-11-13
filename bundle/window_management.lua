@@ -10,6 +10,7 @@ return {
 	{
 		id = "window_maximize",
 		name = "Maximize Window",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("max")
 		end,
@@ -18,6 +19,7 @@ return {
 	{
 		id = "window_almost_maximize",
 		name = "Almost Maximize",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("almost_max")
 		end,
@@ -26,6 +28,7 @@ return {
 	{
 		id = "window_reasonable_size",
 		name = "Reasonable Size",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("reasonable")
 		end,
@@ -34,6 +37,7 @@ return {
 	{
 		id = "window_center",
 		name = "Center Window",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("center")
 		end,
@@ -44,6 +48,7 @@ return {
 	{
 		id = "window_top_left",
 		name = "Window Top Left",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("top_left")
 		end,
@@ -52,6 +57,7 @@ return {
 	{
 		id = "window_top_right",
 		name = "Window Top Right",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("top_right")
 		end,
@@ -60,6 +66,7 @@ return {
 	{
 		id = "window_bottom_left",
 		name = "Window Bottom Left",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("bottom_left")
 		end,
@@ -68,6 +75,7 @@ return {
 	{
 		id = "window_bottom_right",
 		name = "Window Bottom Right",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("bottom_right")
 		end,
@@ -78,6 +86,7 @@ return {
 	{
 		id = "window_left_third",
 		name = "Window Left Third",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("left_third")
 		end,
@@ -86,6 +95,7 @@ return {
 	{
 		id = "window_center_third",
 		name = "Window Center Third",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("center_third")
 		end,
@@ -94,6 +104,7 @@ return {
 	{
 		id = "window_right_third",
 		name = "Window Right Third",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("right_third")
 		end,
@@ -102,6 +113,7 @@ return {
 	{
 		id = "window_left_two_thirds",
 		name = "Window Left Two Thirds",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("left_two_thirds")
 		end,
@@ -110,6 +122,7 @@ return {
 	{
 		id = "window_right_two_thirds",
 		name = "Window Right Two Thirds",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("right_two_thirds")
 		end,
@@ -120,6 +133,7 @@ return {
 	{
 		id = "window_top_third",
 		name = "Window Top Third",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("top_third")
 		end,
@@ -128,6 +142,7 @@ return {
 	{
 		id = "window_middle_third",
 		name = "Window Middle Third",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("middle_third")
 		end,
@@ -136,6 +151,7 @@ return {
 	{
 		id = "window_bottom_third",
 		name = "Window Bottom Third",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("bottom_third")
 		end,
@@ -144,6 +160,7 @@ return {
 	{
 		id = "window_top_two_thirds",
 		name = "Window Top Two Thirds",
+		icon = "computer",
 		handler = function()
 			window.moveWindow("top_two_thirds")
 		end,
@@ -151,6 +168,7 @@ return {
 	},
 	{
 		id = "window_bottom_two_thirds",
+		icon = "computer",
 		name = "Window Bottom Two Thirds",
 		handler = function()
 			window.moveWindow("bottom_two_thirds")

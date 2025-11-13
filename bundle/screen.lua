@@ -5,6 +5,7 @@ return {
   {
     id = 'screen_confetti',
     name = 'Confetti',
+    icon = 'star',
     description = 'Celebrate with confetti animation',
     handler = function()
       local canvas = nil
@@ -142,6 +143,7 @@ return {
   {
     id = 'screen_ruler',
     name = 'Screen Ruler',
+    icon = 'target',
     description = 'Measure distance in pixels between two points',
     handler = function()
       -- State variables

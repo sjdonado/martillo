@@ -5,6 +5,7 @@ return {
   {
     id = 'network_copy_ip',
     name = 'Copy IP',
+    icon = 'wifi',
     handler = function()
       spoon.ActionsLauncher.executeShell('curl -s ifconfig.me | pbcopy && curl -s ifconfig.me', 'Copy IP')
     end,
@@ -14,6 +15,7 @@ return {
   {
     id = 'network_speed_test',
     name = 'Network Speed Test',
+    icon = 'flash',
     description = 'Check network connectivity, latency, and speed',
     handler = function()
       local results = {

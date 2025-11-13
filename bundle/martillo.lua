@@ -10,4 +10,15 @@ return {
 		end,
 		description = "Reload Hammerspoon and Martillo configuration",
 	},
+	{
+		id = "martillo_update",
+		name = "Update Martillo",
+		handler = function()
+			spoon.ActionsLauncher.executeShell(
+				"cd ~/.martillo && git pull",
+				"Update Martillo"
+			)
+		end,
+		description = "Pull latest changes",
+	},
 }

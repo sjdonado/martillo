@@ -5,13 +5,14 @@
 local searchUtils = require("lib.search")
 local navigation = require("lib.navigation")
 
--- Module state
 local M = {
 	refreshTimer = nil,
 	refreshIntervalSeconds = 1,
 	currentQuery = "",
 	maxResults = 1000,
 	logger = hs.logger.new("KillProcess", "info"),
+	iconCache = {}, -- Cache icons by bundle ID
+	iconSize = { w = 32, h = 32 }, -- Smaller icons for better performance
 }
 
 -- Format memory for display
@@ -229,6 +230,42 @@ local function extractProcessName(command, baseAppName, appProcessList)
 	return processName
 end
 
+-- Get app icon for a process (with caching and resizing)
+local function getAppIcon(pid)
+	if not pid then
+		return nil
+	end
+
+	local appbundle = hs.application.applicationForPID(pid)
+	if appbundle then
+		local bundleID = appbundle:bundleID()
+		if bundleID then
+			-- Check cache first
+			if M.iconCache[bundleID] then
+				return M.iconCache[bundleID]
+			end
+
+			-- Load and resize icon
+			local icon = hs.image.imageFromAppBundle(bundleID)
+			if icon then
+				-- Resize for better performance
+				local resized = icon:setSize(M.iconSize)
+				M.iconCache[bundleID] = resized
+				return resized
+			end
+		end
+	end
+
+	-- Fallback to generic executable icon (cached)
+	if not M.iconCache["__fallback__"] then
+		local fallback = hs.image.iconForFileType("public.unix-executable")
+		if fallback then
+			M.iconCache["__fallback__"] = fallback:setSize(M.iconSize)
+		end
+	end
+	return M.iconCache["__fallback__"]
+end
+
 -- Get list of running processes
 local function getProcessList()
 	-- Get ALL processes including kernel tasks and parent info
@@ -310,6 +347,7 @@ local function getProcessList()
 							memDisplay = memDisplay,
 							name = processName,
 							fullPath = command,
+							-- Don't load icon here - too slow for all processes
 						})
 					end
 				end
@@ -410,6 +448,7 @@ local function getProcessList()
 				name = bucket.name,
 				fullPath = main.fullPath,
 				aggregated = list,
+				-- Don't load icon here - will be loaded lazily when displayed
 			})
 		end
 	end
@@ -556,11 +595,19 @@ return {
 						-- Generate UUID for this choice
 						local uuid = launcher:generateUUID()
 
+						-- Load icon lazily, only for filtered results (performance optimization)
+						-- Only load icons for app processes to further improve performance
+						local icon = nil
+						if isAppProcessEntry(process) then
+							icon = getAppIcon(process.pid)
+						end
+
 						-- Create choice entry
 						local choiceEntry = {
 							text = process.text,
 							subText = process.subText,
 							uuid = uuid,
+							image = icon, -- Add app icon (loaded on demand)
 						}
 
 						-- Register handler for this choice

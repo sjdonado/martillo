@@ -36,16 +36,16 @@ int main() {
         NSDate *endOfDay = [calendar dateByAddingComponents:oneDayComponent toDate:startOfDay options:0];
 
         // Debug: Print date range and timezone
-        fprintf(stderr, "DEBUG: Local timezone: %s\n", [[NSTimeZone.localTimeZone name] UTF8String]);
-        fprintf(stderr, "DEBUG: Searching events from %s to %s\n",
-               [[startOfDay description] UTF8String],
-               [[endOfDay description] UTF8String]);
+        // fprintf(stderr, "DEBUG: Local timezone: %s\n", [[NSTimeZone.localTimeZone name] UTF8String]);
+        // fprintf(stderr, "DEBUG: Searching events from %s to %s\n",
+        //        [[startOfDay description] UTF8String],
+        //        [[endOfDay description] UTF8String]);
 
         // Get all calendars from all sources (local, iCloud, subscribed, etc.)
         NSArray<EKCalendar *> *allCalendars = [store calendarsForEntityType:EKEntityTypeEvent];
 
         // Debug: Print calendar info and event count per calendar
-        fprintf(stderr, "DEBUG: Found %lu calendars\n", (unsigned long)[allCalendars count]);
+        // fprintf(stderr, "DEBUG: Found %lu calendars\n", (unsigned long)[allCalendars count]);
         for (EKCalendar *cal in allCalendars) {
             // Get events for this specific calendar
             NSPredicate *calPredicate = [store predicateForEventsWithStartDate:startOfDay
@@ -53,16 +53,16 @@ int main() {
                                                                    calendars:@[cal]];
             NSArray<EKEvent *> *calEvents = [store eventsMatchingPredicate:calPredicate];
 
-            fprintf(stderr, "  - %s: %lu events\n",
-                   [cal.title UTF8String],
-                   (unsigned long)[calEvents count]);
+            // fprintf(stderr, "  - %s: %lu events\n",
+            //        [cal.title UTF8String],
+            //        (unsigned long)[calEvents count]);
 
             // List events in this calendar
-            for (EKEvent *evt in calEvents) {
-                fprintf(stderr, "    * %s at %s\n",
-                       [evt.title UTF8String],
-                       [[evt.startDate description] UTF8String]);
-            }
+            // for (EKEvent *evt in calEvents) {
+            //     fprintf(stderr, "    * %s at %s\n",
+            //            [evt.title UTF8String],
+            //            [[evt.startDate description] UTF8String]);
+            // }
         }
 
         // Create predicate for today's events from ALL calendars
@@ -81,11 +81,11 @@ int main() {
             NSString *calendarName = event.calendar.title ?: @"Unknown";
 
             // Debug: Print event details
-            fprintf(stderr, "DEBUG: Event '%s' from calendar '%s' (start: %s, recurrence: %s)\n",
-                   [title UTF8String],
-                   [calendarName UTF8String],
-                   [[event.startDate description] UTF8String],
-                   hasRecurrence ? "YES" : "NO");
+            // fprintf(stderr, "DEBUG: Event '%s' from calendar '%s' (start: %s, recurrence: %s)\n",
+            //        [title UTF8String],
+            //        [calendarName UTF8String],
+            //        [[event.startDate description] UTF8String],
+            //        hasRecurrence ? "YES" : "NO");
 
             // Format times
             NSDateFormatter *timeFormatter = [[NSDateFormatter alloc] init];
@@ -94,9 +94,9 @@ int main() {
             NSString *endTime = [timeFormatter stringFromDate:event.endDate];
             NSString *timeRange = [NSString stringWithFormat:@"%@ - %@", startTime, endTime];
 
-            printf("%s|%.0f|%s|%s|%s||",
-                   [title UTF8String], timeDiff, [timeRange UTF8String],
-                   [notes UTF8String], hasRecurrence ? "true" : "false");
+            // printf("%s|%.0f|%s|%s|%s||",
+            //        [title UTF8String], timeDiff, [timeRange UTF8String],
+            //        [notes UTF8String], hasRecurrence ? "true" : "false");
         }
     }
     return 0;

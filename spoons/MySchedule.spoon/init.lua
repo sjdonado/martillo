@@ -5,11 +5,11 @@ obj.__index = obj
 
 obj.menubar = nil
 obj.timer = nil
-obj.updateInterval = 60 -- Update every 1 minute
-obj.cachedEvents = {} -- Cache for events
-obj.lastUpdate = 0 -- Timestamp of last update
-obj.loadingTask = nil -- Current loading task
-obj.isLoading = false -- Loading state
+obj.updateInterval = 60  -- Update every 1 minute
+obj.cachedEvents = {}    -- Cache for events
+obj.lastUpdate = 0       -- Timestamp of last update
+obj.loadingTask = nil    -- Current loading task
+obj.isLoading = false    -- Loading state
 obj.eventkitBinary = nil -- Cached EventKit fetcher binary
 obj.logger = hs.logger.new('MySchedule', 'info')
 
@@ -64,12 +64,10 @@ end
 --- Method
 --- Update the menu bar with current schedule information
 function obj:updateSchedule()
-  self.logger:d 'updateSchedule called'
   local events = self.cachedEvents
   self.logger:d('updateSchedule - using ' .. #events .. ' cached events')
 
   local nextEvent = self:findNextEvent(events)
-  self.logger:d('updateSchedule - nextEvent: ' .. (nextEvent and nextEvent.title or 'nil'))
 
   if nextEvent then
     local timeUntil = self:formatTimeUntil(nextEvent.startTimestamp)
@@ -128,10 +126,10 @@ end
 function obj:triggerCalendarPermissions()
   -- Use AppleScript to trigger calendar access which will show permission dialog
   hs.task
-    .new('/usr/bin/osascript', function(exitCode, stdOut, stdErr)
-      -- Permissions dialog should have appeared, no need to handle result
-    end, { '-e', 'tell application "Calendar" to return count of calendars' })
-    :start()
+      .new('/usr/bin/osascript', function(exitCode, stdOut, stdErr)
+        -- Permissions dialog should have appeared, no need to handle result
+      end, { '-e', 'tell application "Calendar" to return count of calendars' })
+      :start()
 end
 
 --- MySchedule:compile()
@@ -162,7 +160,8 @@ function obj:compile()
   end
 
   -- Compile the binary synchronously
-  local compileCmd = string.format('/usr/bin/clang -fobjc-arc -framework EventKit -framework Foundation -o %s %s', binaryPath, objcSourcePath)
+  local compileCmd = string.format('/usr/bin/clang -fobjc-arc -framework EventKit -framework Foundation -o %s %s',
+    binaryPath, objcSourcePath)
 
   local output, success = hs.execute(compileCmd)
   if not success then
@@ -244,7 +243,8 @@ function obj:loadEventsWithEventKit()
       self.logger:e('EventKit failed with exit code ' .. exitCode .. ': ' .. (stdErr or 'unknown error'))
       -- If compilation failed, it might be a permission issue
       if stdErr and stdErr:find 'permission' then
-        hs.alert.show('Please grant Hammerspoon calendar access in System Preferences > Privacy & Security > Calendar', _G.MARTILLO_ALERT_DURATION)
+        hs.alert.show('Please grant Hammerspoon calendar access in System Preferences > Privacy & Security > Calendar',
+          _G.MARTILLO_ALERT_DURATION)
       end
       self.cachedEvents = {}
       self.lastUpdate = os.time()
@@ -307,7 +307,8 @@ function obj:parseEventKitResult(result)
                 local startTimestamp = now + timeDiff
                 local meetingURL = self:extractMeetingURL(eventDescription)
 
-                self.logger:i(string.format("Event: '%s' timeDiff: %.0f seconds (%.1f hours)", title, timeDiff, timeDiff / 3600))
+                self.logger:i(string.format("Event: '%s' timeDiff: %.0f seconds (%.1f hours)", title, timeDiff,
+                  timeDiff / 3600))
 
                 -- Include all events from today (already filtered by EventKit predicate)
                 self.logger:i('Including event: ' .. title)
@@ -371,9 +372,9 @@ function obj:findNextEvent(events)
   end)
 
   -- Debug: Print all events with their time differences
-  for i, event in ipairs(sortedEvents) do
-    self.logger:d(string.format("Event %d: '%s' (in %d seconds) - %s", i, event.title, event.timeDiff, event.timeRange))
-  end
+  -- for i, event in ipairs(sortedEvents) do
+  --   self.logger:d(string.format("Event %d: '%s' (in %d seconds) - %s", i, event.title, event.timeDiff, event.timeRange))
+  -- end
 
   -- Find first event that is upcoming (timeDiff >= 0) or currently happening (started within last 30 min)
   for i, event in ipairs(sortedEvents) do
@@ -447,12 +448,11 @@ function obj:setMenu(nextEvent, events)
 
       local menuItemText = '  ' .. event.timeRange .. ' ' .. eventTitle
 
-      -- Apply gray styling to past events (timeDiff < 0 means it's in the past)
+      -- Apply gray styling to past events (30 mins in the past)
       local menuTitle
-      if event.timeDiff < 0 then
-        -- Past event - apply gray color
+      if event.timeDiff < -1800 then
         menuTitle = hs.styledtext.new(menuItemText, {
-          color = { hex = '#808080' }, -- Gray color
+          color = { hex = '#808080' },
         })
       else
         -- Upcoming event - normal styling

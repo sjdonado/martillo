@@ -1,46 +1,82 @@
--- Provides access to 3D icons and file type icon mappings
+-- Icon utilities
+-- Provides access to icon paths and loading functionality
 
 local M = {
   cache = {},
-  iconsPath = nil,
-  logger = hs.logger.new('IconsHelper', 'info'),
+  preset = {},
+  logger = hs.logger.new('Icons', 'info'),
+  ICON_SIZE = { w = 32, h = 32 },
 }
 
--- Global icon size (matches Hammerspoon's default icon size)
-M.ICON_SIZE = { w = 32, h = 32 }
-
--- Expand tilde in path
-local function expandPath(path)
-  if path:sub(1, 1) == '~' then
-    local home = os.getenv 'HOME'
-    return home .. path:sub(2)
-  end
-  return path
-end
-
--- Initialize icons path
-local function initIconsPath()
-  if M.iconsPath then
-    return
-  end
-
-  -- Get the directory where this module is located
+-- Get the project root directory
+local function getProjectRoot()
   local info = debug.getinfo(1, 'S')
   local scriptPath = info.source:match '^@(.+)$'
   local scriptDir = scriptPath:match '(.+)/[^/]+$'
-  local projectRoot = scriptDir:match '(.+)/lib$'
-
-  M.iconsPath = projectRoot .. '/assets/icons'
-  M.logger:d('Icons path initialized: ' .. M.iconsPath)
+  return scriptDir:match '(.+)/lib$'
 end
 
--- Get icon from cache or load it
-local function loadIcon(iconName)
-  if M.cache[iconName] then
-    return M.cache[iconName]
+-- Build preset icons table (icon name -> absolute path)
+-- Scans both assets/icons and store/*/ directories
+local function buildPresets()
+  if next(M.preset) ~= nil then
+    return -- Already built
   end
 
-  local iconPath = M.iconsPath .. '/' .. iconName .. '.png'
+  local projectRoot = getProjectRoot()
+
+  -- Scan assets/icons directory
+  local assetsIconsPath = projectRoot .. '/assets/icons'
+  local handle = io.popen('find "' .. assetsIconsPath .. '" -maxdepth 1 -name "*.png" 2>/dev/null')
+  if handle then
+    for file in handle:lines() do
+      local iconName = file:match '([^/]+)%.png$'
+      if iconName then
+        M.preset[iconName] = file
+      end
+    end
+    handle:close()
+  end
+
+  -- Scan store/*/ directories for custom icons
+  local storePath = projectRoot .. '/store'
+  local storeHandle = io.popen('find "' .. storePath .. '" -maxdepth 2 -name "*.png" 2>/dev/null')
+  if storeHandle then
+    for file in storeHandle:lines() do
+      local iconName = file:match '([^/]+)%.png$'
+      if iconName then
+        -- Store icons can override default icons
+        M.preset[iconName] = file
+      end
+    end
+    storeHandle:close()
+  end
+
+  -- Count icons
+  local count = 0
+  for _ in pairs(M.preset) do
+    count = count + 1
+  end
+
+  M.logger:d('Built preset icons table with ' .. count .. ' icons')
+end
+
+-- Initialize presets on module load
+buildPresets()
+
+-- Load icon from absolute path
+-- @param iconPath string Absolute path to icon file
+-- @return hs.image object or nil
+function M.getIcon(iconPath)
+  if not iconPath then
+    return nil
+  end
+
+  -- Check cache
+  if M.cache[iconPath] then
+    return M.cache[iconPath]
+  end
+
   local image = hs.image.imageFromPath(iconPath)
 
   if not image then
@@ -50,46 +86,16 @@ local function loadIcon(iconName)
 
   -- Resize to standard icon size
   local resized = image:setSize(M.ICON_SIZE)
-  M.cache[iconName] = resized
+  M.cache[iconPath] = resized
 
   return resized
 end
 
--- Get icon by name
--- Returns: hs.image object or nil
-function M.getIcon(iconName)
-  if not iconName then
-    return nil
-  end
-
-  initIconsPath()
-
-  return loadIcon(iconName)
-end
-
--- Get all available icon names
-function M.getAvailableIcons()
-  initIconsPath()
-
-  local icons = {}
-  local handle = io.popen('ls "' .. M.iconsPath .. '"')
-  if handle then
-    for file in handle:lines() do
-      if file:match '%.png$' then
-        local name = file:match '(.+)%.png$'
-        table.insert(icons, name)
-      end
-    end
-    handle:close()
-  end
-
-  table.sort(icons)
-  return icons
-end
-
--- Clear icon cache
+-- Clear icon cache and rebuild presets
 function M.clearCache()
   M.cache = {}
+  M.preset = {}
+  buildPresets()
   M.logger:d 'Icon cache cleared'
 end
 

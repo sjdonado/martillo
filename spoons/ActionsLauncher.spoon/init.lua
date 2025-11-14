@@ -181,7 +181,7 @@ function obj:setup(config)
 			isDynamic = action.isDynamic or false,
 		}
 
-		-- Add icon if specified
+		-- Add icon if specified (icon should be an absolute path)
 		if action.icon then
 			local icon = icons.getIcon(action.icon)
 			if icon then

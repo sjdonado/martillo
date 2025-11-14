@@ -23,6 +23,33 @@ function M.copyToClipboard(getText)
   end
 end
 
+--- Create a handler that opens a URL or copies it to clipboard
+--- Supports Shift modifier:
+--- - Regular Enter: Open URL in browser
+--- - Shift+Enter: Copy URL to clipboard
+--- @param getUrl function(choice) Function to extract URL from choice (required)
+--- @return function Handler function
+function M.openUrl(getUrl)
+  return function(choice)
+    local url = getUrl(choice)
+    if not url or url == '' then
+      return
+    end
+
+    local shiftHeld = pickerManager.isShiftHeld()
+
+    if shiftHeld then
+      -- Shift+Enter: Copy to clipboard
+      hs.pasteboard.setContents(url)
+      toast.success 'Link copied to clipboard'
+    else
+      -- Regular Enter: Open URL
+      hs.urlevent.openURL(url)
+      toast.success 'Opening link'
+    end
+  end
+end
+
 --- Create a handler that copies to clipboard AND pastes
 --- Supports Shift modifier:
 --- - Regular Enter: Copy to clipboard AND paste/insert
@@ -88,12 +115,53 @@ function M.custom(fn)
   return fn
 end
 
+--- Build choices from a results array without search
+--- @param results table Array of result objects with text/subText/value/image fields
+--- @param launcher table Launcher instance for UUID generation
+--- @param opts table Options: { handler = function, image = hs.image }
+--- @return table Array of choices ready for picker
+function M.buildChoices(results, launcher, opts)
+  opts = opts or {}
+  local handler = opts.handler or M.noAction()
+  local defaultImage = opts.image -- Optional default image for all choices
+
+  -- Build choices with handlers
+  local choices = {}
+  for _, result in ipairs(results) do
+    local uuid = launcher:generateUUID()
+    local choice = {
+      text = result.text,
+      subText = result.subText,
+      uuid = uuid,
+    }
+
+    -- Set image: prefer result.image, fallback to opts.image
+    if result.image then
+      choice.image = result.image
+    elseif defaultImage then
+      choice.image = defaultImage
+    end
+
+    table.insert(choices, choice)
+
+    -- Resolve handler: can be a function that takes result, or a static handler
+    if type(handler) == 'function' then
+      local resolvedHandler = handler(result)
+      launcher.handlers[uuid] = resolvedHandler
+    else
+      launcher.handlers[uuid] = handler
+    end
+  end
+
+  return choices
+end
+
 --- Build choices with fuzzy search from a results array
 --- Common pattern for display-only or copyable pickers with search support
 --- @param query string Search query from user
---- @param results table Array of result objects with text/subText/value fields
+--- @param results table Array of result objects with text/subText/value/image fields
 --- @param launcher table Launcher instance for UUID generation
---- @param opts table Options: { handler = function, searchFields = table, fuzzyMinQueryLength = number, maxResults = number }
+--- @param opts table Options: { handler = function, searchFields = table, fuzzyMinQueryLength = number, maxResults = number, image = hs.image }
 --- @return table Array of choices ready for picker
 function M.buildSearchableChoices(query, results, launcher, opts)
   opts = opts or {}
@@ -107,6 +175,7 @@ function M.buildSearchableChoices(query, results, launcher, opts)
     end
   local fuzzyMinQueryLength = opts.fuzzyMinQueryLength or 2
   local maxResults = opts.maxResults or 50
+  local defaultImage = opts.image -- Optional default image for all choices
 
   -- Apply fuzzy search if query is provided
   local filteredResults = results
@@ -122,11 +191,20 @@ function M.buildSearchableChoices(query, results, launcher, opts)
   local choices = {}
   for _, result in ipairs(filteredResults) do
     local uuid = launcher:generateUUID()
-    table.insert(choices, {
+    local choice = {
       text = result.text,
       subText = result.subText,
       uuid = uuid,
-    })
+    }
+
+    -- Set image: prefer result.image, fallback to opts.image
+    if result.image then
+      choice.image = result.image
+    elseif defaultImage then
+      choice.image = defaultImage
+    end
+
+    table.insert(choices, choice)
 
     -- Resolve handler: can be a function that takes result, or a static handler
     if type(handler) == 'function' then

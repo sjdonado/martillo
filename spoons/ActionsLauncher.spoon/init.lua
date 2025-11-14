@@ -20,7 +20,7 @@ obj.pickerManager = nil
 obj.deleteKeyWatcher = nil
 obj.escapeKeyWatcher = nil
 obj.currentChildHandler = nil
-obj.logger = hs.logger.new('ActionsLauncher', 'info')
+obj.logger = hs.logger.new('ActionsLauncher', 'debug')
 
 --- ActionsLauncher:init()
 --- Method
@@ -50,29 +50,28 @@ function obj:executeActionWithModifiers(choice)
 
 	-- Handle Nested Action (opens child picker)
 	if result == 'OPEN_CHILD_PICKER' then
+		-- STACK ACTION: No change (keep current picker in stack)
+		-- RESULT: Child picker will push itself on top, increasing depth
+		self.logger:d('Opening child picker, keeping current picker in stack')
 		return 'OPEN_CHILD_PICKER'
 	end
 
-	-- Handle string results with copy/paste logic
-	if result and type(result) == 'string' and result ~= '' then
-		local shiftHeld = pickerManager.isShiftHeld()
-
-		if shiftHeld then
-			-- Shift+Enter: Copy only (no paste)
-			hs.pasteboard.setContents(result)
-			hs.alert.show('📋 Copied ' .. result, _G.MARTILLO_ALERT_DURATION)
-		else
-			-- Regular Enter: Copy and paste
-			hs.pasteboard.setContents(result)
-			hs.alert.show('✅ ' .. result, _G.MARTILLO_ALERT_DURATION)
-			-- Paste using keyStrokes
-			hs.eventtap.keyStrokes(result)
-		end
-	end
-
-	-- Close all pickers after executing action
+	-- ACTION COMPLETED (not opening child picker)
+	-- STACK ACTION: Pop current picker + clear entire stack
+	-- RESULT: All pickers close, stack depth = 0
+	self.logger:d('Action completed, popping current picker and clearing stack, depth before=' .. self.pickerManager:depth())
+	self.pickerManager:popPicker()
 	self.pickerManager:clear()
-	self.pickerManager:setLauncherInactive()
+	self.logger:d('Popped and cleared, depth after=' .. self.pickerManager:depth())
+
+	-- Note: String results from handlers are no longer automatically copied/pasted.
+	-- Use action helpers from lib/actions.lua for common patterns:
+	--   - actions.copyToClipboard() for copy only
+	--   - actions.copyAndPaste() for copy + paste with Shift modifier support
+	--   - actions.showToast() for displaying messages
+	--   - actions.noAction() for display-only pickers
+
+	-- Close all pickers after executing action (for non-string results or when not copying)
 	if self.chooser then
 		self.chooser:hide()
 	end
@@ -87,6 +86,32 @@ function obj:createChooser()
 	end
 
 	self.chooser = hs.chooser.new(function(choice)
+		if not choice then
+			-- EVENT: ESC pressed in main launcher
+			-- STACK ACTION: Pop from stack, check if there's a parent to restore
+			self.logger:d('Main launcher - ESC pressed, popping from stack, depth before=' .. self.pickerManager:depth())
+			self.pickerManager:popPicker()
+			local depthAfter = self.pickerManager:depth()
+			self.logger:d('Popped, depth after=' .. depthAfter)
+
+			if depthAfter > 0 then
+				-- Restore parent picker
+				local parentPicker = self.pickerManager.stack[depthAfter]
+				self.logger:d('Restoring parent picker')
+				hs.timer.doAfter(0, function()
+					if parentPicker.isMainLauncher then
+						self:restoreParentPicker(parentPicker)
+					elseif parentPicker.isChildPicker then
+						self:openChildPicker(parentPicker.config, { pushToStack = false })
+					end
+				end)
+			end
+			return
+		end
+
+		-- EVENT: Enter pressed in main launcher
+		-- STACK ACTION: Will be handled in executeActionWithModifiers
+		self.logger:d('Main launcher - Enter pressed')
 		self:executeActionWithModifiers(choice)
 	end)
 
@@ -95,42 +120,20 @@ function obj:createChooser()
 	self.chooser:searchSubText(true)
 	self.chooser:placeholderText 'Search actions...'
 
-	-- Set up query change callback for Nested Actions
+	-- Set up query change callback
 	self.chooser:queryChangedCallback(function(query)
 		self:handleQueryChange(query)
 	end)
 
-	-- Set choices
 	self.chooser:choices(self.originalChoices)
-
-	-- Store reference in picker manager
 	self.pickerManager:setChooser(self.chooser)
 
-	-- Set up Shift+ESC to close all pickers using pickerManager helper
-	if self.escapeKeyWatcher then
-		self.escapeKeyWatcher:stop()
-		self.escapeKeyWatcher = nil
-	end
-	self.escapeKeyWatcher = pickerManager.setupShiftEscapeWatcher(self.pickerManager, self.chooser)
-
-	-- Automatically cleanup when chooser is hidden
+	-- Cleanup when hidden
 	self.chooser:hideCallback(function()
-		-- Stop escape key watcher
-		if self.escapeKeyWatcher then
-			self.escapeKeyWatcher:stop()
-			self.escapeKeyWatcher = nil
-		end
-
+		self.logger:d('Main launcher hideCallback - Cleaning up')
 		if self.chooser then
 			self.chooser:delete()
 			self.chooser = nil
-		end
-		-- Clear picker stack when completely closed
-		-- Note: We don't call setLauncherInactive() here because this hideCallback
-		-- fires before executeActionWithModifiers completes, and we need isLauncherActive
-		-- to remain true so child pickers can detect they have a parent
-		if not self.pickerManager:hasParent() then
-			self.pickerManager:clear()
 		end
 	end)
 end
@@ -174,7 +177,6 @@ function obj:setup(config)
 			text = action.name,
 			subText = table.concat(subTextParts, ' • '),
 			uuid = uuid,
-			copyToClipboard = false,
 			alias = action.alias,
 			isDynamic = action.isDynamic or false,
 		}
@@ -216,8 +218,19 @@ end
 --- Show the actions chooser
 function obj:show()
 	self:createChooser()
-	-- Mark launcher as active so child pickers know they have a parent
-	self.pickerManager:setLauncherActive()
+
+	-- EVENT: Main launcher opened (via toggle/show)
+	-- STACK ACTION: Push to stack
+	-- RESULT: Stack depth = 1
+	local state = {
+		choices = self.originalChoices,
+		placeholder = 'Search actions...',
+		handlers = hs.fnutils.copy(self.handlers),
+		isMainLauncher = true,
+	}
+	self.pickerManager:pushPicker(state)
+	self.logger:d('Main launcher opened, pushed to stack, depth: ' .. self.pickerManager:depth())
+
 	self.chooser:show()
 end
 
@@ -228,8 +241,8 @@ function obj:hide()
 	if self.chooser then
 		self.chooser:hide()
 	end
-	-- Mark launcher as inactive when explicitly hiding
-	self.pickerManager:setLauncherInactive()
+	-- Clear stack when explicitly hiding
+	self.pickerManager:clear()
 end
 
 --- ActionsLauncher:toggle()
@@ -271,7 +284,7 @@ function obj:refresh()
 	end
 end
 
---- ActionsLauncher:openChildPicker(config)
+--- ActionsLauncher:openChildPicker(config, options)
 --- Method
 --- Open a child picker for Nested Actions
 ---
@@ -280,6 +293,9 @@ end
 ---    * placeholder - Placeholder text for the child picker
 ---    * handler - Function that takes query and returns choices
 ---    * parentAction - The parent action that opened this picker
+---  * options - Optional table with:
+---    * pushToStack - Whether to push this picker to stack (default: true)
+---                    Set to false when restoring from ESC navigation
 ---
 --- pickerManager behavior depends on whether the picker has a parent:
 ---  * With parent (opened from ActionsLauncher):
@@ -288,50 +304,56 @@ end
 ---  * Without parent (opened from keymap):
 ---    - DELETE/ESC on empty query: Close the picker
 ---    - Enter: Execute action and close the picker
-function obj:openChildPicker(config)
+function obj:openChildPicker(config, options)
+	options = options or {}
+	local pushToStack = options.pushToStack
+	if pushToStack == nil then
+		pushToStack = true -- Default: push to stack
+	end
+
 	-- Store handler for refresh functionality
 	self.currentChildHandler = config.handler
 
-	-- Ask pickerManager if we should have a parent
-	-- This returns true if ActionsLauncher is active (main launcher or already in a child)
-	local hasParent = self.pickerManager:shouldHaveParent()
-
-	if hasParent then
-		local parentState = {
-			choices = self.originalChoices,
-			placeholder = 'Search actions...',
-			handlers = hs.fnutils.copy(self.handlers),
-			parentAction = config.parentAction,
-		}
-		self.pickerManager:pushParent(parentState)
-		self.logger:d('Opened child picker with parent, stack depth: ' .. self.pickerManager:depth())
-
-		-- Close current picker if still visible
-		if self.chooser then
-			self.chooser:hide()
-		end
-	else
-		self.logger:d 'Opened standalone child picker (no parent)'
+	-- Close current picker if visible (don't pop from stack yet - that happens on ESC)
+	if self.chooser then
+		self.logger:d('Closing current picker, stack depth before: ' .. self.pickerManager:depth())
+		self.chooser:hide()
 	end
 
 	-- Small delay to ensure smooth transition
 	hs.timer.doAfter(0, function()
-		-- Capture whether we have a parent before any operations
-		-- This is used by hideCallback to determine behavior
-		local hadParentAtStart = self.pickerManager:hasParent()
-
-		-- Flag to track if chooser was closed due to selection
-		local closedBySelection = false
-
 		-- Create new chooser for child picker
 		if self.chooser then
 			self.chooser:delete()
 		end
 
 		self.chooser = hs.chooser.new(function(choice)
-			if choice then
-				closedBySelection = true
+			if not choice then
+				-- EVENT: ESC pressed in child picker
+				-- STACK ACTION: Pop from stack, check if there's a parent to restore
+				self.logger:d('Child picker - ESC pressed, popping from stack, depth before=' .. self.pickerManager:depth())
+				self.pickerManager:popPicker()
+				local depthAfter = self.pickerManager:depth()
+				self.logger:d('Popped, depth after=' .. depthAfter)
+
+				if depthAfter > 0 then
+					-- Restore parent picker
+					local parentPicker = self.pickerManager.stack[depthAfter]
+					self.logger:d('Restoring parent picker')
+					hs.timer.doAfter(0, function()
+						if parentPicker.isMainLauncher then
+							self:restoreParentPicker(parentPicker)
+						elseif parentPicker.isChildPicker then
+							self:openChildPicker(parentPicker.config, { pushToStack = false })
+						end
+					end)
+				end
+				return
 			end
+
+			-- EVENT: Enter pressed in child picker
+			-- STACK ACTION: Will be handled in executeActionWithModifiers
+			self.logger:d('Child picker - Enter pressed')
 			self:executeActionWithModifiers(choice)
 		end)
 
@@ -358,73 +380,39 @@ function obj:openChildPicker(config)
 		local initialChoices = config.handler('', self)
 		self.chooser:choices(initialChoices)
 
-		-- Set up DELETE key watcher for going back when query is empty using pickerManager helper
-		if self.deleteKeyWatcher then
-			self.deleteKeyWatcher:stop()
-			self.deleteKeyWatcher = nil
+		-- Push to stack if requested (default behavior for new child pickers)
+		-- Don't push when restoring from ESC navigation (picker already in stack)
+		if pushToStack then
+			-- EVENT: Child picker opened (from main launcher or another child)
+			-- STACK ACTION: Push to stack
+			local childState = {
+				config = config,
+				isChildPicker = true,
+			}
+			self.pickerManager:pushPicker(childState)
+			self.logger:d('Child picker opened, pushed to stack, depth: ' .. self.pickerManager:depth())
+		else
+			-- EVENT: Restoring child picker from ESC navigation
+			-- STACK ACTION: No push (picker already in stack)
+			self.logger:d('Child picker restored (not pushed), stack depth: ' .. self.pickerManager:depth())
 		end
-		self.deleteKeyWatcher = pickerManager.setupDeleteKeyWatcher(self.pickerManager, self.chooser, {})
 
-		-- Store reference in picker manager
 		self.pickerManager:setChooser(self.chooser)
 
-		-- Automatically cleanup when chooser is hidden
+		-- Cleanup when hidden
 		self.chooser:hideCallback(function()
-			-- Stop DELETE key watcher
-			if self.deleteKeyWatcher then
-				self.deleteKeyWatcher:stop()
-				self.deleteKeyWatcher = nil
-			end
+			self.logger:d('Child picker hideCallback - Cleaning up')
 
-			-- Call onClose callback if provided (for cleanup like stopping timers)
+			-- Call onClose callback if provided
 			if config.onClose then
 				config.onClose()
 			end
 
-			-- Clear child handler
 			self.currentChildHandler = nil
 
-			-- Use captured parent state, not current state
-			-- (current state may have been cleared by executeActionWithModifiers)
-			if hadParentAtStart then
-				-- Case 1: Child picker with parent (opened from ActionsLauncher)
-				if closedBySelection then
-					-- Enter pressed: Close both child and parent
-					if self.chooser then
-						self.chooser:delete()
-						self.chooser = nil
-					end
-					-- Picker manager already cleared by executeActionWithModifiers
-					-- setLauncherInactive already called in executeActionWithModifiers
-				else
-					-- ESC/DELETE pressed: Navigate back to parent
-					local parent = self.pickerManager:popParent()
-					if not parent then
-						if self.chooser then
-							self.chooser:delete()
-							self.chooser = nil
-						end
-						self.pickerManager:setLauncherInactive()
-						return
-					end
-					-- Delete current chooser before restoring parent
-					if self.chooser then
-						self.chooser:delete()
-						self.chooser = nil
-					end
-					-- Launcher stays active - we're just going back to parent
-					hs.timer.doAfter(0, function()
-						self:restoreParentPicker(parent)
-					end)
-				end
-			else
-				-- Case 2: Child picker without parent (opened from keymap)
-				-- Always just close the picker and set inactive
-				if self.chooser then
-					self.chooser:delete()
-					self.chooser = nil
-				end
-				self.pickerManager:setLauncherInactive()
+			if self.chooser then
+				self.chooser:delete()
+				self.chooser = nil
 			end
 		end)
 
@@ -447,6 +435,32 @@ function obj:restoreParentPicker(parentState)
 	self.handlers = parentState.handlers
 
 	self.chooser = hs.chooser.new(function(choice)
+		if not choice then
+			-- EVENT: ESC pressed in restored parent
+			-- STACK ACTION: Pop from stack, check if there's a parent to restore
+			self.logger:d('Restored parent - ESC pressed, popping from stack, depth before=' .. self.pickerManager:depth())
+			self.pickerManager:popPicker()
+			local depthAfter = self.pickerManager:depth()
+			self.logger:d('Popped, depth after=' .. depthAfter)
+
+			if depthAfter > 0 then
+				-- Restore parent picker
+				local parentPicker = self.pickerManager.stack[depthAfter]
+				self.logger:d('Restoring parent picker')
+				hs.timer.doAfter(0, function()
+					if parentPicker.isMainLauncher then
+						self:restoreParentPicker(parentPicker)
+					elseif parentPicker.isChildPicker then
+						self:openChildPicker(parentPicker.config, { pushToStack = false })
+					end
+				end)
+			end
+			return
+		end
+
+		-- EVENT: Enter pressed in restored parent
+		-- STACK ACTION: Will be handled in executeActionWithModifiers
+		self.logger:d('Restored parent - Enter pressed')
 		self:executeActionWithModifiers(choice)
 	end)
 
@@ -462,31 +476,14 @@ function obj:restoreParentPicker(parentState)
 
 	-- Restore choices
 	self.chooser:choices(parentState.choices)
-
-	-- Store reference in picker manager
 	self.pickerManager:setChooser(self.chooser)
 
-	-- Set up Shift+ESC to close all pickers using pickerManager helper
-	if self.escapeKeyWatcher then
-		self.escapeKeyWatcher:stop()
-		self.escapeKeyWatcher = nil
-	end
-	self.escapeKeyWatcher = pickerManager.setupShiftEscapeWatcher(self.pickerManager, self.chooser)
-
-	-- Automatically cleanup when chooser is hidden
+	-- Cleanup when hidden
 	self.chooser:hideCallback(function()
-		-- Stop escape key watcher
-		if self.escapeKeyWatcher then
-			self.escapeKeyWatcher:stop()
-			self.escapeKeyWatcher = nil
-		end
-
+		self.logger:d('Restored parent hideCallback - Cleaning up')
 		if self.chooser then
 			self.chooser:delete()
 			self.chooser = nil
-		end
-		if not self.pickerManager:hasParent() then
-			self.pickerManager:clear()
 		end
 	end)
 

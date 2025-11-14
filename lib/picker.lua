@@ -11,7 +11,6 @@ function M.new()
   local manager = {
     stack = {},
     currentChooser = nil,
-    isLauncherActive = false, -- Tracks if ActionsLauncher is active (not a standalone picker)
     logger = hs.logger.new('PickerManager', 'info'),
   }
 
@@ -19,10 +18,12 @@ function M.new()
   return manager
 end
 
---- Check if there's a parent picker in the stack
+--- Check if the current picker has a parent (i.e., there's at least one other picker in the stack)
+--- Stack depth of 1 means only the current picker (no parent)
+--- Stack depth > 1 means there are parent pickers below
 --- @return boolean
 function M:hasParent()
-  return #self.stack > 0
+  return #self.stack > 1
 end
 
 --- Get the current depth of the picker stack
@@ -31,56 +32,29 @@ function M:depth()
   return #self.stack
 end
 
---- Push a parent picker state onto the stack
+--- Push a picker state onto the stack
 --- @param state table State containing choices, placeholder, handlers, etc.
-function M:pushParent(state)
+function M:pushPicker(state)
   table.insert(self.stack, state)
-  self.logger:d('Pushed parent to stack, depth: ' .. #self.stack)
+  self.logger:d('Pushed picker to stack, depth: ' .. #self.stack)
 end
 
---- Pop the parent picker state from the stack
---- @return table|nil The parent state or nil if stack is empty
-function M:popParent()
+--- Pop a picker state from the stack
+--- @return table|nil The picker state or nil if stack is empty
+function M:popPicker()
   if #self.stack == 0 then
     return nil
   end
 
   local state = table.remove(self.stack)
-  self.logger:d('Popped parent from stack, depth: ' .. #self.stack)
+  self.logger:d('Popped picker from stack, depth: ' .. #self.stack)
   return state
-end
-
---- Peek at the parent picker state without removing it
---- @return table|nil The parent state or nil if stack is empty
-function M:peekParent()
-  if #self.stack == 0 then
-    return nil
-  end
-
-  return self.stack[#self.stack]
 end
 
 --- Clear all parent states from the stack
 function M:clear()
   self.stack = {}
   self.logger:d 'Cleared picker stack'
-end
-
---- Mark ActionsLauncher as active (showing main launcher or child pickers)
-function M:setLauncherActive()
-  self.isLauncherActive = true
-end
-
---- Mark ActionsLauncher as inactive (all pickers closed)
-function M:setLauncherInactive()
-  self.isLauncherActive = false
-end
-
---- Check if we should push the current picker as a parent for a new child
---- Returns true if we're in ActionsLauncher context (main launcher or already in a child)
---- @return boolean
-function M:shouldHaveParent()
-  return self.isLauncherActive
 end
 
 --- Set the current chooser instance
@@ -95,231 +69,11 @@ function M:getChooser()
   return self.currentChooser
 end
 
---- Navigate back to parent picker
---- This is a helper that should be called when user wants to go back
---- @param onRestore function(state) Callback to restore parent picker with its state
---- @return boolean True if navigated back, false if no parent exists
-function M:navigateBack(onRestore)
-  local parentState = self:popParent()
-
-  if not parentState then
-    self.logger:d 'No parent to navigate back to'
-    return false
-  end
-
-  if onRestore then
-    onRestore(parentState)
-  end
-
-  return true
-end
-
 --- Check if Shift key is held down
 --- @return boolean True if Shift is held, false otherwise
 function M.isShiftHeld()
   local modifiers = hs.eventtap.checkKeyboardModifiers()
   return modifiers.shift == true
-end
-
---- Handle action completion with clipboard and paste logic
---- Regular Enter: Copy to clipboard only
---- Shift+Enter: Copy to clipboard AND paste/insert
----
---- @param result string|any The result from the action handler
---- @param options table Configuration options:
----   - onPaste: function(clipboardContent) Optional custom paste function
----   - skipClipboard: boolean If true, assume content already in clipboard
---- @return boolean True if handled, false otherwise
-function M.handleActionResult(result, options)
-  options = options or {}
-
-  -- Only handle string results
-  if not result or type(result) ~= 'string' or result == '' then
-    return false
-  end
-
-  -- Get Shift modifier state
-  local shiftHeld = M.isShiftHeld()
-
-  -- Get clipboard content (may have been set by handler already)
-  local clipboardContent = hs.pasteboard.getContents()
-
-  if shiftHeld then
-    -- Shift+Enter: Copy and paste
-    if not options.skipClipboard then
-      hs.pasteboard.setContents(result)
-      clipboardContent = result
-    end
-
-    toast.success(result)
-
-    -- Paste/insert content
-    if options.onPaste then
-      -- Use custom paste function if provided
-      options.onPaste(clipboardContent)
-    else
-      -- Default: use keyStrokes to paste
-      if clipboardContent and clipboardContent ~= '' then
-        hs.eventtap.keyStrokes(clipboardContent)
-      end
-    end
-  else
-    -- Regular Enter: Copy only (no paste)
-    if not options.skipClipboard then
-      hs.pasteboard.setContents(result)
-    end
-    hs.alert.show('📋 ' .. result, _G.MARTILLO_ALERT_DURATION)
-  end
-
-  return true
-end
-
---- Wrap a chooser callback to close all pickers after execution
---- This is useful for ensuring pickers close after selecting an item
---- @param callback function(choice) The original callback
---- @param pickerManager table The picker manager instance
---- @param chooser userdata The chooser instance
---- @return function The wrapped callback
-function M.wrapWithCloseAll(callback, pickerManager, chooser)
-  return function(choice)
-    if not choice then
-      return
-    end
-
-    -- Execute the original callback
-    local result = callback(choice)
-
-    -- Don't close if opening a child picker
-    if result == 'OPEN_CHILD_PICKER' then
-      return result
-    end
-
-    -- Close all pickers after action completes
-    if pickerManager then
-      pickerManager:clear()
-    end
-    if chooser then
-      chooser:hide()
-    end
-
-    return result
-  end
-end
-
---- Setup keyboard event watcher for Shift+ESC (close all pickers)
---- @param pickerManager table The picker manager instance
---- @param chooser userdata The chooser instance
---- @return userdata The event tap watcher
-function M.setupShiftEscapeWatcher(pickerManager, chooser)
-  local watcher = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
-    local keyCode = event:getKeyCode()
-    local modifiers = event:getFlags()
-
-    -- ESC key (keyCode 53) with Shift modifier
-    if keyCode == 53 and modifiers.shift then
-      -- Close all pickers
-      if pickerManager then
-        pickerManager:clear()
-        pickerManager:setLauncherInactive()
-      end
-      if chooser then
-        chooser:hide()
-      end
-      return true -- Consume the event
-    end
-
-    return false -- Don't consume other events
-  end)
-  watcher:start()
-  return watcher
-end
-
---- Setup keyboard event watcher for DELETE and ESC keys
---- Behavior depends on whether picker has a parent:
---- - With parent: DELETE/ESC on empty query navigates back to parent
---- - Without parent: DELETE/ESC on empty query closes the picker
---- @param pickerManager table The picker manager instance
---- @param chooser userdata The chooser instance
---- @param options table Optional configuration:
----   - onBackToParent: function() Callback when going back to parent (child picker only)
---- @return userdata The event tap watcher
-function M.setupDeleteKeyWatcher(pickerManager, chooser, options)
-  options = options or {}
-
-  local watcher = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
-    local keyCode = event:getKeyCode()
-    local modifiers = event:getFlags()
-    local query = chooser and chooser:query() or ''
-
-    -- Shift+ESC: Close all pickers (handled by setupShiftEscapeWatcher)
-    if keyCode == 53 and modifiers.shift then
-      if pickerManager then
-        pickerManager:clear()
-        pickerManager:setLauncherInactive()
-      end
-      if chooser then
-        chooser:hide()
-      end
-      return true -- Consume the event
-    end
-
-    -- ESC key (keyCode 53) without shift modifier, when query is empty
-    -- Note: We allow other modifiers (cmd, alt, ctrl) to pass through
-    if keyCode == 53 and not modifiers.shift and (not query or query == '') then
-      if pickerManager:hasParent() then
-        -- Case 1: With parent - Navigate back to parent
-        if chooser then
-          chooser:hide()
-        end
-
-        -- Call callback if provided (for child pickers)
-        if options.onBackToParent then
-          options.onBackToParent()
-        end
-      else
-        -- Case 2: Without parent - Close the picker
-        -- If we're closing the top-level picker, mark launcher as inactive
-        if pickerManager then
-          pickerManager:setLauncherInactive()
-        end
-        if chooser then
-          chooser:hide()
-        end
-      end
-
-      return true -- Consume the event
-    end
-
-    -- DELETE key (keyCode 51) pressed when query is empty
-    if keyCode == 51 and (not query or query == '') then
-      if pickerManager:hasParent() then
-        -- Case 1: With parent - Navigate back to parent
-        if chooser then
-          chooser:hide()
-        end
-
-        -- Call callback if provided (for child pickers)
-        if options.onBackToParent then
-          options.onBackToParent()
-        end
-      else
-        -- Case 2: Without parent - Close the picker
-        -- If we're closing the top-level picker, mark launcher as inactive
-        if pickerManager then
-          pickerManager:setLauncherInactive()
-        end
-        if chooser then
-          chooser:hide()
-        end
-      end
-
-      return true -- Consume the event
-    end
-
-    return false -- Don't consume other events
-  end)
-  watcher:start()
-  return watcher
 end
 
 return M

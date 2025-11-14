@@ -21,44 +21,44 @@ return {
         placeholder = 'F1 Drivers Championship 2024',
         parentAction = 'f1_standings',
         handler = function(query, launcher)
-          local choices = {}
-
           if loading then
-            table.insert(choices, {
-              text = 'Loading...',
-              subText = 'Fetching from https://f1connectapi.vercel.app',
-              uuid = launcher:generateUUID(),
-            })
-          else
-            for _, entry in ipairs(standings) do
-              local uuid = launcher:generateUUID()
+            return {
+              {
+                text = 'Loading...',
+                subText = 'Fetching from https://f1connectapi.vercel.app',
+                uuid = launcher:generateUUID(),
+              },
+            }
+          end
 
-              -- Format: "P1. Max Verstappen (VER) - 437 pts"
-              local text = string.format(
+          -- Transform standings into results format with text/subText
+          local results = {}
+          for _, entry in ipairs(standings) do
+            table.insert(results, {
+              text = string.format(
                 'P%d. %s %s (%s) - %d pts',
                 entry.position,
                 entry.driver.name,
                 entry.driver.surname,
                 entry.driver.shortName,
                 entry.points
-              )
-
-              -- Format: "Red Bull Racing • 9 wins • Netherlands"
-              local subText = string.format(
+              ),
+              subText = string.format(
                 '%s • %d %s • %s',
                 entry.team.teamName,
                 entry.wins,
                 entry.wins == 1 and 'win' or 'wins',
                 entry.driver.nationality
-              )
+              ),
+              -- Store original entry for handler
+              entry = entry,
+            })
+          end
 
-              table.insert(choices, {
-                text = text,
-                subText = subText,
-                uuid = uuid,
-              })
-
-              launcher.handlers[uuid] = actions.copyToClipboard(function(choice)
+          return actions.buildSearchableChoices(query, results, launcher, {
+            handler = function(result)
+              local entry = result.entry
+              return actions.copyToClipboard(function(choice)
                 return string.format(
                   '%s %s - P%d - %d points - %s',
                   entry.driver.name,
@@ -68,10 +68,19 @@ return {
                   entry.team.teamName
                 )
               end)
-            end
-          end
-
-          return choices
+            end,
+            searchFields = function(result)
+              local entry = result.entry
+              return {
+                { value = entry.driver.name or '', weight = 1.0, key = 'name' },
+                { value = entry.driver.surname or '', weight = 1.0, key = 'surname' },
+                { value = entry.driver.shortName or '', weight = 0.8, key = 'shortName' },
+                { value = entry.team.teamName or '', weight = 0.7, key = 'team' },
+                { value = entry.driver.nationality or '', weight = 0.5, key = 'nationality' },
+              }
+            end,
+            maxResults = 50,
+          })
         end,
       }
 

@@ -137,19 +137,14 @@ return {
         placeholder = 'IP Geolocation Information (Enter to copy)',
         parentAction = 'network_copy_ip',
         handler = function(query, launcher)
-          local choices = {}
-          for _, result in ipairs(results) do
-            local uuid = launcher:generateUUID()
-            table.insert(choices, {
-              text = result.text,
-              subText = result.subText,
-              uuid = uuid,
-            })
-            launcher.handlers[uuid] = actions.copyToClipboard(function(choice)
-              return result.value
-            end)
-          end
-          return choices
+          return actions.buildSearchableChoices(query, results, launcher, {
+            handler = function(result)
+              return actions.copyToClipboard(function(choice)
+                return result.value
+              end)
+            end,
+            maxResults = 10,
+          })
         end,
       }
 
@@ -247,19 +242,9 @@ return {
         placeholder = 'Speed test results...',
         parentAction = 'network_status',
         handler = function(query, launcher)
-          local choices = {}
-          for _, result in ipairs(results) do
-            local uuid = launcher:generateUUID()
-            table.insert(choices, {
-              text = result.text,
-              subText = result.subText,
-              uuid = uuid,
-            })
-
-            -- Display-only: no action on Enter
-            launcher.handlers[uuid] = actions.noAction()
-          end
-          return choices
+          return actions.buildSearchableChoices(query, results, launcher, {
+            maxResults = 10,
+          })
         end,
       }
 

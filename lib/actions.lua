@@ -3,6 +3,7 @@
 
 local toast = require 'lib.toast'
 local pickerManager = require 'lib.picker'
+local searchUtils = require 'lib.search'
 
 local M = {}
 
@@ -86,6 +87,57 @@ end
 --- @return function Handler function
 function M.custom(fn)
   return fn
+end
+
+--- Build choices with fuzzy search from a results array
+--- Common pattern for display-only or copyable pickers with search support
+--- @param query string Search query from user
+--- @param results table Array of result objects with text/subText/value fields
+--- @param launcher table Launcher instance for UUID generation
+--- @param opts table Options: { handler = function, searchFields = table, fuzzyMinQueryLength = number, maxResults = number }
+--- @return table Array of choices ready for picker
+function M.buildSearchableChoices(query, results, launcher, opts)
+  opts = opts or {}
+  local handler = opts.handler or M.noAction()
+  local searchFields = opts.searchFields or function(result)
+    return {
+      { value = result.text or '', weight = 1.0, key = 'text' },
+      { value = result.subText or '', weight = 0.7, key = 'subText' },
+    }
+  end
+  local fuzzyMinQueryLength = opts.fuzzyMinQueryLength or 2
+  local maxResults = opts.maxResults or 50
+
+  -- Apply fuzzy search if query is provided
+  local filteredResults = results
+  if query and query ~= '' then
+    filteredResults = searchUtils.rank(query, results, {
+      getFields = searchFields,
+      fuzzyMinQueryLength = fuzzyMinQueryLength,
+      maxResults = maxResults,
+    })
+  end
+
+  -- Build choices with handlers
+  local choices = {}
+  for _, result in ipairs(filteredResults) do
+    local uuid = launcher:generateUUID()
+    table.insert(choices, {
+      text = result.text,
+      subText = result.subText,
+      uuid = uuid,
+    })
+
+    -- Resolve handler: can be a function that takes result, or a static handler
+    if type(handler) == 'function' then
+      local resolvedHandler = handler(result)
+      launcher.handlers[uuid] = resolvedHandler
+    else
+      launcher.handlers[uuid] = handler
+    end
+  end
+
+  return choices
 end
 
 return M

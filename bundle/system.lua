@@ -246,21 +246,14 @@ return {
         placeholder = 'System Information (real-time updates)',
         parentAction = 'system_information',
         handler = function(query, launcher)
-          local choices = {}
-          for _, result in ipairs(results) do
-            local uuid = launcher:generateUUID()
-            table.insert(choices, {
-              text = result.text,
-              subText = result.subText,
-              uuid = uuid,
-            })
-
-            -- Copy value to clipboard when selected
-            launcher.handlers[uuid] = actions.copyToClipboard(function(choice)
-              return result.value
-            end)
-          end
-          return choices
+          return actions.buildSearchableChoices(query, results, launcher, {
+            handler = function(result)
+              return actions.copyToClipboard(function(choice)
+                return result.value
+              end)
+            end,
+            maxResults = 10,
+          })
         end,
         onClose = function()
           -- Set flag to prevent further refresh attempts

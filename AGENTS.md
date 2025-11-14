@@ -50,16 +50,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 5. **Leader Key Support**: `<leader>` placeholder in hotkeys expands to configured `leader_key` modifiers
 
-5. **Action Helpers** (`lib/actions.lua`):
-   - `actions.copyToClipboard(getText?)` - Copy to clipboard with toast
-   - `actions.copyAndPaste(getText?)` - Copy + paste with Shift modifier support
-   - `actions.showToast(getMessage?)` - Show toast message
-   - `actions.noAction()` - Display-only (no action on Enter)
-   - `actions.custom(fn)` - Custom handler function
+5. **Action Events** (`lib/events.lua`):
+   - `events.copyToClipboard(getText?)` - Copy to clipboard with toast
+   - `events.copyAndPaste(getText?)` - Copy + paste with Shift modifier support
+   - `events.showToast(getMessage?)` - Show toast message
+   - `events.noAction()` - Display-only (no action on Enter)
+   - `events.custom(fn)` - Custom handler function
 
 6. **Shared Modules**:
    - `lib/icons.lua` - Icon management with automatic discovery and caching
-   - `lib/actions.lua` - Composable action helpers for common patterns
+   - `lib/events.lua` - Composable action helpers for common patterns
    - `lib/search.lua` - Fuzzy search with ranking
    - `lib/picker.lua` - Picker state management (stack-based navigation)
    - `lib/leader.lua` - Leader key expansion
@@ -270,7 +270,7 @@ store/
 ```lua
 -- F1 Drivers Championship Standings
 local toast = require 'lib.toast'
-local actions = require 'lib.actions'
+local events = require 'lib.events'
 local icons = require 'lib.icons'
 
 return {
@@ -297,7 +297,7 @@ return {
                 entry.team.teamName, entry.wins),
               uuid = uuid,
             })
-            launcher.handlers[uuid] = actions.copyToClipboard(function()
+            launcher.handlers[uuid] = events.copyToClipboard(function()
               return string.format('%s %s - P%d',
                 entry.driver.name, entry.driver.surname, entry.position)
             end)
@@ -390,32 +390,32 @@ icons.clearCache()
 - Accessible via `icons.preset.filename` (without extension)
 - Override default icons automatically
 
-### Action Helpers System
+### Action Events System
 
-**Location**: `lib/actions.lua`
+**Location**: `lib/events.lua`
 
 **Purpose**: Composable helpers for common child picker action patterns
 
 **Usage**:
 ```lua
-local actions = require 'lib.actions'
+local events = require 'lib.events'
 
 -- Copy to clipboard
-launcher.handlers[uuid] = actions.copyToClipboard()
+launcher.handlers[uuid] = events.copyToClipboard()
 
 -- Copy to clipboard (custom text extraction)
-launcher.handlers[uuid] = actions.copyToClipboard(function(choice)
+launcher.handlers[uuid] = events.copyToClipboard(function(choice)
   return myData.value
 end)
 
 -- Copy and paste (Shift modifier support)
-launcher.handlers[uuid] = actions.copyAndPaste()
+launcher.handlers[uuid] = events.copyAndPaste()
 
 -- Display only (no action)
-launcher.handlers[uuid] = actions.noAction()
+launcher.handlers[uuid] = events.noAction()
 
 -- Custom handler
-launcher.handlers[uuid] = actions.custom(function(choice)
+launcher.handlers[uuid] = events.custom(function(choice)
   -- Custom logic here
 end)
 ```

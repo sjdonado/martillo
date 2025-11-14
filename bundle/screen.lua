@@ -3,7 +3,7 @@
 
 local toast = require 'lib.toast'
 local icons = require 'lib.icons'
-local actions = require 'lib.actions'
+local events = require 'lib.events'
 
 return {
   {

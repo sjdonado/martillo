@@ -2,7 +2,7 @@
 -- Network utilities for IP information and connectivity testing
 
 local toast = require 'lib.toast'
-local actions = require 'lib.actions'
+local events = require 'lib.events'
 local icons = require 'lib.icons'
 
 return {
@@ -137,9 +137,9 @@ return {
         placeholder = 'IP Geolocation Information (Enter to copy)',
         parentAction = 'network_copy_ip',
         handler = function(query, launcher)
-          return actions.buildSearchableChoices(query, results, launcher, {
+          return events.buildSearchableChoices(query, results, launcher, {
             handler = function(result)
-              return actions.copyToClipboard(function(choice)
+              return events.copyToClipboard(function(choice)
                 return result.value
               end)
             end,
@@ -242,7 +242,7 @@ return {
         placeholder = 'Speed test results...',
         parentAction = 'network_status',
         handler = function(query, launcher)
-          return actions.buildSearchableChoices(query, results, launcher, {
+          return events.buildSearchableChoices(query, results, launcher, {
             maxResults = 10,
           })
         end,

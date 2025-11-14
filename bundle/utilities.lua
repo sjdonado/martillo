@@ -2,7 +2,7 @@
 -- Text processing and generation utilities
 
 local icons = require 'lib.icons'
-local actions = require 'lib.actions'
+local events = require 'lib.events'
 
 -- Count words in text
 local function countWords(text)
@@ -141,7 +141,7 @@ return {
 
 					-- Characters (with spaces)
 					local charsUuid = launcher:generateUUID()
-					launcher.handlers[charsUuid] = actions.copyToClipboard(function(choice)
+					launcher.handlers[charsUuid] = events.copyToClipboard(function(choice)
 						return tostring(charCount)
 					end)
 					table.insert(results, {
@@ -152,7 +152,7 @@ return {
 
 					-- Characters (without spaces)
 					local charsNoSpacesUuid = launcher:generateUUID()
-					launcher.handlers[charsNoSpacesUuid] = actions.copyToClipboard(function(choice)
+					launcher.handlers[charsNoSpacesUuid] = events.copyToClipboard(function(choice)
 						return tostring(charCountNoSpaces)
 					end)
 					table.insert(results, {
@@ -163,7 +163,7 @@ return {
 
 					-- Words
 					local wordsUuid = launcher:generateUUID()
-					launcher.handlers[wordsUuid] = actions.copyToClipboard(function(choice)
+					launcher.handlers[wordsUuid] = events.copyToClipboard(function(choice)
 						return tostring(wordCount)
 					end)
 					table.insert(results, {
@@ -174,7 +174,7 @@ return {
 
 					-- Sentences
 					local sentencesUuid = launcher:generateUUID()
-					launcher.handlers[sentencesUuid] = actions.copyToClipboard(function(choice)
+					launcher.handlers[sentencesUuid] = events.copyToClipboard(function(choice)
 						return tostring(sentenceCount)
 					end)
 					table.insert(results, {
@@ -185,7 +185,7 @@ return {
 
 					-- Paragraphs
 					local paragraphsUuid = launcher:generateUUID()
-					launcher.handlers[paragraphsUuid] = actions.copyToClipboard(function(choice)
+					launcher.handlers[paragraphsUuid] = events.copyToClipboard(function(choice)
 						return tostring(paragraphCount)
 					end)
 					table.insert(results, {
@@ -198,7 +198,7 @@ return {
 					if sentenceCount > 0 then
 						local avgWordsPerSentence = wordCount / sentenceCount
 						local avgUuid = launcher:generateUUID()
-						launcher.handlers[avgUuid] = actions.copyToClipboard(function(choice)
+						launcher.handlers[avgUuid] = events.copyToClipboard(function(choice)
 							return string.format('%.1f', avgWordsPerSentence)
 						end)
 						table.insert(results, {

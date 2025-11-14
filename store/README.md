@@ -32,7 +32,7 @@ store/
 -- Displays current F1 season driver standings from F1 Connect API
 
 local toast = require 'lib.toast'
-local actions = require 'lib.actions'
+local events = require 'lib.events'
 local icons = require 'lib.icons'
 
 return {
@@ -67,7 +67,7 @@ return {
 
               table.insert(choices, { text = text, subText = '...', uuid = uuid })
 
-              launcher.handlers[uuid] = actions.copyToClipboard(function(choice)
+              launcher.handlers[uuid] = events.copyToClipboard(function(choice)
                 return string.format('%s %s - P%d - %d points',
                   entry.driver.name, entry.driver.surname,
                   entry.position, entry.points)
@@ -133,28 +133,28 @@ icon = icons.preset.message    -- ✓ Correct
 
 **Custom Icons:** Place a `.png` file in your action folder. It will automatically override the default icon with the same name.
 
-## Action Helpers
+## Action Events
 
-Use composable helpers from `lib/actions.lua` for common patterns:
+Use composable helpers from `lib.events.lua` for common patterns:
 
 ```lua
-local actions = require 'lib.actions'
+local events = require 'lib.events'
 
 -- Copy to clipboard
-launcher.handlers[uuid] = actions.copyToClipboard(function(choice)
+launcher.handlers[uuid] = events.copyToClipboard(function(choice)
   return "text to copy"
 end)
 
 -- Copy + paste with Shift modifier support
-launcher.handlers[uuid] = actions.copyAndPaste(function(choice)
+launcher.handlers[uuid] = events.copyAndPaste(function(choice)
   return "text to paste"
 end)
 
 -- Display-only (no action on Enter)
-launcher.handlers[uuid] = actions.noAction()
+launcher.handlers[uuid] = events.noAction()
 
 -- Custom logic
-launcher.handlers[uuid] = actions.custom(function(choice)
+launcher.handlers[uuid] = events.custom(function(choice)
   -- Your custom logic here
 end)
 ```
@@ -163,7 +163,7 @@ end)
 
 - Use `local toast = require 'lib.toast'` for notifications
 - Use `local icons = require 'lib.icons'` for icon paths
-- Use `local actions = require 'lib.actions'` for action helpers
+- Use `local events = require 'lib.events'` for action helpers
 - Handle errors gracefully with `pcall`
 - For child pickers, see examples in `bundle/` directory
 - Return `'OPEN_CHILD_PICKER'` from handlers that open child pickers

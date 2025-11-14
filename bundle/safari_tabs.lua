@@ -5,7 +5,7 @@
 local searchUtils = require 'lib.search'
 local pickerManager = require 'lib.picker'
 local toast = require 'lib.toast'
-local actions = require 'lib.actions'
+local events = require 'lib.events'
 local icons = require 'lib.icons'
 
 local M = {
@@ -198,7 +198,7 @@ local function buildChoices(tabs, query, launcher)
     }
 
     -- Register custom handler: Shift+Enter copies URL, Enter switches to tab
-    launcher.handlers[uuid] = actions.custom(function(choice)
+    launcher.handlers[uuid] = events.custom(function(choice)
       local shiftHeld = pickerManager.isShiftHeld()
 
       if shiftHeld then

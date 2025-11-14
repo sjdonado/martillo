@@ -5,7 +5,7 @@ local searchUtils = require 'lib.search'
 local pickerManager = require 'lib.picker'
 local toast = require 'lib.toast'
 local icons = require 'lib.icons'
-local actions = require 'lib.actions'
+local events = require 'lib.events'
 
 local M = {
   watcher = nil,
@@ -755,7 +755,7 @@ return {
             local uuid = launcher:generateUUID()
             formattedChoice.uuid = uuid
 
-            launcher.handlers[uuid] = actions.custom(function(choice)
+            launcher.handlers[uuid] = events.custom(function(choice)
               local shiftHeld = pickerManager.isShiftHeld()
 
               if shiftHeld then

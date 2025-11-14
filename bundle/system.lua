@@ -3,7 +3,7 @@
 
 local toast = require 'lib.toast'
 local icons = require 'lib.icons'
-local actions = require 'lib.actions'
+local events = require 'lib.events'
 
 return {
   {
@@ -246,9 +246,9 @@ return {
         placeholder = 'System Information (real-time updates)',
         parentAction = 'system_information',
         handler = function(query, launcher)
-          return actions.buildSearchableChoices(query, results, launcher, {
+          return events.buildSearchableChoices(query, results, launcher, {
             handler = function(result)
-              return actions.copyToClipboard(function(choice)
+              return events.copyToClipboard(function(choice)
                 return result.value
               end)
             end,

@@ -2,7 +2,7 @@
 -- Displays current F1 season driver standings from F1 Connect API
 
 local toast = require 'lib.toast'
-local actions = require 'lib.actions'
+local events = require 'lib.events'
 local icons = require 'lib.icons'
 
 return {
@@ -55,10 +55,10 @@ return {
             })
           end
 
-          return actions.buildSearchableChoices(query, results, launcher, {
+          return events.buildSearchableChoices(query, results, launcher, {
             handler = function(result)
               local entry = result.entry
-              return actions.copyToClipboard(function(choice)
+              return events.copyToClipboard(function(choice)
                 return string.format(
                   '%s %s - P%d - %d points - %s',
                   entry.driver.name,

@@ -348,7 +348,6 @@ Create a new file in the `bundle/` directory for core actions:
 -- My Custom Actions Bundle
 
 local icons = require 'lib.icons'
-local actions = require 'lib.actions'
 
 return {
   {
@@ -370,7 +369,6 @@ Create a new folder in `store/` with an `init.lua` file for custom actions:
 ```lua
 -- store/my_action/init.lua
 local icons = require 'lib.icons'
-local actions = require 'lib.actions'
 
 return {
   {

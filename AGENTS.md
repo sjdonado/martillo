@@ -440,8 +440,97 @@ end)
 - Stack-based navigation (single source of truth)
 - Parent-child picker state management
 - ESC navigation: pop from stack and restore parent
-- Modifier key detection (Shift for alternate actions)
-- Simplified design: no DELETE key watcher, ESC handled in chooser callbacks
+- Shift+ESC: close all pickers and clear stack
+- Click-outside: close all pickers and clear stack
+- Modifier key detection (Shift for alternate actions in child pickers)
+
+**Implementation**: ESC Interception with `hs.eventtap`
+
+The navigation system uses a global keyboard event tap to intercept ESC before it reaches the chooser, allowing us to distinguish between three close scenarios:
+
+**How it works**:
+
+1. **eventtap intercepts ESC keypress** (keycode 53)
+   ```lua
+   hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
+     if event:getKeyCode() == 53 then
+       if event:getFlags().shift then
+         return false  -- Let Shift+ESC through
+       else
+         return true   -- Consume plain ESC
+       end
+     end
+   end)
+   ```
+
+2. **Three distinct behaviors**:
+   - **ESC alone**: Event consumed → chooser stays open → navigation callback fires → manually pop stack and restore parent
+   - **Shift+ESC**: Event propagates → chooser closes → hideCallback fires → clears stack
+   - **Click outside**: No keyboard event → chooser closes → hideCallback fires → clears stack
+
+3. **Stack state determines hideCallback behavior**:
+   ```lua
+   function M:shouldKeepStack()
+     return #self.stack > 0
+   end
+   ```
+
+   When `hideCallback` fires, it checks stack depth:
+   - **Stack depth > 0**: ESC navigation in progress (popped current, parent still in stack) → keep stack
+   - **Stack depth = 0**: Normal close (Shift+ESC, click-outside, or last picker) → clear stack and stop eventtap
+
+**Why this approach works**:
+
+✅ **No external flags needed** - Stack depth IS the state
+✅ **No race conditions** - Decision is synchronous based on keyboard event
+✅ **Clear separation** - ESC intercepted vs Shift+ESC/click-outside handled by chooser
+✅ **Self-documenting** - `shouldKeepStack()` clearly expresses intent
+✅ **Centralized state** - All navigation logic contained in `lib/picker.lua`
+
+**Navigation flow**:
+
+```
+ESC Navigation (depth 2 → 1):
+  User presses ESC
+  → eventtap consumes event (returns true)
+  → navigation callback: pop stack (depth becomes 1)
+  → navigation callback: hide current picker
+  → hideCallback fires: shouldKeepStack() = true (depth = 1)
+  → hideCallback: skips clear() call
+  → timer restores parent picker
+
+Shift+ESC (depth 2 → 0):
+  User presses Shift+ESC
+  → eventtap lets event through (returns false)
+  → chooser closes normally
+  → hideCallback fires: shouldKeepStack() = false (depth = 2)
+  → hideCallback: calls clear(), stops eventtap
+
+Click Outside (depth 2 → 0):
+  User clicks outside
+  → chooser closes (no keyboard event)
+  → hideCallback fires: shouldKeepStack() = false (depth = 2)
+  → hideCallback: calls clear(), stops eventtap
+```
+
+**Stack pollution prevention**:
+
+When the main launcher opens, it always clears any dirty stack:
+```lua
+if self.pickerManager:depth() > 0 then
+  self.pickerManager:clear()
+end
+```
+
+This handles cases where click-outside leaves stack items (because `shouldKeepStack()` returns true when depth > 0, even from click-outside of a child picker).
+
+**Key methods**:
+
+- `startEscInterception(onNavigate)` - Starts eventtap, stores navigation callback
+- `stopEscInterception()` - Stops and cleans up eventtap
+- `shouldKeepStack()` - Returns true if stack depth > 0 (ESC navigation in progress)
+
+**Secure input limitation**: ESC interception won't work in password fields or when macOS secure input is enabled (Hammerspoon API limitation)
 
 ### Auto-Launch System
 

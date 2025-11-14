@@ -130,7 +130,7 @@ return require("martillo").setup({
             { "martillo_update",          alias = "mu" },
         },
         keys = {
-            { "<leader>", "space", desc = "Toggle Actions Launcher" },
+            { "<leader>", "space" },
         },
     },
 
@@ -400,12 +400,15 @@ Smart URL routing to different browsers:
 - **Search**: Type to fuzzy search actions and aliases
 - **Enter**: Execute selected action
 - **ESC**: Close launcher
+- **Shift+ESC**: Force close (same as ESC for main launcher)
 
 ### Child Pickers (Clipboard, Converters, etc.)
 - **Type**: Filter results in real-time
 - **Enter**: Execute action (paste, convert, etc.)
 - **Shift+Enter**: Alternate action (copy only, etc.)
-- **ESC** (empty query): Navigate back to parent
+- **ESC**: Navigate back to parent picker
+- **Shift+ESC**: Close all pickers and return to desktop
+- **Click outside**: Close all pickers and return to desktop
 
 
 ## Creating Custom Actions

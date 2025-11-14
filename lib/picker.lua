@@ -11,6 +11,8 @@ function M.new()
   local manager = {
     stack = {},
     currentChooser = nil,
+    escTap = nil,
+    onEscNavigate = nil,
     logger = hs.logger.new('PickerManager', 'info'),
   }
 
@@ -74,6 +76,75 @@ end
 function M.isShiftHeld()
   local modifiers = hs.eventtap.checkKeyboardModifiers()
   return modifiers.shift == true
+end
+
+--- Check if we should skip clearing the stack in hideCallback
+--- This returns true when we're in the middle of ESC navigation:
+--- - Stack has been popped but still has items (parent to restore)
+--- - hideCallback is firing because we called hide() to transition
+--- @return boolean True if we should keep the stack (navigating), false otherwise
+function M:shouldKeepStack()
+  local keepStack = #self.stack > 0
+  if keepStack then
+    self.logger:d('shouldKeepStack: YES (depth=' .. #self.stack .. ', navigating to parent)')
+  else
+    self.logger:d('shouldKeepStack: NO (depth=0, close all)')
+  end
+  return keepStack
+end
+
+--- Start ESC key interception for picker navigation
+--- This intercepts ESC before it reaches the chooser to distinguish:
+---   - ESC alone: navigate to parent (event consumed)
+---   - Shift+ESC: close all pickers (event propagates)
+---   - Click outside: close all pickers (no ESC event)
+--- @param onNavigate function Callback to execute when ESC is pressed (for parent navigation)
+function M:startEscInterception(onNavigate)
+  self.onEscNavigate = onNavigate
+
+  if self.escTap then
+    self.escTap:stop()
+  end
+
+  self.escTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
+    local keyCode = event:getKeyCode()
+    local flags = event:getFlags()
+
+    -- ESC key is keycode 53
+    if keyCode == 53 then
+      if flags.shift then
+        -- Shift+ESC: Let event through to close all pickers
+        self.logger:d('Shift+ESC detected - closing all pickers')
+        return false
+      else
+        -- ESC alone: Consume event and navigate to parent
+        self.logger:d('ESC detected - navigating to parent')
+
+        if self.onEscNavigate then
+          self.onEscNavigate()
+        end
+
+        -- Consume the event to prevent chooser from closing
+        return true
+      end
+    end
+
+    -- Let all other keys through
+    return false
+  end)
+
+  self.escTap:start()
+  self.logger:d('ESC interception started')
+end
+
+--- Stop ESC key interception
+function M:stopEscInterception()
+  if self.escTap then
+    self.escTap:stop()
+    self.escTap = nil
+    self.logger:d('ESC interception stopped')
+  end
+  self.onEscNavigate = nil
 end
 
 return M

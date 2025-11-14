@@ -3,8 +3,8 @@
 
 local searchUtils = require 'lib.search'
 local pickerManager = require 'lib.picker'
-local icons = require 'lib.icons'
 local toast = require 'lib.toast'
+local icons = require 'lib.icons'
 
 local M = {
   watcher = nil,
@@ -536,7 +536,7 @@ local function buildFormattedChoice(rawEntry, loadImages)
     end
   elseif entry.type == 'text' and loadImages then
     -- Show text icon for text entries
-    local icon = icons.getIcon 'copy'
+    local icon = icons.getIcon(icons.preset.copy)
     if icon then
       choiceEntry.image = icon
     end
@@ -723,7 +723,7 @@ return {
   {
     id = 'clipboard_history',
     name = 'Clipboard History',
-    icon = 'copy',
+    icon = icons.preset.copy,
     description = 'Search and paste from clipboard history',
     handler = function()
       -- Check if history is empty

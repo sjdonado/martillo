@@ -2,12 +2,13 @@
 -- Visual effects and helper tools
 
 local toast = require 'lib.toast'
+local icons = require 'lib.icons'
 
 return {
   {
     id = 'screen_confetti',
     name = 'Confetti',
-    icon = 'star',
+    icon = icons.preset.star,
     description = 'Celebrate with confetti animation',
     handler = function()
       local canvas = nil
@@ -145,7 +146,7 @@ return {
   {
     id = 'screen_ruler',
     name = 'Screen Ruler',
-    icon = 'eyedropper',
+    icon = icons.preset.eyedropper,
     description = 'Measure distance in pixels between two points',
     handler = function()
       -- State variables

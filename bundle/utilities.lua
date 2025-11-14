@@ -1,6 +1,8 @@
 -- Utilities Actions Bundle
 -- Text processing and generation utilities
 
+local icons = require 'lib.icons'
+
 -- Count words in text
 local function countWords(text)
 	if not text or text == '' then
@@ -84,7 +86,7 @@ return {
 	{
 		id = 'generate_uuid',
 		name = 'Generate UUID',
-		icon = 'key',
+		icon = icons.preset.key,
 		description = 'Generate UUID v4 and copy to clipboard',
 		handler = function()
 			spoon.ActionsLauncher.executeShell(
@@ -97,7 +99,7 @@ return {
 	{
 		id = 'word_count',
 		name = 'Word Count',
-		icon = 'text',
+		icon = icons.preset.text,
 		description = 'Count characters, words, sentences, and paragraphs in text',
 		handler = function()
 			local clipboardText = hs.pasteboard.getContents() or ''

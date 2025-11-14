@@ -2,12 +2,13 @@
 -- System management and monitoring actions
 
 local toast = require 'lib.toast'
+local icons = require 'lib.icons'
 
 return {
   {
     id = 'toggle_caffeinate',
     name = 'Toggle Caffeinate',
-    icon = 'tea-cup',
+    icon = icons.preset.tea_cup,
     description = 'Toggle system sleep prevention',
     handler = function()
       spoon.ActionsLauncher.executeShell(
@@ -19,7 +20,7 @@ return {
   {
     id = 'toggle_system_appearance',
     name = 'Toggle System Appearance',
-    icon = 'sun',
+    icon = icons.preset.sun,
     description = 'Toggle between light and dark mode',
     handler = function()
       spoon.ActionsLauncher.executeAppleScript(
@@ -42,7 +43,7 @@ return {
   {
     id = 'system_information',
     name = 'System Information',
-    icon = 'tool',
+    icon = icons.preset.tool,
     description = 'View real-time system information',
     handler = function()
       local actionsLauncher = spoon.ActionsLauncher
@@ -153,8 +154,8 @@ return {
                 local output = trim(stdout)
 
                 -- Check if on AC or Battery Power
-                local onBattery = output:match "Battery Power"
-                local onAC = output:match "AC Power"
+                local onBattery = output:match 'Battery Power'
+                local onAC = output:match 'AC Power'
 
                 -- Extract battery percentage
                 local percent = output:match '(%d+)%%'

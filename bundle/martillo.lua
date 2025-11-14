@@ -1,11 +1,13 @@
 -- Martillo Actions Bundle
 -- Core system management actions for Martillo
 
+local icons = require 'lib.icons'
+
 return {
 	{
 		id = 'martillo_reload',
 		name = 'Reload Martillo',
-		icon = 'axe',
+		icon = icons.preset.axe,
 		handler = function()
 			hs.reload()
 		end,
@@ -14,7 +16,7 @@ return {
 	{
 		id = 'martillo_update',
 		name = 'Update Martillo',
-		icon = 'axe',
+		icon = icons.preset.axe,
 		handler = function()
 			spoon.ActionsLauncher.executeShell('cd ~/.martillo && git pull', 'Update Martillo')
 		end,

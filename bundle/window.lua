@@ -1,6 +1,8 @@
 -- Window Management Actions Bundle
 -- Actions for positioning and resizing windows
 
+local icons = require 'lib.icons'
+
 -- Get the focused window with retry logic
 local function getFocusedWindow()
 	local win = hs.window.focusedWindow()
@@ -161,7 +163,7 @@ return {
 	{
 		id = 'window_maximize',
 		name = 'Maximize Window',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Maximize window to full screen',
 		handler = function()
 			moveWindow('max')
@@ -170,7 +172,7 @@ return {
 	{
 		id = 'window_almost_maximize',
 		name = 'Almost Maximize',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Resize window to 90% of screen, centered',
 		handler = function()
 			moveWindow('almost_max')
@@ -179,7 +181,7 @@ return {
 	{
 		id = 'window_reasonable_size',
 		name = 'Reasonable Size',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Resize window to reasonable size 70% of screen, centered',
 		handler = function()
 			moveWindow('reasonable')
@@ -188,7 +190,7 @@ return {
 	{
 		id = 'window_center',
 		name = 'Center Window',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Center window without resizing',
 		handler = function()
 			moveWindow('center')
@@ -199,7 +201,7 @@ return {
 	{
 		id = 'window_left',
 		name = 'Window Left Half',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in left half',
 		handler = function()
 			moveWindow('left')
@@ -208,7 +210,7 @@ return {
 	{
 		id = 'window_right',
 		name = 'Window Right Half',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in right half',
 		handler = function()
 			moveWindow('right')
@@ -217,7 +219,7 @@ return {
 	{
 		id = 'window_up',
 		name = 'Window Top Half',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in top half',
 		handler = function()
 			moveWindow('up')
@@ -226,7 +228,7 @@ return {
 	{
 		id = 'window_down',
 		name = 'Window Bottom Half',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in bottom half',
 		handler = function()
 			moveWindow('down')
@@ -237,7 +239,7 @@ return {
 	{
 		id = 'window_top_left',
 		name = 'Window Top Left',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in top left quarter',
 		handler = function()
 			moveWindow('top_left')
@@ -246,7 +248,7 @@ return {
 	{
 		id = 'window_top_right',
 		name = 'Window Top Right',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in top right quarter',
 		handler = function()
 			moveWindow('top_right')
@@ -255,7 +257,7 @@ return {
 	{
 		id = 'window_bottom_left',
 		name = 'Window Bottom Left',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in bottom left quarter',
 		handler = function()
 			moveWindow('bottom_left')
@@ -264,7 +266,7 @@ return {
 	{
 		id = 'window_bottom_right',
 		name = 'Window Bottom Right',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in bottom right quarter',
 		handler = function()
 			moveWindow('bottom_right')
@@ -275,7 +277,7 @@ return {
 	{
 		id = 'window_left_third',
 		name = 'Window Left Third',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in left third',
 		handler = function()
 			moveWindow('left_third')
@@ -284,7 +286,7 @@ return {
 	{
 		id = 'window_center_third',
 		name = 'Window Center Third',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in center third',
 		handler = function()
 			moveWindow('center_third')
@@ -293,7 +295,7 @@ return {
 	{
 		id = 'window_right_third',
 		name = 'Window Right Third',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in right third',
 		handler = function()
 			moveWindow('right_third')
@@ -302,7 +304,7 @@ return {
 	{
 		id = 'window_left_two_thirds',
 		name = 'Window Left Two Thirds',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in left two thirds',
 		handler = function()
 			moveWindow('left_two_thirds')
@@ -311,7 +313,7 @@ return {
 	{
 		id = 'window_right_two_thirds',
 		name = 'Window Right Two Thirds',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in right two thirds',
 		handler = function()
 			moveWindow('right_two_thirds')
@@ -322,7 +324,7 @@ return {
 	{
 		id = 'window_top_third',
 		name = 'Window Top Third',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in top third',
 		handler = function()
 			moveWindow('top_third')
@@ -331,7 +333,7 @@ return {
 	{
 		id = 'window_middle_third',
 		name = 'Window Middle Third',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in middle third',
 		handler = function()
 			moveWindow('middle_third')
@@ -340,7 +342,7 @@ return {
 	{
 		id = 'window_bottom_third',
 		name = 'Window Bottom Third',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in bottom third',
 		handler = function()
 			moveWindow('bottom_third')
@@ -349,7 +351,7 @@ return {
 	{
 		id = 'window_top_two_thirds',
 		name = 'Window Top Two Thirds',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		description = 'Position window in top two thirds',
 		handler = function()
 			moveWindow('top_two_thirds')
@@ -357,7 +359,7 @@ return {
 	},
 	{
 		id = 'window_bottom_two_thirds',
-		icon = 'computer',
+		icon = icons.preset.computer,
 		name = 'Window Bottom Two Thirds',
 		description = 'Position window in bottom two thirds',
 		handler = function()

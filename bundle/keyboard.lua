@@ -2,6 +2,7 @@
 -- Actions for keyboard management and automation
 
 local toast = require 'lib.toast'
+local icons = require 'lib.icons'
 
 local M = {
 	keyboardLockTap = nil,
@@ -163,7 +164,7 @@ return {
 	{
 		id = 'keyboard_lock',
 		name = 'Lock Keyboard',
-		icon = 'lock',
+		icon = icons.preset.lock,
 		description = 'Lock keyboard for cleaning (unlock with <leader>+Enter)',
 		handler = function()
 			-- Open child picker first
@@ -200,7 +201,7 @@ return {
 	{
 		id = 'keyboard_keep_alive',
 		name = 'Toggle Keep-Alive',
-		icon = 'magic-trick',
+		icon = icons.preset.magic_trick,
 		description = 'Toggle keyboard activity to keep screen active and apps thinking you are active',
 		handler = function()
 			if M.keepAliveActive then

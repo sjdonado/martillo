@@ -3,8 +3,8 @@
 
 local searchUtils = require 'lib.search'
 local pickerManager = require 'lib.picker'
-local icons = require 'lib.icons'
 local toast = require 'lib.toast'
+local icons = require 'lib.icons'
 
 local M = {
   refreshTimer = nil,
@@ -557,7 +557,7 @@ return {
   {
     id = 'kill_process',
     name = 'Kill Process',
-    icon = 'trash-can',
+    icon = icons.preset.trash_can,
     description = 'Kill processes with fuzzy search',
     handler = function()
       -- Get ActionsLauncher instance

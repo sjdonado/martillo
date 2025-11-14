@@ -217,6 +217,14 @@ end
 --- Method
 --- Show the actions chooser
 function obj:show()
+	-- If a picker is already visible, close it and clear the stack first
+	-- This handles opening main launcher via keystroke while another picker is open
+	if self.chooser and self.chooser:isVisible() then
+		self.logger:d('Main launcher opened while picker visible, closing and clearing stack')
+		self.chooser:hide()
+		self.pickerManager:clear()
+	end
+
 	self:createChooser()
 
 	-- EVENT: Main launcher opened (via toggle/show)
@@ -296,13 +304,15 @@ end
 ---  * options - Optional table with:
 ---    * pushToStack - Whether to push this picker to stack (default: true)
 ---                    Set to false when restoring from ESC navigation
+---    * cleanStack - Whether to clear the stack before opening (default: false)
+---                   Set to true when opening from a keystroke while another picker is visible
 ---
 --- pickerManager behavior depends on whether the picker has a parent:
 ---  * With parent (opened from ActionsLauncher):
----    - DELETE/ESC on empty query: Navigate back to parent
+---    - ESC on empty query: Navigate back to parent
 ---    - Enter: Execute action and close both child and parent
 ---  * Without parent (opened from keymap):
----    - DELETE/ESC on empty query: Close the picker
+---    - ESC on empty query: Close the picker
 ---    - Enter: Execute action and close the picker
 function obj:openChildPicker(config, options)
 	options = options or {}
@@ -310,14 +320,34 @@ function obj:openChildPicker(config, options)
 	if pushToStack == nil then
 		pushToStack = true -- Default: push to stack
 	end
+	local cleanStack = options.cleanStack
+
+	-- Auto-detect: if cleanStack not explicitly set and a picker is visible with items in stack,
+	-- and this is a new picker (not restoring from ESC), then clean the stack
+	if cleanStack == nil then
+		if self.chooser and self.chooser:isVisible() and self.pickerManager:depth() > 0 and pushToStack then
+			-- A picker is already open and we're pushing a new one (not restoring)
+			-- This likely means opening from keystroke, so clean the stack
+			cleanStack = true
+			self.logger:d('Auto-detected keystroke open while picker visible, will clean stack')
+		else
+			cleanStack = false
+		end
+	end
 
 	-- Store handler for refresh functionality
 	self.currentChildHandler = config.handler
 
-	-- Close current picker if visible (don't pop from stack yet - that happens on ESC)
+	-- Close current picker if visible
 	if self.chooser then
 		self.logger:d('Closing current picker, stack depth before: ' .. self.pickerManager:depth())
 		self.chooser:hide()
+	end
+
+	-- Clear stack if needed (e.g., when opening from keystroke while another picker is visible)
+	if cleanStack then
+		self.logger:d('Cleaning stack before opening new picker')
+		self.pickerManager:clear()
 	end
 
 	-- Small delay to ensure smooth transition
@@ -415,6 +445,27 @@ function obj:openChildPicker(config, options)
 				self.chooser = nil
 			end
 		end)
+
+		-- Set initial query if provided
+		if config.initialQuery and config.initialQuery ~= '' then
+			-- Show chooser first so it can receive keystrokes
+			self.chooser:show()
+
+			-- Small delay to ensure chooser is ready
+			hs.timer.doAfter(0.01, function()
+				self.chooser:query(config.initialQuery)
+
+				-- Deselect text by moving cursor to end
+				-- Try multiple approaches as fallback
+				hs.timer.doAfter(0.02, function()
+					-- Approach 1: Right arrow to deselect and move to end
+					hs.eventtap.keyStroke({'cmd'}, 'right')
+				end)
+			end)
+
+			-- Early return since we already called show()
+			return
+		end
 
 		self.chooser:show()
 	end)

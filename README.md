@@ -1,14 +1,16 @@
 # 🔨 Martillo
 
-**Build anything you can imagine and launch it with a keystroke.** Martillo is a powerful, declarative actions launcher for macOS powered by [Hammerspoon](https://www.hammerspoon.org/). Create custom workflows, automate repetitive tasks, and access everything through a customizable command palette with fuzzy search.
+**Build anything you can imagine and launch it with a keystroke.** Martillo is a powerful actions launcher for macOS powered by [Hammerspoon](https://www.hammerspoon.org/). Create custom actions, automate repetitive tasks, and access everything through a command palette with fuzzy search.
 
-**Your productivity hub, your way.** Think Raycast, but completely open-source with no vendor lock-in. Write your own actions in Lua, use ready-made bundles, customize every keybinding, add aliases for lightning-fast access, and share your creations freely. All configuration lives in a single file, inspired by [lazy.nvim](https://github.com/folke/lazy.nvim)'s elegant plugin system.
+**Your productivity hub, your way.** An open-source alternative to Raycast and Alfred with no vendor lock-in, zero dependencies, and full configuration through a single Lua file. Write your own actions, use ready-made bundles, customize every keybinding, add aliases for lightning-fast access, and share your creations freely. All configuration lives in a single file, inspired by [lazy.nvim](https://github.com/folke/lazy.nvim)'s declarative plugin system.
+
+https://github.com/user-attachments/assets/d5c803a9-7d83-479a-946b-80f29a2f09bf
 
 ## Features
 
 **Core Capabilities:**
 - ⚡ **Fast & Lightweight**: Pure Lua, zero dependencies, no compilation needed
-- 🎯 **Command Palette**: Searchable actions with fuzzy search and beautiful 3D icons
+- 🎯 **Command Palette**: Searchable actions with fuzzy search
 - 🚀 **App Launcher**: Quick switching between apps with single hotkey
 - 🌐 **Browser Routing**: Smart URL routing to different browsers based on patterns
 - 🔄 **Auto-Open on Load**: ActionsLauncher opens automatically when Hammerspoon loads
@@ -22,7 +24,6 @@
 **Clipboard History** - Never lose copied content:
 - Persistent clipboard with fuzzy search
 - Support for text, images, and files with file size and line count display
-- Beautiful 3D icons for different file types
 - Enter to paste, Shift+Enter to copy only
 
 **Process Killer** - Manage running processes:
@@ -412,3 +413,4 @@ Contributions welcome! Please feel free to submit a Pull Request.
 - [Hammerspoon](https://www.hammerspoon.org/) - The powerful macOS automation tool that makes this possible
 - [lazy.nvim](https://github.com/folke/lazy.nvim) - Inspiration for declarative config style
 - [3dicons.co](https://3dicons.co/) - Beautiful 3D icon collection
+

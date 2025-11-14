@@ -207,7 +207,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Persistent history with fuzzy search (copy icon)
 - Support for text, images, and files
 - File size and line count display
-- Beautiful 3D icons for different file types
 - Automatic clipboard monitoring
 - Enter to paste, Shift+Enter to copy only
 - Stores up to 300 entries

@@ -5,6 +5,7 @@ local searchUtils = require 'lib.search'
 local pickerManager = require 'lib.picker'
 local toast = require 'lib.toast'
 local icons = require 'lib.icons'
+local actions = require 'lib.actions'
 
 local M = {
   watcher = nil,
@@ -754,7 +755,7 @@ return {
             local uuid = launcher:generateUUID()
             formattedChoice.uuid = uuid
 
-            launcher.handlers[uuid] = function()
+            launcher.handlers[uuid] = actions.custom(function(choice)
               local shiftHeld = pickerManager.isShiftHeld()
 
               if shiftHeld then
@@ -769,10 +770,7 @@ return {
                   pasteContent(formattedChoice)
                 end
               end
-
-              -- Return empty string to prevent default copy/paste behavior
-              return ''
-            end
+            end)
 
             table.insert(choices, formattedChoice)
           end

@@ -2,12 +2,14 @@
 -- Network utilities for IP information and connectivity testing
 
 local toast = require 'lib.toast'
+local actions = require 'lib.actions'
+local icons = require 'lib.icons'
 
 return {
   {
     id = 'network_ip_geolocation',
     name = 'IP Geolocation',
-    icon = 'wifi',
+    icon = icons.preset.wifi,
     description = 'View detailed IP and geolocation information',
     handler = function()
       local actionsLauncher = spoon.ActionsLauncher
@@ -132,7 +134,7 @@ return {
       end
 
       actionsLauncher:openChildPicker {
-        placeholder = 'IP Geolocation Information (click to copy)',
+        placeholder = 'IP Geolocation Information (Enter to copy)',
         parentAction = 'network_copy_ip',
         handler = function(query, launcher)
           local choices = {}
@@ -142,15 +144,10 @@ return {
               text = result.text,
               subText = result.subText,
               uuid = uuid,
-              copyToClipboard = true,
             })
-            -- Copy value to clipboard when selected
-            -- launcher.handlers[uuid] = function()
-            --   if result.value ~= '' then
-            --     hs.pasteboard.setContents(result.value)
-            --     toast.copied(result.value)
-            --   end
-            -- end
+            launcher.handlers[uuid] = actions.copyToClipboard(function(choice)
+              return result.value
+            end)
           end
           return choices
         end,
@@ -166,7 +163,7 @@ return {
   {
     id = 'network_speed_test',
     name = 'Speed Test',
-    icon = 'flash',
+    icon = icons.preset.flash,
     description = 'Check network connectivity, latency, and speed',
     handler = function()
       local results = {
@@ -259,10 +256,8 @@ return {
               uuid = uuid,
             })
 
-            -- Empty handler - results are display-only
-            launcher.handlers[uuid] = function()
-              return ''
-            end
+            -- Display-only: no action on Enter
+            launcher.handlers[uuid] = actions.noAction()
           end
           return choices
         end,

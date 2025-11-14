@@ -5,6 +5,8 @@
 local searchUtils = require 'lib.search'
 local pickerManager = require 'lib.picker'
 local toast = require 'lib.toast'
+local actions = require 'lib.actions'
+local icons = require 'lib.icons'
 
 local M = {
   iconSize = { w = 32, h = 32 }, -- Smaller icons for better performance
@@ -195,8 +197,8 @@ local function buildChoices(tabs, query, launcher)
       image = favicon, -- Add favicon
     }
 
-    -- Register handler for this choice
-    launcher.handlers[uuid] = function()
+    -- Register custom handler: Shift+Enter copies URL, Enter switches to tab
+    launcher.handlers[uuid] = actions.custom(function(choice)
       local shiftHeld = pickerManager.isShiftHeld()
 
       if shiftHeld then
@@ -212,10 +214,7 @@ local function buildChoices(tabs, query, launcher)
           toast.error('Failed to switch to tab')
         end
       end
-
-      -- Return nil to prevent default copy/paste behavior
-      return nil
-    end
+    end)
 
     table.insert(choices, choice)
   end
@@ -227,7 +226,7 @@ return {
   {
     id = 'safari_tabs',
     name = 'Safari Tabs',
-    icon = 'explorer',
+    icon = icons.preset.explorer,
     description = 'Switch to Safari tabs with fuzzy search',
     handler = function()
       -- Get Safari tabs

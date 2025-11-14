@@ -5,6 +5,7 @@ local searchUtils = require 'lib.search'
 local pickerManager = require 'lib.picker'
 local toast = require 'lib.toast'
 local icons = require 'lib.icons'
+local actions = require 'lib.actions'
 
 local M = {
   refreshTimer = nil,
@@ -599,7 +600,7 @@ return {
             }
 
             -- Register handler for this choice
-            launcher.handlers[uuid] = function()
+            launcher.handlers[uuid] = actions.custom(function(choice)
               local shiftHeld = pickerManager.isShiftHeld()
 
               if shiftHeld then
@@ -616,10 +617,7 @@ return {
                   toast.error('Failed to kill: ' .. process.name)
                 end
               end
-
-              -- Return empty string to prevent default copy/paste behavior
-              return ''
-            end
+            end)
 
             table.insert(choices, choiceEntry)
           end

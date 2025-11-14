@@ -2,6 +2,7 @@
 -- Actions for encoding, decoding, and converting various formats
 
 local icons = require 'lib.icons'
+local actions = require 'lib.actions'
 
 return {
   {
@@ -143,105 +144,97 @@ return {
           -- Unix timestamp (seconds)
           local unixSecondsUuid = launcher:generateUUID()
           local unixSecondsValue = string.format('%.0f', timestamp)
-          launcher.handlers[unixSecondsUuid] = function()
+          launcher.handlers[unixSecondsUuid] = actions.copyToClipboard(function(choice)
             return unixSecondsValue
-          end
+          end)
           table.insert(results, {
             text = unixSecondsValue,
             subText = 'Unix timestamp (seconds)',
             uuid = unixSecondsUuid,
-            copyToClipboard = true,
           })
 
           -- Unix timestamp (milliseconds)
           local unixMillisUuid = launcher:generateUUID()
           local unixMillisValue = string.format('%.0f', timestamp * 1000)
-          launcher.handlers[unixMillisUuid] = function()
+          launcher.handlers[unixMillisUuid] = actions.copyToClipboard(function(choice)
             return unixMillisValue
-          end
+          end)
           table.insert(results, {
             text = unixMillisValue,
             subText = 'Unix timestamp (milliseconds)',
             uuid = unixMillisUuid,
-            copyToClipboard = true,
           })
 
           -- ISO 8601 format
           local isoUuid = launcher:generateUUID()
           local isoValue = os.date('!%Y-%m-%dT%H:%M:%SZ', timestamp)
-          launcher.handlers[isoUuid] = function()
+          launcher.handlers[isoUuid] = actions.copyToClipboard(function(choice)
             return isoValue
-          end
+          end)
           table.insert(results, {
             text = isoValue,
             subText = 'ISO 8601 (UTC)',
             uuid = isoUuid,
-            copyToClipboard = true,
           })
 
           -- RFC 2822-like format
           local rfcUuid = launcher:generateUUID()
           local rfcValue = os.date('!%a, %d %b %Y %H:%M:%S +0000', timestamp)
-          launcher.handlers[rfcUuid] = function()
+          launcher.handlers[rfcUuid] = actions.copyToClipboard(function(choice)
             return rfcValue
-          end
+          end)
           table.insert(results, {
             text = rfcValue,
             subText = 'RFC 2822 format',
             uuid = rfcUuid,
-            copyToClipboard = true,
           })
 
           -- Human-readable date (UTC)
           local humanUtcUuid = launcher:generateUUID()
           local humanUtcValue = os.date('!%B %d, %Y %H:%M:%S', timestamp)
-          launcher.handlers[humanUtcUuid] = function()
+          launcher.handlers[humanUtcUuid] = actions.copyToClipboard(function(choice)
             return humanUtcValue
-          end
+          end)
           table.insert(results, {
             text = humanUtcValue,
             subText = 'Human-readable (UTC)',
             uuid = humanUtcUuid,
-            copyToClipboard = true,
           })
 
           -- Human-readable date (Local)
           local humanLocalUuid = launcher:generateUUID()
           local humanLocalValue = os.date('%B %d, %Y %H:%M:%S', timestamp)
-          launcher.handlers[humanLocalUuid] = function()
+          launcher.handlers[humanLocalUuid] = actions.copyToClipboard(function(choice)
             return humanLocalValue
-          end
+          end)
           table.insert(results, {
             text = humanLocalValue,
             subText = 'Human-readable (Local)',
             uuid = humanLocalUuid,
-            copyToClipboard = true,
           })
 
           -- Date only
           local dateOnlyUuid = launcher:generateUUID()
           local dateOnlyValue = os.date('%Y-%m-%d', timestamp)
-          launcher.handlers[dateOnlyUuid] = function()
+          launcher.handlers[dateOnlyUuid] = actions.copyToClipboard(function(choice)
             return dateOnlyValue
-          end
+          end)
           table.insert(results, {
             text = dateOnlyValue,
             subText = 'Date only (YYYY-MM-DD)',
             uuid = dateOnlyUuid,
-            copyToClipboard = true,
           })
 
           -- Relative time
           local relativeUuid = launcher:generateUUID()
           local relativeValue = formatRelativeTime(relativeTime)
-          launcher.handlers[relativeUuid] = function()
+          launcher.handlers[relativeUuid] = actions.copyToClipboard(function(choice)
             return relativeValue
-          end
+          end)
           table.insert(results, {
             text = relativeValue,
             subText = 'Relative to now',
             uuid = relativeUuid,
-            copyToClipboard = true,
           })
 
           return results
@@ -269,15 +262,14 @@ return {
           -- Try to encode
           local encoded = hs.base64.encode(query)
           local encodeUuid = launcher:generateUUID()
-          launcher.handlers[encodeUuid] = function()
+          launcher.handlers[encodeUuid] = actions.copyToClipboard(function(choice)
             return encoded
-          end
+          end)
 
           table.insert(results, {
             text = encoded,
             subText = 'Base64 Encoded',
             uuid = encodeUuid,
-            copyToClipboard = true,
           })
 
           -- Try to decode
@@ -287,15 +279,14 @@ return {
 
           if success and decoded then
             local decodeUuid = launcher:generateUUID()
-            launcher.handlers[decodeUuid] = function()
+            launcher.handlers[decodeUuid] = actions.copyToClipboard(function(choice)
               return decoded
-            end
+            end)
 
             table.insert(results, {
               text = decoded,
               subText = 'Base64 Decoded',
               uuid = decodeUuid,
-              copyToClipboard = true,
             })
           end
 
@@ -350,15 +341,14 @@ return {
           local headerSuccess, header = pcall(decodeJWTPart, parts[1])
           if headerSuccess and header then
             local headerUuid = launcher:generateUUID()
-            launcher.handlers[headerUuid] = function()
+            launcher.handlers[headerUuid] = actions.copyToClipboard(function(choice)
               return header
-            end
+            end)
 
             table.insert(results, {
               text = header,
               subText = 'JWT Header',
               uuid = headerUuid,
-              copyToClipboard = true,
             })
           end
 
@@ -366,15 +356,14 @@ return {
           local payloadSuccess, payload = pcall(decodeJWTPart, parts[2])
           if payloadSuccess and payload then
             local payloadUuid = launcher:generateUUID()
-            launcher.handlers[payloadUuid] = function()
+            launcher.handlers[payloadUuid] = actions.copyToClipboard(function(choice)
               return payload
-            end
+            end)
 
             table.insert(results, {
               text = payload,
               subText = 'JWT Payload',
               uuid = payloadUuid,
-              copyToClipboard = true,
             })
           end
 
@@ -419,16 +408,15 @@ return {
 
             -- RGB result
             local rgbUuid = launcher:generateUUID()
-            launcher.handlers[rgbUuid] = function()
+            launcher.handlers[rgbUuid] = actions.copyToClipboard(function(choice)
               return string.format('rgb(%d, %d, %d)', r, g, b)
-            end
+            end)
 
             table.insert(results, {
               text = string.format('rgb(%d, %d, %d)', r, g, b),
               subText = 'RGB format',
               uuid = rgbUuid,
               image = launcher:createColorSwatch(r, g, b),
-              copyToClipboard = true,
             })
           end
 
@@ -439,16 +427,15 @@ return {
 
             -- Hex result
             local hexUuid = launcher:generateUUID()
-            launcher.handlers[hexUuid] = function()
+            launcher.handlers[hexUuid] = actions.copyToClipboard(function(choice)
               return string.format('#%02X%02X%02X', r, g, b)
-            end
+            end)
 
             table.insert(results, {
               text = string.format('#%02X%02X%02X', r, g, b),
               subText = 'Hex format',
               uuid = hexUuid,
               image = launcher:createColorSwatch(r, g, b),
-              copyToClipboard = true,
             })
           end
 

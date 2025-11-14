@@ -2,6 +2,7 @@
 -- Text processing and generation utilities
 
 local icons = require 'lib.icons'
+local actions = require 'lib.actions'
 
 -- Count words in text
 local function countWords(text)
@@ -140,76 +141,70 @@ return {
 
 					-- Characters (with spaces)
 					local charsUuid = launcher:generateUUID()
-					launcher.handlers[charsUuid] = function()
+					launcher.handlers[charsUuid] = actions.copyToClipboard(function(choice)
 						return tostring(charCount)
-					end
+					end)
 					table.insert(results, {
 						text = formatNumber(charCount) .. ' characters',
 						subText = 'Total characters including spaces',
 						uuid = charsUuid,
-						copyToClipboard = true,
 					})
 
 					-- Characters (without spaces)
 					local charsNoSpacesUuid = launcher:generateUUID()
-					launcher.handlers[charsNoSpacesUuid] = function()
+					launcher.handlers[charsNoSpacesUuid] = actions.copyToClipboard(function(choice)
 						return tostring(charCountNoSpaces)
-					end
+					end)
 					table.insert(results, {
 						text = formatNumber(charCountNoSpaces) .. ' characters (no spaces)',
 						subText = 'Total characters excluding spaces',
 						uuid = charsNoSpacesUuid,
-						copyToClipboard = true,
 					})
 
 					-- Words
 					local wordsUuid = launcher:generateUUID()
-					launcher.handlers[wordsUuid] = function()
+					launcher.handlers[wordsUuid] = actions.copyToClipboard(function(choice)
 						return tostring(wordCount)
-					end
+					end)
 					table.insert(results, {
 						text = formatNumber(wordCount) .. ' words',
 						subText = 'Total word count',
 						uuid = wordsUuid,
-						copyToClipboard = true,
 					})
 
 					-- Sentences
 					local sentencesUuid = launcher:generateUUID()
-					launcher.handlers[sentencesUuid] = function()
+					launcher.handlers[sentencesUuid] = actions.copyToClipboard(function(choice)
 						return tostring(sentenceCount)
-					end
+					end)
 					table.insert(results, {
 						text = formatNumber(sentenceCount) .. ' sentences',
 						subText = 'Total sentence count',
 						uuid = sentencesUuid,
-						copyToClipboard = true,
 					})
 
 					-- Paragraphs
 					local paragraphsUuid = launcher:generateUUID()
-					launcher.handlers[paragraphsUuid] = function()
+					launcher.handlers[paragraphsUuid] = actions.copyToClipboard(function(choice)
 						return tostring(paragraphCount)
-					end
+					end)
 					table.insert(results, {
 						text = formatNumber(paragraphCount) .. ' paragraphs',
 						subText = 'Total paragraph count',
 						uuid = paragraphsUuid,
-						copyToClipboard = true,
 					})
 
 					-- Average words per sentence
 					if sentenceCount > 0 then
 						local avgWordsPerSentence = wordCount / sentenceCount
 						local avgUuid = launcher:generateUUID()
-						launcher.handlers[avgUuid] = function()
+						launcher.handlers[avgUuid] = actions.copyToClipboard(function(choice)
 							return string.format('%.1f', avgWordsPerSentence)
-						end
+						end)
 						table.insert(results, {
 							text = string.format('%.1f words per sentence', avgWordsPerSentence),
 							subText = 'Average words per sentence',
 							uuid = avgUuid,
-							copyToClipboard = true,
 						})
 					end
 

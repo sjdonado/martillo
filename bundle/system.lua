@@ -3,6 +3,7 @@
 
 local toast = require 'lib.toast'
 local icons = require 'lib.icons'
+local actions = require 'lib.actions'
 
 return {
   {
@@ -255,12 +256,9 @@ return {
             })
 
             -- Copy value to clipboard when selected
-            launcher.handlers[uuid] = function()
-              if result.value ~= '' then
-                hs.pasteboard.setContents(result.value)
-                toast.copied(result.value)
-              end
-            end
+            launcher.handlers[uuid] = actions.copyToClipboard(function(choice)
+              return result.value
+            end)
           end
           return choices
         end,

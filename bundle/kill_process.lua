@@ -191,8 +191,16 @@ local function extractProcessName(command, baseAppName, appProcessList)
     end
   end
 
-  -- Get the base process name first
-  local processName = getSimpleProcessName(command)
+  -- Check if this is an app bundle process
+  local isAppBundle = command:match '%.app/'
+
+  -- For app bundle processes, prefer the base app name over the executable name
+  local processName
+  if isAppBundle and baseAppName and baseAppName ~= 'Unknown' then
+    processName = baseAppName
+  else
+    processName = getSimpleProcessName(command)
+  end
 
   -- If this app has multiple processes, determine which is main and which are helpers
   if appProcessList and #appProcessList > 1 then
@@ -286,12 +294,18 @@ local function getProcessList()
 
     -- Skip header line
     if not line:match '^%s*PID' then
-      -- Parse: PID PPID %CPU RSS COMMAND (handle all processes including 0 memory ones)
+      -- Parse: PID PPID %CPU RSS COMMAND
+      -- Handle both normal RSS values and edge cases
       local pid, ppid, cpu, rss, command = line:match '^%s*(%d+)%s+(%d+)%s+([%d%.]+)%s+(%d+)%s+(.*)'
 
-      -- Also try to capture processes that might have 0 or missing RSS
+      -- Fallback: try to capture processes with missing or non-numeric RSS
       if not pid then
-        pid, ppid, cpu, command = line:match '^%s*(%d+)%s+(%d+)%s+([%d%.]+)%s+%-%s+(.*)'
+        pid, ppid, cpu, rss, command = line:match '^%s*(%d+)%s+(%d+)%s+([%d%.]+)%s+(%S+)%s+(.*)'
+      end
+
+      -- Last resort: handle lines with unusual spacing or formatting
+      if not pid then
+        pid, ppid, cpu, command = line:match '^%s*(%d+)%s+(%d+)%s+([%d%.]+)%s+(.*)'
         rss = '0'
       end
 
@@ -300,6 +314,11 @@ local function getProcessList()
 
         local pidNum = tonumber(pid)
         local ppidNum = tonumber(ppid) or 0
+
+        -- Ensure RSS is numeric
+        if rss and not tonumber(rss) then
+          rss = '0'
+        end
 
         -- Get base app name for grouping
         local baseAppName = getBaseAppName(command)
@@ -445,25 +464,26 @@ local function getProcessList()
 
   processes = aggregatedProcesses
 
+  -- Sort by memory usage (descending) FIRST
+  table.sort(processes, function(a, b)
+    return a.mem > b.mem
+  end)
+
   -- Debug logging
   M.logger:d(
-    string.format('Processed %d lines, %d parsed, %d raw processes, returning %d aggregated processes', lineCount,
+    string.format('Processed %d lines, %d parsed, %d raw processes, %d aggregated (before limit)', lineCount,
       processedCount, rawProcessCount, #processes)
   )
 
-  -- Limit results to maxResults
+  -- Limit results to maxResults AFTER sorting
   if #processes > M.maxResults then
     local limitedProcesses = {}
     for i = 1, M.maxResults do
       table.insert(limitedProcesses, processes[i])
     end
     processes = limitedProcesses
+    M.logger:d(string.format('Limited to %d processes', #processes))
   end
-
-  -- Sort by memory usage (descending)
-  table.sort(processes, function(a, b)
-    return a.mem > b.mem
-  end)
 
   return processes
 end

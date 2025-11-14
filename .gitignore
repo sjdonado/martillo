@@ -4,3 +4,12 @@ clipboard_history
 clipboard_images
 
 *.log
+
+# Store CLI
+.tmp-store/
+store.lock.json
+
+# External store actions (tracked by store.lock.json)
+store/*
+!store/README.md
+

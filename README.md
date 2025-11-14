@@ -4,6 +4,8 @@
 
 **Your productivity hub, your way.** An open-source alternative to Raycast and Alfred with no vendor lock-in, zero dependencies, and full configuration through a single Lua file. Write your own actions, use ready-made bundles, customize every keybinding, add aliases for lightning-fast access, and share your creations freely. All configuration lives in a single file, inspired by [lazy.nvim](https://github.com/folke/lazy.nvim)'s declarative plugin system.
 
+## Demo
+
 https://github.com/user-attachments/assets/d5c803a9-7d83-479a-946b-80f29a2f09bf
 
 ## Features
@@ -32,10 +34,10 @@ https://github.com/user-attachments/assets/d5c803a9-7d83-479a-946b-80f29a2f09bf
 - Enter to kill, Shift+Enter to copy PID
 
 **Smart Converters** - Live transformation with visual previews:
-- ⏰ Time Converter (Unix ↔ ISO ↔ Relative)
-- 🎨 Color Converter (HEX ↔ RGB with color preview)
-- 🔐 Base64 (Encode/decode)
-- 🔑 JWT Decoder
+- Time Converter (Unix ↔ ISO ↔ Relative)
+- Color Converter (HEX ↔ RGB with color preview)
+- Base64 (Encode/decode)
+- JWT Decoder
 
 **System Information** - Real-time system monitoring:
 - CPU usage and load average
@@ -45,30 +47,30 @@ https://github.com/user-attachments/assets/d5c803a9-7d83-479a-946b-80f29a2f09bf
 - Auto-refreshing every 2 seconds
 
 **Keyboard Actions:**
-- 🔒 Lock Keyboard (for cleaning, unlock with `<leader>+Enter`)
-- ⏰ Keep-Alive (simulate activity to keep screen active)
+- Lock Keyboard (for cleaning, unlock with `<leader>+Enter`)
+- Keep-Alive (simulate activity to keep screen active)
 
 **Text Utilities:**
-- 📊 Word Count (characters, words, sentences, paragraphs with real-time updates)
-- 🔑 Generate UUID
+- Word Count (characters, words, sentences, paragraphs with real-time updates)
+- Generate UUID
 
 **Network Utilities:**
-- 🌐 IP Geolocation
-- 📡 Network Speed Test
+- IP Geolocation
+- Network Speed Test
 
 **Screen Effects:**
-- 🎉 Confetti animation
-- 📏 Screen ruler
+- Confetti animation
+- Screen ruler
 
 **Utilities:**
-- ☕ Toggle Caffeinate (prevent sleep)
-- 🌓 Toggle Dark/Light Mode
+- Toggle Caffeinate (prevent sleep)
+- Toggle Dark/Light Mode
 
 **Browser Management:**
-- 🔗 Safari tab switcher
+- Safari tab switcher
 
 **Calendar Integration:**
-- 📅 Today's events in menu bar with countdown timers
+- Today's events in menu bar with countdown timers
 - Clickable meeting URLs for quick joining
 
 
@@ -180,6 +182,93 @@ EOF
 # Reload Hammerspoon
 ```
 
+## Custom Actions from Store
+
+The `store/` directory is for custom actions that extend Martillo. All actions in `store/` are **automatically loaded** - just drop a new folder with an `init.lua` file and it's ready to use!
+
+**Example Store Structure:**
+```
+store/
+  f1_standings/
+    init.lua        # F1 Drivers Championship standings (included example)
+  my_action/
+    init.lua        # Your custom action module
+    icon.png        # Optional custom icon (overrides default icons)
+```
+
+Each action module should return an array of actions, just like bundles. Custom icons placed in store folders will override default icons with the same name.
+
+See [store/README.md](store/README.md) for details on creating custom actions.
+
+## Installing Actions from External Repositories
+
+Martillo includes a built-in CLI for managing external store actions. The CLI uses Git sparse checkout to fetch only the specific action folder you need, without downloading entire repositories.
+
+### Store CLI Commands
+
+**Add an external action:**
+```bash
+./scripts/store-cli.sh add <github-url>
+
+# Example: Install I Don't Have Spotify action
+./scripts/store-cli.sh add https://github.com/sjdonado/idonthavespotify/tree/master/extra/martillo
+```
+
+**List installed actions:**
+```bash
+./scripts/store-cli.sh list
+```
+
+**Update an action:**
+```bash
+./scripts/store-cli.sh update idonthavespotify
+
+# Update all actions
+./scripts/store-cli.sh update
+```
+
+**Remove an action:**
+```bash
+./scripts/store-cli.sh remove idonthavespotify
+```
+
+### How It Works
+
+- **Lock File**: All installations are tracked in `store.lock.json` with commit hashes for version control
+- **Sparse Checkout**: Only downloads the specific folder you need (efficient!)
+- **Automatic Loading**: Installed actions are automatically available in ActionsLauncher
+- **Safe Updates**: Detects upstream changes by comparing commit hashes
+
+After installation, add the action to your config:
+
+```lua
+{
+  "ActionsLauncher",
+  actions = {
+    { "idonthavespotify", alias = "idhs" },  -- Automatically loaded!
+  },
+}
+```
+
+### Creating Actions for External Distribution
+
+To make your action installable via the Store CLI, create a folder structure in your repository:
+
+```
+your-repo/
+  extra/martillo/      # Or any path ending with /martillo
+    init.lua           # Action definition (required)
+    icon.png           # Optional icon
+```
+
+Users can then install it with:
+```bash
+./scripts/store-cli.sh add https://github.com/you/your-repo/tree/main/extra/martillo
+```
+
+**Available Community Actions:**
+- [idonthavespotify](https://github.com/sjdonado/idonthavespotify) - Convert music links across streaming platforms
+
 ## Configuration
 
 ### Global Options
@@ -244,23 +333,7 @@ The central command palette with all your actions. Martillo automatically loads 
 - `bundle.screen` - Screen effects (confetti, ruler)
 - `bundle.martillo` - Martillo management (reload, update)
 
-### Custom Actions from Store
 
-The `store/` directory is for custom actions that extend Martillo. All actions in `store/` are **automatically loaded** - just drop a new folder with an `init.lua` file and it's ready to use!
-
-**Example Store Structure:**
-```
-store/
-  f1_standings/
-    init.lua        # F1 Drivers Championship standings (included example)
-  my_action/
-    init.lua        # Your custom action module
-    icon.png        # Optional custom icon (overrides default icons)
-```
-
-Each action module should return an array of actions, just like bundles. Custom icons placed in store folders will override default icons with the same name.
-
-See [store/README.md](store/README.md) for details on creating custom actions.
 
 
 ### LaunchOrToggleFocus
@@ -327,14 +400,12 @@ Smart URL routing to different browsers:
 - **Search**: Type to fuzzy search actions and aliases
 - **Enter**: Execute selected action
 - **ESC**: Close launcher
-- **Shift+ESC**: Close all pickers
 
 ### Child Pickers (Clipboard, Converters, etc.)
 - **Type**: Filter results in real-time
 - **Enter**: Execute action (paste, convert, etc.)
 - **Shift+Enter**: Alternate action (copy only, etc.)
-- **DELETE/ESC** (empty query): Navigate back to parent
-- **Shift+ESC**: Close all pickers
+- **ESC** (empty query): Navigate back to parent
 
 
 ## Creating Custom Actions

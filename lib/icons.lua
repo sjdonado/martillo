@@ -17,7 +17,7 @@ local function getProjectRoot()
 end
 
 -- Build preset icons table (icon name -> absolute path)
--- Scans both assets/icons and store/*/ directories
+-- Scans assets/icons directory only
 local function buildPresets()
   if next(M.preset) ~= nil then
     return -- Already built
@@ -38,20 +38,6 @@ local function buildPresets()
     handle:close()
   end
 
-  -- Scan store/*/ directories for custom icons
-  local storePath = projectRoot .. '/store'
-  local storeHandle = io.popen('find "' .. storePath .. '" -maxdepth 2 -name "*.png" 2>/dev/null')
-  if storeHandle then
-    for file in storeHandle:lines() do
-      local iconName = file:match '([^/]+)%.png$'
-      if iconName then
-        -- Store icons can override default icons
-        M.preset[iconName] = file
-      end
-    end
-    storeHandle:close()
-  end
-
   -- Count icons
   local count = 0
   for _ in pairs(M.preset) do
@@ -64,12 +50,30 @@ end
 -- Initialize presets on module load
 buildPresets()
 
--- Load icon from absolute path
--- @param iconPath string Absolute path to icon file
+-- Load icon from path or preset name
+-- @param iconPathOrName string Absolute path to icon file, relative path, or preset name
 -- @return hs.image object or nil
-function M.getIcon(iconPath)
-  if not iconPath then
+function M.getIcon(iconPathOrName)
+  if not iconPathOrName then
     return nil
+  end
+
+  -- If it's already an hs.image, return it
+  if type(iconPathOrName) == 'userdata' then
+    return iconPathOrName
+  end
+
+  local iconPath = iconPathOrName
+
+  -- Check if it's a preset name and resolve to path
+  if M.preset[iconPathOrName] then
+    iconPath = M.preset[iconPathOrName]
+  end
+
+  -- Resolve relative paths using project root
+  if not iconPath:match('^/') then
+    local projectRoot = getProjectRoot()
+    iconPath = projectRoot .. '/store/' .. iconPath
   end
 
   -- Check cache

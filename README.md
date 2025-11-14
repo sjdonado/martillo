@@ -1,6 +1,6 @@
 # 🔨 Martillo
 
-**Build anything you can imagine and launch it with a keystroke.** Martillo is a powerful, declarative actions launcher for macOS powered by [Hammerspoon](https://www.hammerspoon.org/). Create custom workflows, automate repetitive tasks, and access everything through a beautiful command palette with fuzzy search.
+**Build anything you can imagine and launch it with a keystroke.** Martillo is a powerful, declarative actions launcher for macOS powered by [Hammerspoon](https://www.hammerspoon.org/). Create custom workflows, automate repetitive tasks, and access everything through a customizable command palette with fuzzy search.
 
 **Your productivity hub, your way.** Think Raycast, but completely open-source with no vendor lock-in. Write your own actions in Lua, use ready-made bundles, customize every keybinding, add aliases for lightning-fast access, and share your creations freely. All configuration lives in a single file, inspired by [lazy.nvim](https://github.com/folke/lazy.nvim)'s elegant plugin system.
 
@@ -83,80 +83,51 @@ git clone https://github.com/sjdonado/martillo ~/.martillo
 # Create configuration
 cat > ~/.hammerspoon/init.lua << 'EOF'
 package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?.lua"
-package.path = package.path .. ";" .. os.getenv("HOME") .. "/.martillo/?/init.lua"
 
 return require("martillo").setup({
     leader_key = { "alt", "ctrl" },
 
     {
         "ActionsLauncher",
-        opts = function()
-            local window = require("bundle.window")
-            local system = require("bundle.system")
-            local utilities = require("bundle.utilities")
-            local converter = require("bundle.converter")
-            local screen = require("bundle.screen")
-            local keyboard = require("bundle.keyboard")
-            local network = require("bundle.network")
-            local clipboard = require("bundle.clipboard_history")
-            local kill_process = require("bundle.kill_process")
-            local safari_tabs = require("bundle.safari_tabs")
-            local martillo = require("bundle.martillo")
-
-            return {
-                actions = {
-                    window,
-                    system,
-                    utilities,
-                    converter,
-                    screen,
-                    keyboard,
-                    network,
-                    clipboard,
-                    kill_process,
-                    safari_tabs,
-                    martillo,
-                },
-            }
-        end,
         actions = {
             { "toggle_system_appearance", alias = "ta" },
-            { "toggle_caffeinate", alias = "tc" },
-            { "system_information", alias = "si" },
-            { "screen_ruler", alias = "ru" },
+            { "toggle_caffeinate",        alias = "tc" },
+            { "system_information",       alias = "si" },
+            { "screen_ruler",             alias = "ru" },
 
-            { "window_maximize", alias = "wm" },
-            { "window_almost_maximize", keys = { { "<leader>", "up" } } },
-            { "window_reasonable_size", keys = { { "<leader>", "down" } } },
-            { "window_center", keys = { { "<leader>", "return" } } },
-            { "window_left_two_thirds", keys = { { "<leader>", "left" } } },
-            { "window_right_two_thirds", keys = { { "<leader>", "right" } } },
+            { "window_maximize",          alias = "wm" },
+            { "window_almost_maximize",   keys = { { "<leader>", "up" } } },
+            { "window_reasonable_size",   keys = { { "<leader>", "down" } } },
+            { "window_center",            keys = { { "<leader>", "return" } } },
+            { "window_left_two_thirds",   keys = { { "<leader>", "left" } } },
+            { "window_right_two_thirds",  keys = { { "<leader>", "right" } } },
 
-            { "clipboard_history", keys = { { "<leader>", "-" } } },
-            { "kill_process", keys = { { "<leader>", "=" } } },
-            { "safari_tabs", keys = { { "alt", "tab" } } },
+            { "clipboard_history",        keys = { { "<leader>", "-" } } },
+            { "kill_process",             keys = { { "<leader>", "=" } } },
+            { "safari_tabs",              keys = { { "alt", "tab" } } },
 
-            { "generate_uuid", alias = "gu" },
-            { "word_count", alias = "wc" },
+            { "generate_uuid",            alias = "gu" },
+            { "word_count",               alias = "wc" },
 
-            { "converter_time", alias = "ct" },
-            { "converter_colors", alias = "cc" },
-            { "converter_base64", alias = "cb" },
-            { "converter_jwt", alias = "cj" },
+            { "converter_time",           alias = "ct" },
+            { "converter_colors",         alias = "cc" },
+            { "converter_base64",         alias = "cb" },
+            { "converter_jwt",            alias = "cj" },
 
-            { "network_ip_geolocation", alias = "ni" },
-            { "network_speed_test", alias = "ns" },
+            { "network_ip_geolocation",   alias = "ni" },
+            { "network_speed_test",       alias = "ns" },
 
-            { "keyboard_lock", alias = "kl" },
-            { "keyboard_keep_alive", alias = "ka" },
+            { "keyboard_lock",            alias = "kl" },
+            { "keyboard_keep_alive",      alias = "ka" },
 
-            { "screen_confetti", alias = "cf" },
+            { "screen_confetti",          alias = "cf" },
+            { "f1_standings",             alias = "f1" },
 
-            { "martillo_reload", alias = "mr" },
-            { "martillo_update", alias = "mu" },
+            { "martillo_reload",          alias = "mr" },
+            { "martillo_update",          alias = "mu" },
         },
         keys = {
-            { "<leader>", "space" },
+            { "<leader>", "space", desc = "Toggle Actions Launcher" },
         },
     },
 
@@ -166,10 +137,17 @@ return require("martillo").setup({
             { "<leader>", "c", app = "Calendar" },
             { "<leader>", "f", app = "Finder" },
             { "<leader>", ";", app = "Ghostty" },
+            { "<leader>", "h", app = "Helium" },
+            { "<leader>", "l", app = "Music" },
             { "<leader>", "e", app = "Mail" },
             { "<leader>", "m", app = "Messages" },
+            { "<leader>", "n", app = "Notes" },
+            { "<leader>", "p", app = "Passwords" },
+            { "<leader>", "r", app = "Reminders" },
             { "<leader>", "b", app = "Safari" },
             { "<leader>", "s", app = "Slack" },
+            { "<leader>", "t", app = "Kagi Translate" },
+            { "<leader>", "y", app = "Yaak" },
         },
     },
 
@@ -187,7 +165,8 @@ return require("martillo").setup({
             default_app = "Safari",
             redirect = {
                 { match = { "*localhost*", "*127.0.0.1*", "*0.0.0.0*" }, app = "Helium" },
-                { match = { "*meet.google*" }, app = "Google Meet" },
+                { match = { "*fly.dev*" },                               app = "Helium" },
+                { match = { "*meet.google*" },                           app = "Helium" },
             },
         },
         config = function(spoon)
@@ -225,34 +204,30 @@ Use `<leader>` as a placeholder in any keybinding. It expands to your configured
 
 ### ActionsLauncher
 
-The central command palette with all your actions:
+The central command palette with all your actions. Martillo automatically loads all built-in bundles and store actions:
 
 ```lua
 {
   "ActionsLauncher",
-  opts = function()
-    -- Import action bundles
-    local window = require("bundle.window")
-    local utilities = require("bundle.utilities")
-
-    return { actions = { window, utilities } }
-  end,
   actions = {
     -- Assign keybindings and aliases to specific actions
     { "window_center", keys = { { "<leader>", "return" } } },
     { "toggle_caffeinate", alias = "tc" },
     { "clipboard_history", keys = { { "<leader>", "v" } } },
+    { "f1_standings", alias = "f1" },  -- From store/
   },
   keys = {
-    { "<leader>", "space" }
+    { "<leader>", "space", desc = "Toggle Actions Launcher" }
   }
 }
 ```
 
 **Action Fields:**
-- `icon` - Icon name from 3D icons collection (auto-inherited by child pickers)
 - `keys` - Keybindings for direct access
 - `alias` - Short name for faster fuzzy search
+- `desc` - Optional description for the keybinding
+
+**Note:** All bundles from `bundle/` and custom actions from `store/` are automatically loaded. You don't need to manually import them!
 
 ### Available Action Bundles
 
@@ -270,32 +245,21 @@ The central command palette with all your actions:
 
 ### Custom Actions from Store
 
-You can also load custom actions from the `store` directory. The store auto-loader will automatically discover and load all action modules:
-
-```lua
-{
-  "ActionsLauncher",
-  opts = function()
-    local window = require("bundle.window")
-    local store = require("store")  -- Auto-loads all store actions (lazy loading)
-
-    return { actions = { window, store } }
-  end,
-  -- ... rest of config
-}
-```
+The `store/` directory is for custom actions that extend Martillo. All actions in `store/` are **automatically loaded** - just drop a new folder with an `init.lua` file and it's ready to use!
 
 **Example Store Structure:**
 ```
 store/
-  init.lua          # Auto-loader with lazy loading (automatically loads all modules)
-  random_quote/
-    init.lua        # Action module (included example)
+  f1_standings/
+    init.lua        # F1 Drivers Championship standings (included example)
   my_action/
     init.lua        # Your custom action module
+    icon.png        # Optional custom icon (overrides default icons)
 ```
 
-Each action module should return an array of actions, just like bundles. The auto-loader uses lazy loading to defer directory scanning until the actions are actually needed.
+Each action module should return an array of actions, just like bundles. Custom icons placed in store folders will override default icons with the same name.
+
+See [store/README.md](store/README.md) for details on creating custom actions.
 
 
 ### LaunchOrToggleFocus
@@ -374,19 +338,22 @@ Smart URL routing to different browsers:
 
 ## Creating Custom Actions
 
-### Bundle Structure
+### Bundle Structure (Core Actions)
 
-Create a new file in the `bundle/` directory:
+Create a new file in the `bundle/` directory for core actions:
 
 ```lua
--- my_custom_bundle.lua
+-- bundle/my_custom_bundle.lua
 -- My Custom Actions Bundle
+
+local icons = require 'lib.icons'
+local actions = require 'lib.actions'
 
 return {
   {
     id = 'my_action',
     name = 'My Action',
-    icon = 'star',
+    icon = icons.preset.star,
     description = 'Does something awesome',
     handler = function()
       hs.alert.show('Hello from my action!')
@@ -395,17 +362,20 @@ return {
 }
 ```
 
-### Store Structure (External Actions)
+### Store Structure (Custom/External Actions)
 
-Create a new folder in `store/` with an `init.lua` file:
+Create a new folder in `store/` with an `init.lua` file for custom actions:
 
 ```lua
 -- store/my_action/init.lua
+local icons = require 'lib.icons'
+local actions = require 'lib.actions'
+
 return {
   {
     id = 'my_store_action',
     name = 'My Store Action',
-    icon = 'message',
+    icon = icons.preset.message,
     description = 'Custom action from store',
     handler = function()
       -- Your action logic here
@@ -414,14 +384,16 @@ return {
 }
 ```
 
-Then load all store actions in your config:
+**That's it!** The store auto-loader will automatically discover and load your action. No need to manually import it - just drop a new folder in `store/` and use it in your config:
 
 ```lua
-local store = require("store")  -- Auto-loads all actions in store/ (lazy loading)
-return { actions = { store, ... } }
+{
+  "ActionsLauncher",
+  actions = {
+    { "my_store_action", alias = "ma" },  -- Automatically available!
+  },
+}
 ```
-
-The store auto-loader will automatically discover and load all action modules in subdirectories. Just drop a new action folder in `store/` and it will be loaded automatically!
 
 
 ## Contributing

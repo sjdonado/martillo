@@ -39,19 +39,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 3. **Store Structure**: External actions in `store/` as folders with `init.lua` for easy distribution
 
-4. **3D Icon System** (`lib/icons.lua`):
+4. **Icon System** (`lib/icons.lua`):
    - 120+ beautiful icons from 3dicons.co in `assets/icons/`
-   - `icons.getIcon(name)` - Get icon by name
+   - `icons.preset.iconName` - Get absolute path to preset icon
+   - `icons.getIcon(path)` - Load icon from absolute path
    - `icons.ICON_SIZE` - Standard icon size ({ w = 32, h = 32 })
+   - Automatic discovery from `assets/icons/` and `store/*/` directories
+   - Store icons can override default icons
    - Automatic caching for performance
-   - Parent icon inheritance for child pickers
 
 5. **Leader Key Support**: `<leader>` placeholder in hotkeys expands to configured `leader_key` modifiers
 
+5. **Action Helpers** (`lib/actions.lua`):
+   - `actions.copyToClipboard(getText?)` - Copy to clipboard with toast
+   - `actions.copyAndPaste(getText?)` - Copy + paste with Shift modifier support
+   - `actions.showToast(getMessage?)` - Show toast message
+   - `actions.noAction()` - Display-only (no action on Enter)
+   - `actions.custom(fn)` - Custom handler function
+
 6. **Shared Modules**:
-   - `lib/icons.lua` - Icon management with caching
+   - `lib/icons.lua` - Icon management with automatic discovery and caching
+   - `lib/actions.lua` - Composable action helpers for common patterns
    - `lib/search.lua` - Fuzzy search with ranking
-   - `lib/picker.lua` - Picker state management
+   - `lib/picker.lua` - Picker state management (stack-based navigation)
    - `lib/leader.lua` - Leader key expansion
 
 ## Built-in Spoons
@@ -71,18 +81,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```lua
 {
   "ActionsLauncher",
-  opts = function()
-    local window = require("bundle.window")
-    local utilities = require("bundle.utilities")
-    return { actions = { window, utilities } }
-  end,
   actions = {
     { "window_center", keys = { { "<leader>", "return" } } },
     { "clipboard_history", alias = "ch" },
+    { "f1_standings", alias = "f1" },  -- From store/
   },
-  keys = { { "<leader>", "space" } }
+  keys = { { "<leader>", "space", desc = "Toggle Actions Launcher" } }
 }
 ```
+
+**Note:** All bundles from `bundle/` and custom actions from `store/` are automatically loaded. You don't need to manually import them!
 
 ### LaunchOrToggleFocus
 **Purpose**: Ultra-fast application switching
@@ -259,47 +267,86 @@ store/
     init.lua        # Returns action array like bundles
 ```
 
-### Example: store/random_quote/init.lua
+### Example: store/f1_standings/init.lua
 ```lua
--- Random Quote Action
--- Fetches a random inspirational quote from an API
+-- F1 Drivers Championship Standings
+local toast = require 'lib.toast'
+local actions = require 'lib.actions'
+local icons = require 'lib.icons'
 
 return {
   {
-    id = 'random_quote',
-    name = 'Random Quote',
-    icon = 'message',
-    description = 'Get a random inspirational quote',
+    id = 'f1_standings',
+    name = 'F1 Drivers Standings',
+    icon = icons.preset.trophy,
+    description = 'View current F1 drivers championship standings',
     handler = function()
-      hs.http.asyncGet('https://quotes.domiadi.com/api', nil, function(status, body, headers)
-        if status == 200 then
-          local quote_data = hs.json.decode(body)
-          hs.dialog.blockAlert(
-            'Quote of the Moment',
-            string.format('"%s"\n\n— %s', quote_data.quote, quote_data.author),
-            'OK'
-          )
-        end
-      end)
+      local actionsLauncher = spoon.ActionsLauncher
+      local standings = {}
+
+      actionsLauncher:openChildPicker {
+        placeholder = 'F1 Drivers Championship 2024',
+        handler = function(query, launcher)
+          local choices = {}
+          for _, entry in ipairs(standings) do
+            local uuid = launcher:generateUUID()
+            table.insert(choices, {
+              text = string.format('P%d. %s %s - %d pts',
+                entry.position, entry.driver.name,
+                entry.driver.surname, entry.points),
+              subText = string.format('%s • %d wins',
+                entry.team.teamName, entry.wins),
+              uuid = uuid,
+            })
+            launcher.handlers[uuid] = actions.copyToClipboard(function()
+              return string.format('%s %s - P%d',
+                entry.driver.name, entry.driver.surname, entry.position)
+            end)
+          end
+          return choices
+        end,
+      }
+
+      hs.http.asyncGet('https://f1connectapi.vercel.app/api/current/drivers-championship',
+        nil, function(status, body)
+          if status == 200 then
+            standings = hs.json.decode(body).drivers_championship
+            actionsLauncher:refresh()
+          end
+        end)
+
+      return 'OPEN_CHILD_PICKER'
     end,
   },
 }
 ```
 
-### Loading Store Actions
+### Store Actions (Custom Actions)
+
+All actions in `store/` are **automatically loaded** by Martillo. Just drop a new folder with an `init.lua` file and it's ready to use:
+
+**Store Structure**:
+```
+store/
+  f1_standings/     # F1 Drivers Championship (included example)
+    init.lua
+  my_action/        # Your custom action
+    init.lua
+    icon.png        # Optional custom icon
+```
+
+**Usage in Config**:
 ```lua
 {
   "ActionsLauncher",
-  opts = function()
-    local window = require("bundle.window")
-    local store = require("store")  -- Auto-loads ALL store actions (lazy loading)
-
-    return { actions = { window, store } }
-  end,
+  actions = {
+    { "f1_standings", alias = "f1" },  -- Automatically available!
+    { "my_action", keys = { { "<leader>", "a" } } },
+  },
 }
 ```
 
-The `store/init.lua` auto-loader uses lazy loading with Lua metatables. At `require` time, it returns a proxy table. When the actions are actually accessed (during ActionsLauncher setup), the metatable triggers directory scanning and module loading. This solves timing issues with `hs.fs` initialization and caches the results for performance.
+**How It Works**: The `store/init.lua` auto-loader uses lazy loading with Lua metatables. At `require` time, it returns a proxy table. When actions are accessed (during ActionsLauncher setup), the metatable triggers directory scanning and module loading. This solves timing issues with `hs.fs` initialization and caches results for performance.
 
 ## Technical Details
 
@@ -307,29 +354,72 @@ The `store/init.lua` auto-loader uses lazy loading with Lua metatables. At `requ
 
 **Location**: `lib/icons.lua`
 
-**Key Functions**:
+**Key Features**:
+- Automatic discovery from `assets/icons/` and `store/*/` directories
+- Store icons can override default icons with the same name
+- All icon fields expect absolute paths
+- Preset icons accessible via `icons.preset.iconName`
+
+**Usage**:
 ```lua
--- Get icon by name
-local icon = icons.getIcon("star")
+local icons = require 'lib.icons'
+
+-- Get preset icon path
+local iconPath = icons.preset.wifi
+
+-- Load icon from path
+local icon = icons.getIcon(iconPath)
+
+-- Use in actions
+return {
+  {
+    icon = icons.preset.star,  -- Preset icon
+    -- OR
+    icon = '/custom/path/icon.png',  -- Custom absolute path
+  }
+}
 
 -- Standard size constant
 icons.ICON_SIZE  -- { w = 32, h = 32 }
 
--- Get all available icons
-icons.getAvailableIcons()
-
--- Clear cache
+-- Clear cache and rebuild presets
 icons.clearCache()
 ```
 
-**Icon Inheritance**:
-- Parent actions pass their icon to child pickers via `parentIcon` config
-- Child items inherit parent icon as fallback
-- Specific icons override inherited icons
+**Custom Icons in Store**:
+- Place `.png` files in store action directories
+- Accessible via `icons.preset.filename` (without extension)
+- Override default icons automatically
 
-**File Extension Mapping** (in clipboard_history):
-- Uses dictionary `extensionToIcon` for O(1) lookups
-- Maps extensions to icon names: pdf→file-text, mp3→music, mp4→video-camera, etc.
+### Action Helpers System
+
+**Location**: `lib/actions.lua`
+
+**Purpose**: Composable helpers for common child picker action patterns
+
+**Usage**:
+```lua
+local actions = require 'lib.actions'
+
+-- Copy to clipboard
+launcher.handlers[uuid] = actions.copyToClipboard()
+
+-- Copy to clipboard (custom text extraction)
+launcher.handlers[uuid] = actions.copyToClipboard(function(choice)
+  return myData.value
+end)
+
+-- Copy and paste (Shift modifier support)
+launcher.handlers[uuid] = actions.copyAndPaste()
+
+-- Display only (no action)
+launcher.handlers[uuid] = actions.noAction()
+
+-- Custom handler
+launcher.handlers[uuid] = actions.custom(function(choice)
+  -- Custom logic here
+end)
+```
 
 ### Search System
 
@@ -348,10 +438,11 @@ icons.clearCache()
 **Location**: `lib/picker.lua`
 
 **Features**:
+- Stack-based navigation (single source of truth)
 - Parent-child picker state management
-- DELETE/ESC navigation back to parent
-- Shift+ESC closes all pickers
-- Modifier key detection (Shift, etc.)
+- ESC navigation: pop from stack and restore parent
+- Modifier key detection (Shift for alternate actions)
+- Simplified design: no DELETE key watcher, ESC handled in chooser callbacks
 
 ### Auto-Launch System
 
@@ -388,11 +479,13 @@ __pairs   -- General iteration: for k, v in pairs(store)
 ### Adding Icons to Actions
 
 ```lua
+local icons = require 'lib.icons'
+
 return {
   {
     id = "my_action",
     name = "My Action",
-    icon = "star",  -- Icon name from assets/icons/
+    icon = icons.preset.star,  -- Use preset icon
     description = "Does something cool",
     handler = function()
       -- Action code
@@ -404,16 +497,22 @@ return {
 ### Using Icons in Code
 
 ```lua
-local icons = require("lib.icons")
+local icons = require 'lib.icons'
 
--- Get icon
-local myIcon = icons.getIcon("rocket")
+-- Get preset icon path
+local iconPath = icons.preset.rocket
+
+-- Load icon from path
+local myIcon = icons.getIcon(iconPath)
+
+-- Use custom absolute path
+local customIcon = icons.getIcon('/path/to/custom/icon.png')
 
 -- Use standard size
 local size = icons.ICON_SIZE
 
 -- Set on chooser entry
-choiceEntry.image = icons.getIcon("copy")
+choiceEntry.image = icons.getIcon(icons.preset.copy)
 ```
 
 ### File Extension to Icon Mapping

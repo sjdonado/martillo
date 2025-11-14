@@ -1,6 +1,10 @@
 # Store - Custom Actions
 
-This directory contains external custom actions that can be easily shared and distributed independently of the core Martillo bundles.
+This directory contains custom actions that extend Martillo. All actions in `store/` are **automatically loaded** - just drop a new folder with an `init.lua` file and it's ready to use!
+
+## How It Works
+
+The store auto-loader automatically discovers and loads all action modules in subdirectories. No manual imports needed!
 
 ## Structure
 
@@ -8,56 +12,99 @@ Each action should be in its own folder with an `init.lua` file:
 
 ```
 store/
-  random_quote/     # Example action (included)
+  f1_standings/     # F1 Drivers Championship (included example)
     init.lua
-  my_action/        # Your custom actions
+  my_action/        # Your custom action
     init.lua
+    icon.png        # Optional custom icon
 ```
 
 ## Creating a Custom Action
 
 1. Create a new folder with your action name
 2. Add an `init.lua` file that returns an action array
-3. Load it in your Hammerspoon config
+3. **That's it!** Use it in your config immediately
 
-### Example: store/random_quote/init.lua
+### Example: store/f1_standings/init.lua
 
 ```lua
--- Random Quote Action
--- Fetches a random inspirational quote from an API
+-- F1 Drivers Championship Standings
+-- Displays current F1 season driver standings from F1 Connect API
+
+local toast = require 'lib.toast'
+local actions = require 'lib.actions'
+local icons = require 'lib.icons'
 
 return {
   {
-    id = 'random_quote',
-    name = 'Random Quote',
-    icon = 'message',
-    description = 'Get a random inspirational quote',
+    id = 'f1_standings',
+    name = 'F1 Drivers Standings',
+    icon = icons.preset.trophy,
+    description = 'View current F1 drivers championship standings',
     handler = function()
-      hs.http.asyncGet('https://quotes.domiadi.com/api', nil, function(status, body, headers)
-        if status == 200 then
-          local success, quote_data = pcall(function()
-            return hs.json.decode(body)
-          end)
+      local actionsLauncher = spoon.ActionsLauncher
+      local standings = {}
+      local loading = true
 
-          if success and quote_data then
-            local quote_text = quote_data.quote or 'No quote available'
-            local author = quote_data.author or 'Unknown'
+      actionsLauncher:openChildPicker {
+        placeholder = 'F1 Drivers Championship 2024',
+        parentAction = 'f1_standings',
+        handler = function(query, launcher)
+          local choices = {}
 
-            hs.dialog.blockAlert(
-              'Quote of the Moment',
-              string.format('"%s"\n\n— %s', quote_text, author),
-              'OK'
-            )
+          if loading then
+            table.insert(choices, {
+              text = 'Loading F1 standings...',
+              subText = 'Fetching from F1 Connect API',
+              uuid = launcher:generateUUID(),
+            })
           else
-            hs.alert.show('❌ Failed to parse quote', _G.MARTILLO_ALERT_DURATION)
-          end
-        else
-          hs.alert.show('❌ Failed to fetch quote', _G.MARTILLO_ALERT_DURATION)
-        end
-      end)
+            for _, entry in ipairs(standings) do
+              local uuid = launcher:generateUUID()
+              local text = string.format('P%d. %s %s (%s) - %d pts',
+                entry.position, entry.driver.name, entry.driver.surname,
+                entry.driver.shortName, entry.points)
 
-      hs.alert.show('📡 Fetching quote...', _G.MARTILLO_ALERT_DURATION)
+              table.insert(choices, { text = text, subText = '...', uuid = uuid })
+
+              launcher.handlers[uuid] = actions.copyToClipboard(function(choice)
+                return string.format('%s %s - P%d - %d points',
+                  entry.driver.name, entry.driver.surname,
+                  entry.position, entry.points)
+              end)
+            end
+          end
+
+          return choices
+        end,
+      }
+
+      -- Fetch standings from API
+      hs.http.asyncGet('https://f1connectapi.vercel.app/api/current/drivers-championship',
+        nil, function(status, body, headers)
+          loading = false
+          if status == 200 then
+            local success, data = pcall(function() return hs.json.decode(body) end)
+            if success and data and data.drivers_championship then
+              standings = data.drivers_championship
+              actionsLauncher:refresh()
+            end
+          end
+        end)
+
+      return 'OPEN_CHILD_PICKER'
     end,
+  },
+}
+```
+
+Then use it in your config:
+
+```lua
+{
+  "ActionsLauncher",
+  actions = {
+    { "f1_standings", alias = "f1" },  -- Automatically available!
   },
 }
 ```
@@ -68,24 +115,55 @@ Each action must have:
 
 - `id` - Unique identifier (string)
 - `name` - Display name (string)
-- `icon` - Icon name from `assets/icons/` (string)
+- `icon` - Absolute path to icon (use `icons.preset.iconName` for built-in icons)
 - `description` - What the action does (string)
 - `handler` - Function that executes the action (function)
 
-Optional fields:
-
-- `isDynamic` - Set to true for actions that open child pickers (boolean)
-
 ## Available Icons
 
-See `assets/icons/` directory for available 3D icons from [3dicons.co](https://3dicons.co/).
+Use the `icons.preset` API to access built-in 3D icons from [3dicons.co](https://3dicons.co/):
 
-Common icons: `star`, `rocket`, `message`, `heart`, `clock`, `key`, `lock`, `magic-trick`, `text`, etc.
+```lua
+local icons = require 'lib.icons'
+
+icon = icons.preset.star       -- ✓ Correct
+icon = icons.preset.trophy     -- ✓ Correct
+icon = icons.preset.message    -- ✓ Correct
+```
+
+**Custom Icons:** Place a `.png` file in your action folder. It will automatically override the default icon with the same name.
+
+## Action Helpers
+
+Use composable helpers from `lib/actions.lua` for common patterns:
+
+```lua
+local actions = require 'lib.actions'
+
+-- Copy to clipboard
+launcher.handlers[uuid] = actions.copyToClipboard(function(choice)
+  return "text to copy"
+end)
+
+-- Copy + paste with Shift modifier support
+launcher.handlers[uuid] = actions.copyAndPaste(function(choice)
+  return "text to paste"
+end)
+
+-- Display-only (no action on Enter)
+launcher.handlers[uuid] = actions.noAction()
+
+-- Custom logic
+launcher.handlers[uuid] = actions.custom(function(choice)
+  -- Your custom logic here
+end)
+```
 
 ## Tips
 
-- Use `_G.MARTILLO_ALERT_DURATION` for consistent alert timing
+- Use `local toast = require 'lib.toast'` for notifications
+- Use `local icons = require 'lib.icons'` for icon paths
+- Use `local actions = require 'lib.actions'` for action helpers
 - Handle errors gracefully with `pcall`
-- Use `hs.alert.show()` for quick feedback
-- Use `hs.dialog.blockAlert()` for longer messages
 - For child pickers, see examples in `bundle/` directory
+- Return `'OPEN_CHILD_PICKER'` from handlers that open child pickers

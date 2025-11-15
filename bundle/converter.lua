@@ -240,7 +240,6 @@ return {
           return results
         end,
       }
-      return 'OPEN_CHILD_CHOOSER'
     end,
   },
   {
@@ -293,7 +292,6 @@ return {
           return results
         end,
       }
-      return 'OPEN_CHILD_CHOOSER'
     end,
   },
   {
@@ -380,7 +378,6 @@ return {
           return results
         end,
       }
-      return 'OPEN_CHILD_CHOOSER'
     end,
   },
   {
@@ -452,7 +449,6 @@ return {
           return results
         end,
       }
-      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

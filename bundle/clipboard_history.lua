@@ -778,8 +778,6 @@ return {
           return choices
         end,
       }
-
-      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

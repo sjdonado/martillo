@@ -151,7 +151,6 @@ return {
       -- Start fetching data after chooser is shown
       hs.timer.doAfter(0.1, fetchData)
 
-      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 
@@ -251,7 +250,6 @@ return {
       -- Start tests after chooser is shown
       hs.timer.doAfter(0.1, runTests)
 
-      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

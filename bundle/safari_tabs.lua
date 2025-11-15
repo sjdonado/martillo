@@ -253,8 +253,6 @@ return {
           return buildChoices(tabs, query, launcher)
         end,
       }
-
-      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

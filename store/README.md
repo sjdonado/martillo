@@ -91,8 +91,6 @@ return {
             end
           end
         end)
-
-      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }
@@ -166,4 +164,4 @@ end)
 - Use `local events = require 'lib.events'` for action helpers
 - Handle errors gracefully with `pcall`
 - For child choosers, see examples in `bundle/` directory
-- Return `'OPEN_CHILD_CHOOSER'` from handlers that open child choosers
+- Child choosers: Simply call `spoon.ActionsLauncher:openChildChooser({...})`

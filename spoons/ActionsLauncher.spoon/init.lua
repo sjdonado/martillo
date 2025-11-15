@@ -20,6 +20,7 @@ obj.chooserManager = nil
 obj.deleteKeyWatcher = nil
 obj.escapeKeyWatcher = nil
 obj.currentChildHandler = nil
+obj.childChooserOpening = false  -- Track if a child chooser is being opened
 obj.logger = hs.logger.new('ActionsLauncher', 'debug')
 
 --- ActionsLauncher:init()
@@ -46,14 +47,18 @@ function obj:executeActionWithModifiers(choice)
 		return
 	end
 
+	-- Reset child chooser opening flag before calling handler
+	self.childChooserOpening = false
+
 	local result = handler()
 
 	-- Handle Nested Action (opens child chooser)
-	if result == 'OPEN_CHILD_CHOOSER' then
+	-- Check if a child chooser was opened during handler execution
+	if self.childChooserOpening then
 		-- STACK ACTION: No change (keep current chooser in stack)
 		-- RESULT: Child chooser will push itself on top, increasing depth
-		self.logger:d('Opening child chooser, keeping current chooser in stack')
-		return 'OPEN_CHILD_CHOOSER'
+		self.logger:d('Child chooser opened, keeping current chooser in stack')
+		return
 	end
 
 	-- ACTION COMPLETED (not opening child chooser)
@@ -225,9 +230,11 @@ function obj:setup(config)
 				local handler = action.handler
 
 				local hotkey = hs.hotkey.bind(mods, key, function()
+					-- Reset flag before calling handler
+					self.childChooserOpening = false
 					local result = handler()
 					-- Don't show alert for child chooser actions or empty results
-					if result and type(result) == 'string' and result ~= '' and result ~= 'OPEN_CHILD_CHOOSER' then
+					if not self.childChooserOpening and result and type(result) == 'string' and result ~= '' then
 						hs.alert.show(result, _G.MARTILLO_ALERT_DURATION or 2)
 					end
 				end)
@@ -348,6 +355,10 @@ end
 ---    - ESC on empty query: Close the chooser
 ---    - Enter: Execute action and close the chooser
 function obj:openChildChooser(config, options)
+	-- Set flag to indicate a child chooser is being opened
+	-- This allows executeActionWithModifiers to detect it without requiring a return value
+	self.childChooserOpening = true
+
 	options = options or {}
 	local pushToStack = options.pushToStack
 	if pushToStack == nil then

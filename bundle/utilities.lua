@@ -211,8 +211,6 @@ return {
 					return results
 				end,
 			})
-
-			return 'OPEN_CHILD_CHOOSER'
 		end,
 	},
 }

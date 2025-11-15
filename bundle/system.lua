@@ -273,8 +273,6 @@ return {
       updateTimer = hs.timer.doEvery(2, function()
         updateSystemInfo()
       end)
-
-      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

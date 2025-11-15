@@ -167,7 +167,6 @@ return {
 		icon = icons.preset.lock,
 		description = 'Lock keyboard for cleaning (unlock with <leader>+Enter)',
 		handler = function()
-			-- Open child chooser first
 			spoon.ActionsLauncher:openChildChooser({
 				placeholder = '🔒 Keyboard Locked - Clean away!',
 				parentAction = 'keyboard_lock',
@@ -194,8 +193,6 @@ return {
 					return results
 				end,
 			})
-
-			return 'OPEN_CHILD_CHOOSER'
 		end,
 	},
 	{

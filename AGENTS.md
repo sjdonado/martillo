@@ -50,14 +50,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 5. **Leader Key Support**: `<leader>` placeholder in hotkeys expands to configured `leader_key` modifiers
 
-5. **Action Events** (`lib/events.lua`):
+6. **Child Chooser Pattern**: Actions that open child choosers call `spoon.ActionsLauncher:openChildChooser({...})` without needing to return any value. The framework automatically detects when a child chooser is opened and manages the navigation stack internally.
+
+7. **Action Events** (`lib/events.lua`):
    - `events.copyToClipboard(getText?)` - Copy to clipboard with toast
    - `events.copyAndPaste(getText?)` - Copy + paste with Shift modifier support
    - `events.showToast(getMessage?)` - Show toast message
    - `events.noAction()` - Display-only (no action on Enter)
    - `events.custom(fn)` - Custom handler function
 
-6. **Shared Modules**:
+8. **Shared Modules**:
    - `lib/icons.lua` - Icon management with automatic discovery and caching
    - `lib/events.lua` - Composable action helpers for common patterns
    - `lib/search.lua` - Fuzzy search with ranking
@@ -313,8 +315,6 @@ return {
             actionsLauncher:refresh()
           end
         end)
-
-      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

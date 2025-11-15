@@ -379,6 +379,13 @@ function obj:openChildChooser(config, options)
 		end
 	end
 
+	-- Always clear dirty stack when opening child chooser from keymap
+	-- This handles the case where previous chooser was closed by clicking outside or Shift+ESC
+	if not cleanStack and self.chooserManager:depth() > 1 and pushToStack then
+		self.logger:d('Child chooser opening with dirty stack (depth=' .. self.chooserManager:depth() .. '), clearing')
+		cleanStack = true
+	end
+
 	-- Store handler for refresh functionality
 	self.currentChildHandler = config.handler
 

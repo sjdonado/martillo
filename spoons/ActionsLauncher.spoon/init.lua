@@ -155,6 +155,8 @@ function obj:createChooser()
 			end)
 		else
 			-- No parent, just close (stack is empty, hideCallback will clear)
+			self.logger:d('No parent to restore, stopping ESC interception and closing')
+			self.pickerManager:stopEscInterception()
 			if self.chooser then
 				self.chooser:hide()
 			end
@@ -495,6 +497,8 @@ function obj:openChildPicker(config, options)
 				end)
 			else
 				-- No parent, just close (stack is empty, hideCallback will clear)
+				self.logger:d('No parent to restore, stopping ESC interception and closing')
+				self.pickerManager:stopEscInterception()
 				if self.chooser then
 					self.chooser:hide()
 				end
@@ -611,6 +615,8 @@ function obj:restoreParentPicker(parentState)
 			end)
 		else
 			-- No parent, just close (stack is empty, hideCallback will clear)
+			self.logger:d('No parent to restore, stopping ESC interception and closing')
+			self.pickerManager:stopEscInterception()
 			if self.chooser then
 				self.chooser:hide()
 			end

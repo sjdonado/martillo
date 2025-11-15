@@ -2,7 +2,7 @@
 -- Process killer with fuzzy search
 
 local searchUtils = require 'lib.search'
-local pickerManager = require 'lib.picker'
+local chooserManager = require 'lib.chooser'
 local toast = require 'lib.toast'
 local icons = require 'lib.icons'
 local events = require 'lib.events'
@@ -584,8 +584,8 @@ return {
       -- Get ActionsLauncher instance
       local actionsLauncher = spoon.ActionsLauncher
 
-      -- Use ActionsLauncher's openChildPicker for consistency
-      actionsLauncher:openChildPicker {
+      -- Use ActionsLauncher's openChildChooser for consistency
+      actionsLauncher:openChildChooser {
         placeholder = 'Search processes...',
         parentAction = 'kill_process',
         handler = function(query, launcher)
@@ -621,7 +621,7 @@ return {
 
             -- Register handler for this choice
             launcher.handlers[uuid] = events.custom(function(choice)
-              local shiftHeld = pickerManager.isShiftHeld()
+              local shiftHeld = chooserManager.isShiftHeld()
 
               if shiftHeld then
                 -- Shift+Enter: Copy PID to clipboard
@@ -646,7 +646,7 @@ return {
         end,
       }
 
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

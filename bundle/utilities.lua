@@ -105,7 +105,7 @@ return {
 		handler = function()
 			local clipboardText = hs.pasteboard.getContents() or ''
 
-			spoon.ActionsLauncher:openChildPicker({
+			spoon.ActionsLauncher:openChildChooser({
 				placeholder = 'Enter or paste text to analyze...',
 				parentAction = 'word_count',
 				handler = function(query, launcher)
@@ -212,7 +212,7 @@ return {
 				end,
 			})
 
-			return 'OPEN_CHILD_PICKER'
+			return 'OPEN_CHILD_CHOOSER'
 		end,
 	},
 }

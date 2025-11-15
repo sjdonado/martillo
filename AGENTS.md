@@ -61,7 +61,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - `lib/icons.lua` - Icon management with automatic discovery and caching
    - `lib/events.lua` - Composable action helpers for common patterns
    - `lib/search.lua` - Fuzzy search with ranking
-   - `lib/picker.lua` - Picker state management (stack-based navigation)
+   - `lib/chooser.lua` - Chooser state management (stack-based navigation)
    - `lib/leader.lua` - Leader key expansion
 
 ## Built-in Spoons
@@ -72,9 +72,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Key Features**:
 - Fuzzy search with alias support
 - Beautiful 3D icons for all actions
-- Icon inheritance for child pickers
+- Icon inheritance for child choosers
 - Per-action keybindings
-- Child pickers (query-based transformations)
+- Child choosers (query-based transformations)
 - Auto-opens on Hammerspoon load/reload
 
 **Configuration**:
@@ -192,7 +192,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Actions**:
 - `keyboard_lock` - Lock keyboard for cleaning (lock icon)
-  - Opens childPicker immediately with unlock instructions
+  - Opens childChooser immediately with unlock instructions
   - Blocks ALL keyboard input except unlock combination
   - Unlock with `<leader>+Enter`
   - Visual feedback with modifier symbols
@@ -283,7 +283,7 @@ return {
       local actionsLauncher = spoon.ActionsLauncher
       local standings = {}
 
-      actionsLauncher:openChildPicker {
+      actionsLauncher:openChildChooser {
         placeholder = 'F1 Drivers Championship 2024',
         handler = function(query, launcher)
           local choices = {}
@@ -314,7 +314,7 @@ return {
           end
         end)
 
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }
@@ -394,7 +394,7 @@ icons.clearCache()
 
 **Location**: `lib/events.lua`
 
-**Purpose**: Composable helpers for common child picker action patterns
+**Purpose**: Composable helpers for common child chooser action patterns
 
 **Usage**:
 ```lua
@@ -434,15 +434,15 @@ end)
 
 ### Navigation System
 
-**Location**: `lib/picker.lua`
+**Location**: `lib/chooser.lua`
 
 **Features**:
 - Stack-based navigation (single source of truth)
-- Parent-child picker state management
+- Parent-child chooser state management
 - ESC navigation: pop from stack and restore parent
-- Shift+ESC: close all pickers and clear stack
-- Click-outside: close all pickers and clear stack
-- Modifier key detection (Shift for alternate actions in child pickers)
+- Shift+ESC: close all choosers and clear stack
+- Click-outside: close all choosers and clear stack
+- Modifier key detection (Shift for alternate actions in child choosers)
 
 **Implementation**: ESC Interception with `hs.eventtap`
 
@@ -477,7 +477,7 @@ The navigation system uses a global keyboard event tap to intercept ESC before i
 
    When `hideCallback` fires, it checks stack depth:
    - **Stack depth > 0**: ESC navigation in progress (popped current, parent still in stack) → keep stack
-   - **Stack depth = 0**: Normal close (Shift+ESC, click-outside, or last picker) → clear stack and stop eventtap
+   - **Stack depth = 0**: Normal close (Shift+ESC, click-outside, or last chooser) → clear stack and stop eventtap
 
 **Why this approach works**:
 
@@ -485,7 +485,7 @@ The navigation system uses a global keyboard event tap to intercept ESC before i
 ✅ **No race conditions** - Decision is synchronous based on keyboard event
 ✅ **Clear separation** - ESC intercepted vs Shift+ESC/click-outside handled by chooser
 ✅ **Self-documenting** - `shouldKeepStack()` clearly expresses intent
-✅ **Centralized state** - All navigation logic contained in `lib/picker.lua`
+✅ **Centralized state** - All navigation logic contained in `lib/chooser.lua`
 
 **Navigation flow**:
 
@@ -494,10 +494,10 @@ ESC Navigation (depth 2 → 1):
   User presses ESC
   → eventtap consumes event (returns true)
   → navigation callback: pop stack (depth becomes 1)
-  → navigation callback: hide current picker
+  → navigation callback: hide current chooser
   → hideCallback fires: shouldKeepStack() = true (depth = 1)
   → hideCallback: skips clear() call
-  → timer restores parent picker
+  → timer restores parent chooser
 
 Shift+ESC (depth 2 → 0):
   User presses Shift+ESC
@@ -517,12 +517,12 @@ Click Outside (depth 2 → 0):
 
 When the main launcher opens, it always clears any dirty stack:
 ```lua
-if self.pickerManager:depth() > 0 then
-  self.pickerManager:clear()
+if self.chooserManager:depth() > 0 then
+  self.chooserManager:clear()
 end
 ```
 
-This handles cases where click-outside leaves stack items (because `shouldKeepStack()` returns true when depth > 0, even from click-outside of a child picker).
+This handles cases where click-outside leaves stack items (because `shouldKeepStack()` returns true when depth > 0, even from click-outside of a child chooser).
 
 **Key methods**:
 
@@ -624,7 +624,7 @@ local icon = icons.getIcon(iconName)
 
 ```lua
 -- In parent action
-spoon.ActionsLauncher:openChildPicker{
+spoon.ActionsLauncher:openChildChooser{
   parentIcon = icons.getIcon('copy'),
   handler = function(query, launcher)
 

@@ -49,7 +49,7 @@ return {
     handler = function()
       local actionsLauncher = spoon.ActionsLauncher
       local updateTimer = nil
-      local isActive = true -- Flag to track if picker is still active
+      local isActive = true -- Flag to track if chooser is still active
       local results = {
         { text = 'CPU: Loading...',     subText = 'Processor usage and load', value = '', details = '' },
         { text = 'Memory: Loading...',  subText = 'RAM usage and pressure',   value = '', details = '' },
@@ -242,7 +242,7 @@ return {
             :start()
       end
 
-      actionsLauncher:openChildPicker {
+      actionsLauncher:openChildChooser {
         placeholder = 'System Information (real-time updates)',
         parentAction = 'system_information',
         handler = function(query, launcher)
@@ -258,7 +258,7 @@ return {
         onClose = function()
           -- Set flag to prevent further refresh attempts
           isActive = false
-          -- Stop the update timer when picker closes
+          -- Stop the update timer when chooser closes
           if updateTimer then
             updateTimer:stop()
             updateTimer = nil
@@ -274,7 +274,7 @@ return {
         updateSystemInfo()
       end)
 
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

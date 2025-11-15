@@ -402,13 +402,13 @@ Smart URL routing to different browsers:
 - **ESC**: Close launcher
 - **Shift+ESC**: Force close (same as ESC for main launcher)
 
-### Child Pickers (Clipboard, Converters, etc.)
+### Child Choosers (Clipboard, Converters, etc.)
 - **Type**: Filter results in real-time
 - **Enter**: Execute action (paste, convert, etc.)
 - **Shift+Enter**: Alternate action (copy only, etc.)
-- **ESC**: Navigate back to parent picker
-- **Shift+ESC**: Close all pickers and return to desktop
-- **Click outside**: Close all pickers and return to desktop
+- **ESC**: Navigate back to parent chooser
+- **Shift+ESC**: Close all choosers and return to desktop
+- **Click outside**: Close all choosers and return to desktop
 
 
 ## Creating Custom Actions

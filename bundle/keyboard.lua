@@ -7,7 +7,7 @@ local icons = require 'lib.icons'
 local M = {
 	keyboardLockTap = nil,
 	keyboardLocked = false,
-	lockPickerChooser = nil,
+	lockChooserChooser = nil,
 	keepAliveTimer = nil,
 	keepAliveActive = false,
 	logger = hs.logger.new('KeyboardBundle', 'debug'),
@@ -78,15 +78,15 @@ local function unlockKeyboard()
 
 	M.keyboardLocked = false
 
-	-- Close the picker if it's open
-	if M.lockPickerChooser then
-		M.lockPickerChooser:hide()
-		M.lockPickerChooser = nil
+	-- Close the chooser if it's open
+	if M.lockChooserChooser then
+		M.lockChooserChooser:hide()
+		M.lockChooserChooser = nil
 	end
 
-	-- Clear picker manager state
-	if spoon.ActionsLauncher and spoon.ActionsLauncher.pickerManager then
-		spoon.ActionsLauncher.pickerManager:clear()
+	-- Clear chooser manager state
+	if spoon.ActionsLauncher and spoon.ActionsLauncher.chooserManager then
+		spoon.ActionsLauncher.chooserManager:clear()
 	end
 
 	toast.success('Keyboard unlocked')
@@ -167,15 +167,15 @@ return {
 		icon = icons.preset.lock,
 		description = 'Lock keyboard for cleaning (unlock with <leader>+Enter)',
 		handler = function()
-			-- Open child picker first
-			spoon.ActionsLauncher:openChildPicker({
+			-- Open child chooser first
+			spoon.ActionsLauncher:openChildChooser({
 				placeholder = '🔒 Keyboard Locked - Clean away!',
 				parentAction = 'keyboard_lock',
 				handler = function(query, launcher)
 					-- Store reference to the chooser
-					M.lockPickerChooser = launcher.chooser
+					M.lockChooserChooser = launcher.chooser
 
-					-- Start keyboard lock after picker is ready
+					-- Start keyboard lock after chooser is ready
 					if not M.keyboardLocked then
 						hs.timer.doAfter(0.1, function()
 							lockKeyboard()
@@ -195,7 +195,7 @@ return {
 				end,
 			})
 
-			return 'OPEN_CHILD_PICKER'
+			return 'OPEN_CHILD_CHOOSER'
 		end,
 	},
 	{

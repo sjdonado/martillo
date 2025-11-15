@@ -46,7 +46,7 @@ return {
       local standings = {}
       local loading = true
 
-      actionsLauncher:openChildPicker {
+      actionsLauncher:openChildChooser {
         placeholder = 'F1 Drivers Championship 2024',
         parentAction = 'f1_standings',
         handler = function(query, launcher)
@@ -92,7 +92,7 @@ return {
           end
         end)
 
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }
@@ -165,5 +165,5 @@ end)
 - Use `local icons = require 'lib.icons'` for icon paths
 - Use `local events = require 'lib.events'` for action helpers
 - Handle errors gracefully with `pcall`
-- For child pickers, see examples in `bundle/` directory
-- Return `'OPEN_CHILD_PICKER'` from handlers that open child pickers
+- For child choosers, see examples in `bundle/` directory
+- Return `'OPEN_CHILD_CHOOSER'` from handlers that open child choosers

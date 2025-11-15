@@ -11,7 +11,7 @@ return {
     icon = icons.preset.clock,
     description = 'Convert between multiple time formats (timestamp, ISO, date, etc.)',
     handler = function()
-      spoon.ActionsLauncher:openChildPicker {
+      spoon.ActionsLauncher:openChildChooser {
         placeholder = 'Enter time (timestamp, ISO, date, etc.)...',
         parentAction = 'timestamp',
         handler = function(query, launcher)
@@ -240,7 +240,7 @@ return {
           return results
         end,
       }
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
   {
@@ -249,7 +249,7 @@ return {
     icon = icons.preset.calculator,
     description = 'Encode or decode base64',
     handler = function()
-      spoon.ActionsLauncher:openChildPicker {
+      spoon.ActionsLauncher:openChildChooser {
         placeholder = 'Enter text to encode/decode...',
         parentAction = 'base64',
         handler = function(query, launcher)
@@ -293,7 +293,7 @@ return {
           return results
         end,
       }
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
   {
@@ -302,7 +302,7 @@ return {
     icon = icons.preset.calculator,
     description = 'Decode JWT token',
     handler = function()
-      spoon.ActionsLauncher:openChildPicker {
+      spoon.ActionsLauncher:openChildChooser {
         placeholder = 'Paste JWT token...',
         parentAction = 'jwt',
         handler = function(query, launcher)
@@ -380,7 +380,7 @@ return {
           return results
         end,
       }
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
   {
@@ -389,7 +389,7 @@ return {
     icon = icons.preset.color_palette,
     description = 'Convert between color formats (hex, rgb)',
     handler = function()
-      spoon.ActionsLauncher:openChildPicker {
+      spoon.ActionsLauncher:openChildChooser {
         placeholder = 'Enter color (hex or rgb)...',
         parentAction = 'colors',
         handler = function(query, launcher)
@@ -452,7 +452,7 @@ return {
           return results
         end,
       }
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

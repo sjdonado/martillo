@@ -2,7 +2,7 @@
 -- Persistent clipboard history with fuzzy search
 
 local searchUtils = require 'lib.search'
-local pickerManager = require 'lib.picker'
+local chooserManager = require 'lib.chooser'
 local toast = require 'lib.toast'
 local icons = require 'lib.icons'
 local events = require 'lib.events'
@@ -546,7 +546,7 @@ local function buildFormattedChoice(rawEntry, loadImages)
   return choiceEntry
 end
 
--- Capture focus before showing picker
+-- Capture focus before showing chooser
 local function captureFocus()
   M.lastFocusedWindow = hs.window.frontmostWindow()
   local app = hs.application.frontmostApplication()
@@ -736,8 +736,8 @@ return {
       -- Capture focus for paste functionality
       captureFocus()
 
-      -- Use ActionsLauncher's openChildPicker for consistency
-      spoon.ActionsLauncher:openChildPicker {
+      -- Use ActionsLauncher's openChildChooser for consistency
+      spoon.ActionsLauncher:openChildChooser {
         placeholder = 'Search clipboard history...',
         parentAction = 'clipboard_history',
         handler = function(query, launcher)
@@ -756,7 +756,7 @@ return {
             formattedChoice.uuid = uuid
 
             launcher.handlers[uuid] = events.custom(function(choice)
-              local shiftHeld = pickerManager.isShiftHeld()
+              local shiftHeld = chooserManager.isShiftHeld()
 
               if shiftHeld then
                 -- Shift+Enter: Copy only
@@ -779,7 +779,7 @@ return {
         end,
       }
 
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

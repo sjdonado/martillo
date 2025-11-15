@@ -1,8 +1,8 @@
--- Test script to validate ESC interception approach for picker navigation
+-- Test script to validate ESC interception approach for chooser navigation
 -- This validates the solution proposed in AGENTS.md for distinguishing:
 --   - ESC (navigate to parent)
---   - Shift+ESC (close all pickers)
---   - Click outside (close all pickers)
+--   - Shift+ESC (close all choosers)
+--   - Click outside (close all choosers)
 --
 -- HOW TO RUN:
 --   1. Open Hammerspoon console
@@ -91,7 +91,7 @@ print("")
 print("2. Press Shift+ESC:")
 print("   Expected: Chooser closes, hideCallback fires")
 print("")
-print("3. Click outside picker:")
+print("3. Click outside chooser:")
 print("   Expected: Chooser closes, hideCallback fires")
 print("")
 print("4. Select an item (Enter):")

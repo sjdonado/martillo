@@ -1,62 +1,62 @@
--- Picker state management for parent-child picker relationships
--- Provides state tracking for Nested Actions (child pickers)
+-- Chooser state management for parent-child chooser relationships
+-- Provides state tracking for Nested Actions (child choosers)
 
 local toast = require 'lib.toast'
 
 local M = {}
 
---- Create a new picker manager
---- @return table PickerManager instance
+--- Create a new chooser manager
+--- @return table ChooserManager instance
 function M.new()
   local manager = {
     stack = {},
     currentChooser = nil,
     escTap = nil,
     onEscNavigate = nil,
-    logger = hs.logger.new('PickerManager', 'info'),
+    logger = hs.logger.new('ChooserManager', 'info'),
   }
 
   setmetatable(manager, { __index = M })
   return manager
 end
 
---- Check if the current picker has a parent (i.e., there's at least one other picker in the stack)
---- Stack depth of 1 means only the current picker (no parent)
---- Stack depth > 1 means there are parent pickers below
+--- Check if the current chooser has a parent (i.e., there's at least one other chooser in the stack)
+--- Stack depth of 1 means only the current chooser (no parent)
+--- Stack depth > 1 means there are parent choosers below
 --- @return boolean
 function M:hasParent()
   return #self.stack > 1
 end
 
---- Get the current depth of the picker stack
+--- Get the current depth of the chooser stack
 --- @return number
 function M:depth()
   return #self.stack
 end
 
---- Push a picker state onto the stack
+--- Push a chooser state onto the stack
 --- @param state table State containing choices, placeholder, handlers, etc.
-function M:pushPicker(state)
+function M:pushChooser(state)
   table.insert(self.stack, state)
-  self.logger:d('Pushed picker to stack, depth: ' .. #self.stack)
+  self.logger:d('Pushed chooser to stack, depth: ' .. #self.stack)
 end
 
---- Pop a picker state from the stack
---- @return table|nil The picker state or nil if stack is empty
-function M:popPicker()
+--- Pop a chooser state from the stack
+--- @return table|nil The chooser state or nil if stack is empty
+function M:popChooser()
   if #self.stack == 0 then
     return nil
   end
 
   local state = table.remove(self.stack)
-  self.logger:d('Popped picker from stack, depth: ' .. #self.stack)
+  self.logger:d('Popped chooser from stack, depth: ' .. #self.stack)
   return state
 end
 
 --- Clear all parent states from the stack
 function M:clear()
   self.stack = {}
-  self.logger:d 'Cleared picker stack'
+  self.logger:d 'Cleared chooser stack'
 end
 
 --- Set the current chooser instance
@@ -93,11 +93,11 @@ function M:shouldKeepStack()
   return keepStack
 end
 
---- Start ESC key interception for picker navigation
+--- Start ESC key interception for chooser navigation
 --- This intercepts ESC before it reaches the chooser to distinguish:
 ---   - ESC alone: navigate to parent (event consumed)
----   - Shift+ESC: close all pickers (event propagates)
----   - Click outside: close all pickers (no ESC event)
+---   - Shift+ESC: close all choosers (event propagates)
+---   - Click outside: close all choosers (no ESC event)
 --- @param onNavigate function Callback to execute when ESC is pressed (for parent navigation)
 function M:startEscInterception(onNavigate)
   self.onEscNavigate = onNavigate
@@ -113,8 +113,8 @@ function M:startEscInterception(onNavigate)
     -- ESC key is keycode 53
     if keyCode == 53 then
       if flags.shift then
-        -- Shift+ESC: Let event through to close all pickers
-        self.logger:d('Shift+ESC detected - closing all pickers')
+        -- Shift+ESC: Let event through to close all choosers
+        self.logger:d('Shift+ESC detected - closing all choosers')
         return false
       else
         -- ESC alone: Consume event and navigate to parent

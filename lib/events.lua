@@ -1,7 +1,7 @@
 -- Composable helper functions for common action events
 
 local toast = require 'lib.toast'
-local pickerManager = require 'lib.picker'
+local chooserManager = require 'lib.chooser'
 local searchUtils = require 'lib.search'
 
 local M = {}
@@ -36,7 +36,7 @@ function M.openUrl(getUrl)
       return
     end
 
-    local shiftHeld = pickerManager.isShiftHeld()
+    local shiftHeld = chooserManager.isShiftHeld()
 
     if shiftHeld then
       -- Shift+Enter: Copy to clipboard
@@ -67,7 +67,7 @@ function M.copyAndPaste(getText)
       return
     end
 
-    local shiftHeld = pickerManager.isShiftHeld()
+    local shiftHeld = chooserManager.isShiftHeld()
 
     if shiftHeld then
       -- Shift+Enter: Copy only (no paste)
@@ -100,7 +100,7 @@ function M.showToast(getMessage)
   end
 end
 
---- Create a handler that does nothing (display-only picker)
+--- Create a handler that does nothing (display-only chooser)
 --- @return function Handler function
 function M.noAction()
   return function(choice)
@@ -119,7 +119,7 @@ end
 --- @param results table Array of result objects with text/subText/value/image fields
 --- @param launcher table Launcher instance for UUID generation
 --- @param opts table Options: { handler = function, image = hs.image }
---- @return table Array of choices ready for picker
+--- @return table Array of choices ready for chooser
 function M.buildChoices(results, launcher, opts)
   opts = opts or {}
   local handler = opts.handler or M.noAction()
@@ -157,12 +157,12 @@ function M.buildChoices(results, launcher, opts)
 end
 
 --- Build choices with fuzzy search from a results array
---- Common pattern for display-only or copyable pickers with search support
+--- Common pattern for display-only or copyable choosers with search support
 --- @param query string Search query from user
 --- @param results table Array of result objects with text/subText/value/image fields
 --- @param launcher table Launcher instance for UUID generation
 --- @param opts table Options: { handler = function, searchFields = table, fuzzyMinQueryLength = number, maxResults = number, image = hs.image }
---- @return table Array of choices ready for picker
+--- @return table Array of choices ready for chooser
 function M.buildSearchableChoices(query, results, launcher, opts)
   opts = opts or {}
   local handler = opts.handler or M.noAction()

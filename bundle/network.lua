@@ -133,7 +133,7 @@ return {
           :start()
       end
 
-      actionsLauncher:openChildPicker {
+      actionsLauncher:openChildChooser {
         placeholder = 'IP Geolocation Information (Enter to copy)',
         parentAction = 'network_copy_ip',
         handler = function(query, launcher)
@@ -148,10 +148,10 @@ return {
         end,
       }
 
-      -- Start fetching data after picker is shown
+      -- Start fetching data after chooser is shown
       hs.timer.doAfter(0.1, fetchData)
 
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 
@@ -237,8 +237,8 @@ return {
           :start()
       end
 
-      -- Use ActionsLauncher's openChildPicker
-      actionsLauncher:openChildPicker {
+      -- Use ActionsLauncher's openChildChooser
+      actionsLauncher:openChildChooser {
         placeholder = 'Speed test results...',
         parentAction = 'network_status',
         handler = function(query, launcher)
@@ -248,10 +248,10 @@ return {
         end,
       }
 
-      -- Start tests after picker is shown
+      -- Start tests after chooser is shown
       hs.timer.doAfter(0.1, runTests)
 
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

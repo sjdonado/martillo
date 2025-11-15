@@ -3,7 +3,7 @@
 -- Lists tabs by recency (current tab first, then other tabs in active window, then other windows)
 
 local searchUtils = require 'lib.search'
-local pickerManager = require 'lib.picker'
+local chooserManager = require 'lib.chooser'
 local toast = require 'lib.toast'
 local events = require 'lib.events'
 local icons = require 'lib.icons'
@@ -156,7 +156,7 @@ local function formatURL(url, maxLength)
   return displayURL:sub(1, maxLength - 3) .. '...'
 end
 
--- Build choices for the picker
+-- Build choices for the chooser
 local function buildChoices(tabs, query, launcher)
   if not tabs or #tabs == 0 then
     return {}
@@ -199,7 +199,7 @@ local function buildChoices(tabs, query, launcher)
 
     -- Register custom handler: Shift+Enter copies URL, Enter switches to tab
     launcher.handlers[uuid] = events.custom(function(choice)
-      local shiftHeld = pickerManager.isShiftHeld()
+      local shiftHeld = chooserManager.isShiftHeld()
 
       if shiftHeld then
         -- Shift+Enter: Copy URL to clipboard
@@ -245,8 +245,8 @@ return {
       -- Get ActionsLauncher instance
       local actionsLauncher = spoon.ActionsLauncher
 
-      -- Open child picker
-      actionsLauncher:openChildPicker {
+      -- Open child chooser
+      actionsLauncher:openChildChooser {
         placeholder = 'Search Safari tabs...',
         parentAction = 'safari_tabs',
         handler = function(query, launcher)
@@ -254,7 +254,7 @@ return {
         end,
       }
 
-      return 'OPEN_CHILD_PICKER'
+      return 'OPEN_CHILD_CHOOSER'
     end,
   },
 }

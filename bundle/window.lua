@@ -152,6 +152,46 @@ local function moveWindow(direction)
 		winFrame.y = frame.y + frame.h / 3
 		winFrame.w = frame.w
 		winFrame.h = frame.h * 2 / 3
+
+	-- Fourths (horizontal)
+	elseif direction == 'left_fourth' then
+		winFrame.x = frame.x
+		winFrame.y = frame.y
+		winFrame.w = frame.w / 4
+		winFrame.h = frame.h
+	elseif direction == 'center_left_fourth' then
+		winFrame.x = frame.x + frame.w / 4
+		winFrame.y = frame.y
+		winFrame.w = frame.w / 4
+		winFrame.h = frame.h
+	elseif direction == 'center_right_fourth' then
+		winFrame.x = frame.x + (frame.w * 2 / 4)
+		winFrame.y = frame.y
+		winFrame.w = frame.w / 4
+		winFrame.h = frame.h
+	elseif direction == 'right_fourth' then
+		winFrame.x = frame.x + (frame.w * 3 / 4)
+		winFrame.y = frame.y
+		winFrame.w = frame.w / 4
+		winFrame.h = frame.h
+	elseif direction == 'left_three_fourths' then
+		winFrame.x = frame.x
+		winFrame.y = frame.y
+		winFrame.w = frame.w * 3 / 4
+		winFrame.h = frame.h
+	elseif direction == 'right_three_fourths' then
+		winFrame.x = frame.x + frame.w / 4
+		winFrame.y = frame.y
+		winFrame.w = frame.w * 3 / 4
+		winFrame.h = frame.h
+
+	-- Cinema mode
+	elseif direction == 'cinema' then
+		-- Cinema: Full width, 90% height, centered vertically
+		winFrame.w = frame.w
+		winFrame.h = frame.h * 0.9
+		winFrame.x = frame.x
+		winFrame.y = frame.y + (frame.h - winFrame.h) / 2
 	end
 
 	win:setFrame(winFrame, 0)
@@ -364,6 +404,73 @@ return {
 		description = 'Position window in bottom two thirds',
 		handler = function()
 			moveWindow('bottom_two_thirds')
+		end,
+	},
+
+	-- Window Management Actions - Fourths (Horizontal)
+	{
+		id = 'window_left_fourth',
+		name = 'Window Left Fourth',
+		icon = icons.preset.computer,
+		description = 'Position window in left fourth',
+		handler = function()
+			moveWindow('left_fourth')
+		end,
+	},
+	{
+		id = 'window_center_left_fourth',
+		name = 'Window Center Left Fourth',
+		icon = icons.preset.computer,
+		description = 'Position window in center left fourth',
+		handler = function()
+			moveWindow('center_left_fourth')
+		end,
+	},
+	{
+		id = 'window_center_right_fourth',
+		name = 'Window Center Right Fourth',
+		icon = icons.preset.computer,
+		description = 'Position window in center right fourth',
+		handler = function()
+			moveWindow('center_right_fourth')
+		end,
+	},
+	{
+		id = 'window_right_fourth',
+		name = 'Window Right Fourth',
+		icon = icons.preset.computer,
+		description = 'Position window in right fourth',
+		handler = function()
+			moveWindow('right_fourth')
+		end,
+	},
+	{
+		id = 'window_left_three_fourths',
+		name = 'Window Left Three Fourths',
+		icon = icons.preset.computer,
+		description = 'Position window in left three fourths',
+		handler = function()
+			moveWindow('left_three_fourths')
+		end,
+	},
+	{
+		id = 'window_right_three_fourths',
+		name = 'Window Right Three Fourths',
+		icon = icons.preset.computer,
+		description = 'Position window in right three fourths',
+		handler = function()
+			moveWindow('right_three_fourths')
+		end,
+	},
+
+	-- Cinema Mode
+	{
+		id = 'window_cinema',
+		name = 'Cinema Mode',
+		icon = icons.preset.computer,
+		description = 'Full width, 90% height, centered vertically',
+		handler = function()
+			moveWindow('cinema')
 		end,
 	},
 }

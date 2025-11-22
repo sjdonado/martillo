@@ -18,8 +18,24 @@ return {
 		name = 'Update Martillo',
 		icon = icons.preset.axe,
 		handler = function()
-			spoon.ActionsLauncher.executeShell('cd ~/.martillo && git pull', 'Update Martillo')
+			local task = hs.task.new('/bin/sh', function(exitCode, stdOut, stdErr)
+				if exitCode == 0 then
+					local output = stdOut and stdOut:gsub('%s+$', '') or ''
+					if output ~= '' then
+						hs.alert.show('✅ ' .. output .. ' - Reloading...', _G.MARTILLO_ALERT_DURATION)
+					else
+						hs.alert.show('✅ Update Martillo completed - Reloading...', _G.MARTILLO_ALERT_DURATION)
+					end
+					-- Reload Martillo after successful update
+					hs.timer.doAfter(0.5, function()
+						hs.reload()
+					end)
+				else
+					hs.alert.show('Update Martillo failed: ' .. (stdErr or 'Unknown error'), _G.MARTILLO_ALERT_DURATION)
+				end
+			end, { '-c', 'cd ~/.martillo && git pull' })
+			task:start()
 		end,
-		description = 'Pull latest changes',
+		description = 'Pull latest changes and reload',
 	},
 }

@@ -14,6 +14,9 @@ local M = {
   currentQuery = '',
   maxResults = 200,
   logger = hs.logger.new('KillProcess', 'info'),
+  cachedProcessList = nil, -- Cache process list to avoid re-running ps on every keystroke
+  cacheRefreshTimer = nil, -- Timer to refresh the cache periodically
+  iconCache = {},          -- Cache icon objects in memory for the session
 }
 
 -- Format memory for display
@@ -226,29 +229,6 @@ local function extractProcessName(command, baseAppName, appProcessList)
   end
 
   return processName
-end
-
--- Get app icon for a process using thumbnail cache
-local function getAppIcon(pid)
-  if pid then
-    local appbundle = hs.application.applicationForPID(pid)
-    if appbundle then
-      local bundleID = appbundle:bundleID()
-      if bundleID then
-        -- Use thumbnail cache for app icons (respects memory limit)
-        local icon = thumbnailCache.getCachedAppIcon(bundleID)
-        if icon then
-          return icon
-        end
-        -- If nil, we've reached the limit - fall through to fallback
-      end
-    end
-  end
-
-  -- Fallback to generic executable icon (always cached, doesn't count toward limit)
-  return thumbnailCache.getFallbackIcon('executable', function()
-    return hs.image.iconForFileType 'public.unix-executable'
-  end)
 end
 
 -- Get list of running processes
@@ -464,9 +444,16 @@ local function getProcessList()
   return processes
 end
 
+-- Refresh the cached process list
+local function refreshProcessCache()
+  M.cachedProcessList = getProcessList()
+  M.logger:d('Refreshed process cache: ' .. #M.cachedProcessList .. ' processes')
+end
+
 -- Get filtered choices based on current query with priority-based search
 local function getFilteredChoices()
-  local allProcesses = getProcessList()
+  -- Use cached process list if available, otherwise fetch fresh
+  local allProcesses = M.cachedProcessList or getProcessList()
   local choices = {}
 
   -- Safety check
@@ -559,72 +546,143 @@ return {
     handler = function()
       -- Get ActionsLauncher instance
       local actionsLauncher = spoon.ActionsLauncher
+      local currentLauncher = nil -- Will be set by handler
+
+      -- Reset icon count at the start of each search session
+      thumbnailCache.resetLoadedCount 'app_icons'
 
       -- Set thumbnail memory limit for app icons
       thumbnailCache.setMaxLoaded('app_icons', 100)
 
-      -- Use ActionsLauncher's openChildChooser for consistency
+      -- Clear icon cache from previous session
+      M.iconCache = {}
+
+      -- Initialize process cache and start refresh timer
+      refreshProcessCache() -- Initial load
+
+      -- Function to build choices from filtered processes
+      local function buildChoices(launcher)
+        if not launcher then
+          return {}
+        end
+
+        -- Get filtered processes (uses cached list)
+        local filteredProcesses = getFilteredChoices()
+
+        -- Build choices with handlers
+        local choices = {}
+        for _, process in ipairs(filteredProcesses) do
+          -- Generate UUID for this choice
+          local uuid = launcher:generateUUID()
+
+          -- Check if icon is already cached in memory for this PID
+          local icon = M.iconCache[process.pid]
+
+          if not icon then
+            -- Load icon for this process
+            if isAppProcessEntry(process) then
+              -- App processes: try to get app icon
+              if process.pid then
+                local success, appbundle = pcall(hs.application.applicationForPID, process.pid)
+                if success and appbundle then
+                  local bundleID = appbundle:bundleID()
+                  if bundleID then
+                    icon = thumbnailCache.getCachedAppIcon(bundleID)
+                  end
+                end
+              end
+            end
+
+            -- Fallback icon for non-app processes or if app icon failed
+            if not icon then
+              icon = thumbnailCache.getFallbackIcon('executable', function()
+                return icons.getIcon(icons.preset.cube)
+              end)
+            end
+
+            -- Cache the icon in memory for this session
+            M.iconCache[process.pid] = icon
+          end
+
+          -- Create choice entry
+          local choiceEntry = {
+            text = process.text,
+            subText = process.subText,
+            uuid = uuid,
+            image = icon,
+          }
+
+          -- Register handler for this choice
+          launcher.handlers[uuid] = events.custom(function(choice)
+            local shiftHeld = chooserManager.isShiftHeld()
+
+            if shiftHeld then
+              -- Shift+Enter: Copy PID to clipboard
+              local pidStr = tostring(process.pid)
+              hs.pasteboard.setContents(pidStr)
+              toast.copied(pidStr)
+            else
+              -- Enter: Kill the process
+              local success = hs.execute(string.format('kill %d', process.pid))
+              if success then
+                toast.success('Killed: ' .. process.name)
+              else
+                toast.error('Failed to kill: ' .. process.name)
+              end
+            end
+          end)
+
+          table.insert(choices, choiceEntry)
+        end
+
+        return choices
+      end
+
+      -- Function to refresh chooser display
+      local function refreshChooserDisplay()
+        if currentLauncher and actionsLauncher.chooser then
+          local newChoices = buildChoices(currentLauncher)
+          actionsLauncher.chooser:choices(newChoices)
+        end
+      end
+
+      -- Stop any existing timer
+      if M.cacheRefreshTimer then
+        M.cacheRefreshTimer:stop()
+      end
+
+      -- Start timer to refresh cache every second while chooser is open
+      M.cacheRefreshTimer = hs.timer.new(M.refreshIntervalSeconds, function()
+        refreshProcessCache()
+        -- Update chooser display with new data
+        refreshChooserDisplay()
+      end)
+      M.cacheRefreshTimer:start()
+
       actionsLauncher:openChildChooser {
         placeholder = 'Search processes...',
         parentAction = 'kill_process',
+        onClose = function()
+          -- Stop cache refresh timer when chooser closes
+          if M.cacheRefreshTimer then
+            M.cacheRefreshTimer:stop()
+            M.cacheRefreshTimer = nil
+          end
+          -- Clear cached process list and icon cache to free memory
+          M.cachedProcessList = nil
+          M.iconCache = {}
+          currentLauncher = nil
+          M.logger:d 'Stopped process cache refresh timer and cleared caches'
+        end,
         handler = function(query, launcher)
-          -- Reset icon count for each query to limit memory usage
-          thumbnailCache.resetLoadedCount('app_icons')
+          -- Store launcher reference for refresh function
+          currentLauncher = launcher
 
-          -- Update current query for filtering
+          -- Update current query for filtering (cached list will be used)
           M.currentQuery = query or ''
 
-          -- Get filtered processes
-          local filteredProcesses = getFilteredChoices()
-
-          -- Build choices with handlers
-          local choices = {}
-          for _, process in ipairs(filteredProcesses) do
-            -- Generate UUID for this choice
-            local uuid = launcher:generateUUID()
-
-            -- Load icon lazily, only for filtered results (performance optimization)
-            -- Load app icons for app processes, fallback icon for system processes
-            local icon = nil
-            if isAppProcessEntry(process) then
-              icon = getAppIcon(process.pid)
-            else
-              -- Use fallback icon for non-app processes to avoid default Hammerspoon icon
-              icon = getAppIcon(nil) -- getAppIcon returns fallback when no valid app found
-            end
-
-            -- Create choice entry
-            local choiceEntry = {
-              text = process.text,
-              subText = process.subText,
-              uuid = uuid,
-              image = icon, -- Add app icon or fallback icon
-            }
-
-            -- Register handler for this choice
-            launcher.handlers[uuid] = events.custom(function(choice)
-              local shiftHeld = chooserManager.isShiftHeld()
-
-              if shiftHeld then
-                -- Shift+Enter: Copy PID to clipboard
-                local pidStr = tostring(process.pid)
-                hs.pasteboard.setContents(pidStr)
-                toast.copied(pidStr)
-              else
-                -- Enter: Kill the process
-                local success = hs.execute(string.format('kill %d', process.pid))
-                if success then
-                  toast.success('Killed: ' .. process.name)
-                else
-                  toast.error('Failed to kill: ' .. process.name)
-                end
-              end
-            end)
-
-            table.insert(choices, choiceEntry)
-          end
-
-          return choices
+          -- Build and return choices
+          return buildChoices(launcher)
         end,
       }
     end,

@@ -725,7 +725,6 @@ return {
       -- Set thumbnail memory limit for images
       thumbnailCache.setMaxLoaded('images', 100)
 
-      -- Use ActionsLauncher's openChildChooser for consistency
       spoon.ActionsLauncher:openChildChooser {
         placeholder = 'Search clipboard history...',
         parentAction = 'clipboard_history',

@@ -6,6 +6,7 @@ local chooserManager = require 'lib.chooser'
 local toast = require 'lib.toast'
 local icons = require 'lib.icons'
 local events = require 'lib.events'
+local thumbnailCache = require 'lib.thumbnail_cache'
 
 local M = {
   watcher = nil,
@@ -14,8 +15,6 @@ local M = {
   historyAssets = '~/.martillo_clipboard_history_assets',
   currentQuery = '',
   historyBuffer = {},
-  imageCache = {},
-  maxImageCacheSize = 100,
   lastFocusedApp = nil,
   lastFocusedWindow = nil,
   logger = hs.logger.new('ClipboardHistory', 'debug'),
@@ -246,8 +245,9 @@ local function onClipboardChange()
       end
     end
 
-    -- Save image
+    -- Save full image (thumbnail will be generated on-demand when displayed)
     imageData:saveToFile(imagePath)
+
     content = imagePath
     contentType = 'image'
   elseif not content or content == '' then
@@ -290,40 +290,24 @@ local function onClipboardChange()
   saveHistory()
 end
 
--- Get image from cache or load and cache it
-local function getImageFromCache(imagePath)
-  if M.imageCache[imagePath] then
-    return M.imageCache[imagePath]
-  end
-
-  -- Check cache size and evict oldest if necessary
-  local cacheSize = 0
-  for _ in pairs(M.imageCache) do
-    cacheSize = cacheSize + 1
-  end
-
-  if cacheSize >= M.maxImageCacheSize then
-    -- Simple eviction: clear entire cache when limit reached
-    M.logger:d 'Image cache full, clearing cache'
-    M.imageCache = {}
-  end
-
-  local file = io.open(imagePath, 'r')
-  if not file then
+-- Get image thumbnail using the shared thumbnail cache
+-- For screenshots, generates and caches a thumbnail in /tmp
+-- For other images, resizes to icon size and caches
+local function getImageFromCache(imagePath, isScreenshot)
+  if not imagePath then
     return nil
   end
-  file:close()
 
-  local image = hs.image.imageFromPath(imagePath)
+  local image = thumbnailCache.getCachedImageThumbnail(imagePath)
+
+  -- If nil, we've reached the limit - use fallback icon
   if not image then
-    return nil
+    return thumbnailCache.getFallbackIcon('image', function()
+      return icons.getIcon(icons.preset.image)
+    end)
   end
 
-  -- Resize to fixed thumbnail size for consistent performance
-  local resized = image:setSize(icons.ICON_SIZE)
-
-  M.imageCache[imagePath] = resized
-  return resized
+  return image
 end
 
 -- Fuzzy search on raw entries
@@ -496,7 +480,8 @@ local function buildFormattedChoice(rawEntry, loadImages)
 
     if loadImages then
       local imagePath = entry.content
-      local image = getImageFromCache(imagePath)
+      -- Pass true for isScreenshot since entry.type == 'image' means it's a screenshot
+      local image = getImageFromCache(imagePath, true)
       if image then
         choiceEntry.image = image
       end
@@ -509,7 +494,8 @@ local function buildFormattedChoice(rawEntry, loadImages)
     choiceEntry.text = getFileDisplayName(filePath) or preview
 
     if (fileType == 'image' or fileType == 'video') and loadImages then
-      local image = getImageFromCache(filePath)
+      -- For file type images/videos, load thumbnail
+      local image = getImageFromCache(filePath, fileType == 'image')
       if image then
         choiceEntry.image = image
       else
@@ -729,18 +715,24 @@ return {
     handler = function()
       -- Check if history is empty
       if #M.historyBuffer == 0 then
-        toast.info('Clipboard history is empty')
+        toast.info 'Clipboard history is empty'
         return
       end
 
       -- Capture focus for paste functionality
       captureFocus()
 
+      -- Set thumbnail memory limit for images
+      thumbnailCache.setMaxLoaded('images', 100)
+
       -- Use ActionsLauncher's openChildChooser for consistency
       spoon.ActionsLauncher:openChildChooser {
         placeholder = 'Search clipboard history...',
         parentAction = 'clipboard_history',
         handler = function(query, launcher)
+          -- Reset image count for each query to limit memory usage
+          thumbnailCache.resetLoadedCount 'images'
+
           -- Update current query for filtering
           M.currentQuery = query or ''
 

@@ -6,14 +6,13 @@ local chooserManager = require 'lib.chooser'
 local toast = require 'lib.toast'
 local icons = require 'lib.icons'
 local events = require 'lib.events'
+local thumbnailCache = require 'lib.thumbnail_cache'
 
 local M = {
   refreshTimer = nil,
   refreshIntervalSeconds = 1,
   currentQuery = '',
-  maxResults = 100,
-  iconCache = {},     -- Cache icons by bundle ID
-  maxCacheSize = 100, -- Limit cache to 100 icons
+  maxResults = 200,
   logger = hs.logger.new('KillProcess', 'info'),
 }
 
@@ -229,50 +228,27 @@ local function extractProcessName(command, baseAppName, appProcessList)
   return processName
 end
 
--- Get app icon for a process (with caching and resizing)
+-- Get app icon for a process using thumbnail cache
 local function getAppIcon(pid)
   if pid then
     local appbundle = hs.application.applicationForPID(pid)
     if appbundle then
       local bundleID = appbundle:bundleID()
       if bundleID then
-        -- Check cache first
-        if M.iconCache[bundleID] then
-          return M.iconCache[bundleID]
-        end
-
-        -- Check cache size and evict if necessary
-        local cacheSize = 0
-        for _ in pairs(M.iconCache) do
-          cacheSize = cacheSize + 1
-        end
-
-        if cacheSize >= M.maxCacheSize then
-          -- Simple eviction: clear entire cache when limit reached
-          M.logger:d 'Icon cache full, clearing cache'
-          M.iconCache = {}
-        end
-
-        -- Load and resize icon
-        local icon = hs.image.imageFromAppBundle(bundleID)
+        -- Use thumbnail cache for app icons (respects memory limit)
+        local icon = thumbnailCache.getCachedAppIcon(bundleID)
         if icon then
-          -- Resize for better performance
-          local resized = icon:setSize(icons.ICON_SIZE)
-          M.iconCache[bundleID] = resized
-          return resized
+          return icon
         end
+        -- If nil, we've reached the limit - fall through to fallback
       end
     end
   end
 
-  -- Fallback to generic executable icon (cached)
-  if not M.iconCache['__fallback__'] then
-    local fallback = hs.image.iconForFileType 'public.unix-executable'
-    if fallback then
-      M.iconCache['__fallback__'] = fallback:setSize(icons.ICON_SIZE)
-    end
-  end
-  return M.iconCache['__fallback__']
+  -- Fallback to generic executable icon (always cached, doesn't count toward limit)
+  return thumbnailCache.getFallbackIcon('executable', function()
+    return hs.image.iconForFileType 'public.unix-executable'
+  end)
 end
 
 -- Get list of running processes
@@ -584,11 +560,17 @@ return {
       -- Get ActionsLauncher instance
       local actionsLauncher = spoon.ActionsLauncher
 
+      -- Set thumbnail memory limit for app icons
+      thumbnailCache.setMaxLoaded('app_icons', 100)
+
       -- Use ActionsLauncher's openChildChooser for consistency
       actionsLauncher:openChildChooser {
         placeholder = 'Search processes...',
         parentAction = 'kill_process',
         handler = function(query, launcher)
+          -- Reset icon count for each query to limit memory usage
+          thumbnailCache.resetLoadedCount('app_icons')
+
           -- Update current query for filtering
           M.currentQuery = query or ''
 

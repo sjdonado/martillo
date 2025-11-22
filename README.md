@@ -40,10 +40,14 @@ https://github.com/user-attachments/assets/d5c803a9-7d83-479a-946b-80f29a2f09bf
 - JWT Decoder
 
 **System Information** - Real-time system monitoring:
-- CPU usage and load average
+- CPU usage (E/P cluster active residency) and load average
 - Memory usage and pressure
-- Battery/Power status
+- GPU usage and frequency
+- Thermal pressure level
+- Power consumption (CPU/GPU/ANE in Watts)
+- Battery status
 - Network upload/download speeds
+- System uptime with boot date
 - Auto-refreshing every 2 seconds
 
 **Keyboard Actions:**
@@ -181,6 +185,27 @@ EOF
 
 # Reload Hammerspoon
 ```
+
+## System Information Setup (Required)
+
+The System Information action requires passwordless sudo for `powermetrics` to display CPU, Memory, GPU, Thermal, and Power metrics. Configure it with:
+
+```bash
+echo "$(whoami) ALL=(ALL) NOPASSWD: /usr/bin/powermetrics" | sudo tee /private/etc/sudoers.d/powermetrics
+sudo chmod 0440 /private/etc/sudoers.d/powermetrics
+```
+
+Then add the include directive to your sudoers file:
+```bash
+sudo visudo
+```
+
+Add this line at the end:
+```
+#includedir /private/etc/sudoers.d
+```
+
+**Note:** Only Network and Uptime metrics will work without this configuration. All other metrics require sudo access to powermetrics.
 
 ## Custom Actions from Store
 

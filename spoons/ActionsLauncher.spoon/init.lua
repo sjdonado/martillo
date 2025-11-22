@@ -119,11 +119,13 @@ function obj:createChooser()
 
 	-- Cleanup when hidden
 	self.chooser:hideCallback(function()
+		self.logger:d('Main launcher hideCallback - Always stopping ESC interception')
+		-- Always stop ESC interception when hiding
+		self.chooserManager:stopEscInterception()
+
 		-- Check if we should keep the stack (ESC navigation in progress)
 		if not self.chooserManager:shouldKeepStack() then
-			self.logger:d('Main launcher hideCallback - Cleaning up and clearing stack')
-			-- Stop ESC interception
-			self.chooserManager:stopEscInterception()
+			self.logger:d('Main launcher hideCallback - Clearing stack')
 			-- Clear stack (Shift+ESC, click-outside, or Enter)
 			self.chooserManager:clear()
 		end
@@ -466,11 +468,13 @@ function obj:openChildChooser(config, options)
 
 		-- Cleanup when hidden
 		self.chooser:hideCallback(function()
+			self.logger:d('Child chooser hideCallback - Always stopping ESC interception')
+			-- Always stop ESC interception when hiding
+			self.chooserManager:stopEscInterception()
+
 			-- Check if we should keep the stack (ESC navigation in progress)
 			if not self.chooserManager:shouldKeepStack() then
-				self.logger:d('Child chooser hideCallback - Cleaning up and clearing stack')
-				-- Stop ESC interception
-				self.chooserManager:stopEscInterception()
+				self.logger:d('Child chooser hideCallback - Clearing stack')
 				-- Clear stack (Shift+ESC, click-outside, or Enter)
 				self.chooserManager:clear()
 			end
@@ -592,11 +596,13 @@ function obj:restoreParentChooser(parentState)
 
 	-- Cleanup when hidden
 	self.chooser:hideCallback(function()
+		self.logger:d('Restored parent hideCallback - Always stopping ESC interception')
+		-- Always stop ESC interception when hiding
+		self.chooserManager:stopEscInterception()
+
 		-- Check if we should keep the stack (ESC navigation in progress)
 		if not self.chooserManager:shouldKeepStack() then
-			self.logger:d('Restored parent hideCallback - Cleaning up and clearing stack')
-			-- Stop ESC interception
-			self.chooserManager:stopEscInterception()
+			self.logger:d('Restored parent hideCallback - Clearing stack')
 			-- Clear stack (Shift+ESC, click-outside, or Enter)
 			self.chooserManager:clear()
 		end

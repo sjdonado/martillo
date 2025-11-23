@@ -40,15 +40,16 @@ https://github.com/user-attachments/assets/d5c803a9-7d83-479a-946b-80f29a2f09bf
 - JWT Decoder
 
 **System Information** - Real-time system monitoring:
-- CPU usage (E/P cluster active residency) and load average
-- Memory usage and pressure
-- GPU usage and frequency
-- Thermal pressure level
-- Power consumption (CPU/GPU/ANE in Watts)
+- CPU usage (E/P cluster active residency) and load average*
+- Memory usage (App Memory + Wired + Compressed)
+- GPU usage and frequency*
+- Thermal pressure level*
+- Power consumption (CPU/GPU/ANE in Watts)*
 - Battery status
 - Network upload/download speeds
 - System uptime with boot date
 - Auto-refreshing every 2 seconds
+- *Requires passwordless sudo for powermetrics (see setup below)
 
 **Keyboard Actions:**
 - Lock Keyboard (for cleaning, unlock with `<leader>+Enter`)
@@ -186,9 +187,15 @@ EOF
 # Reload Hammerspoon
 ```
 
-## System Information Setup (Required)
+## System Information Setup (Optional)
 
-The System Information action requires passwordless sudo for `powermetrics` to display CPU, Memory, GPU, Thermal, and Power metrics. Configure it with:
+The System Information action works out of the box and displays:
+- **Memory** (App Memory + Wired + Compressed)
+- **Battery** status and percentage
+- **Network** upload/download speeds
+- **Uptime** with boot date
+
+For **advanced metrics** (CPU cluster residency, GPU, Thermal, and Power), configure passwordless sudo for `powermetrics`:
 
 ```bash
 echo "$(whoami) ALL=(ALL) NOPASSWD: /usr/bin/powermetrics" | sudo tee /private/etc/sudoers.d/powermetrics
@@ -205,7 +212,7 @@ Add this line at the end:
 #includedir /private/etc/sudoers.d
 ```
 
-**Note:** Only Network and Uptime metrics will work without this configuration. All other metrics require sudo access to powermetrics.
+**Note:** CPU, GPU, Thermal, and Power metrics all require sudo access to powermetrics. Without it, these metrics will show "Loading..." but Memory, Battery, Network, and Uptime will work normally.
 
 ## Custom Actions from Store
 

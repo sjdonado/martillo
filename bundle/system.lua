@@ -44,21 +44,21 @@ return {
   {
     id = 'system_information',
     name = 'System Information',
-    icon = icons.preset.tool,
+    icon = icons.preset.chart,
     description = 'View real-time system information',
     handler = function()
       local actionsLauncher = spoon.ActionsLauncher
       local updateTimer = nil
-      local isActive = true -- Flag to track if chooser is still active
+      local isActive = true
       local results = {
-        { text = 'CPU: Loading...',         subText = 'Processor usage and load',          value = '', details = '' },
-        { text = 'Memory: Loading...',      subText = 'RAM usage and pressure',            value = '', details = '' },
-        { text = 'GPU: Loading...',         subText = 'Graphics processor usage',          value = '', details = '' },
-        { text = 'Thermal: Loading...',     subText = 'System thermal pressure',           value = '', details = '' },
-        { text = 'Consumption: Loading...', subText = 'CPU/GPU power consumption',         value = '', details = '' },
-        { text = 'Battery: Loading...',     subText = 'Battery status and percentage',     value = '', details = '' },
-        { text = 'Network: Loading...',     subText = 'Upload/Download speeds',            value = '', details = '' },
-        { text = 'Uptime: Loading...',      subText = 'System uptime',                     value = '', details = '' },
+        { text = 'CPU: Loading...',         subText = 'Processor usage and load',      value = '' },
+        { text = 'Memory: Loading...',      subText = 'RAM usage and pressure',        value = '' },
+        { text = 'GPU: Loading...',         subText = 'Graphics processor usage',      value = '' },
+        { text = 'Thermal: Loading...',     subText = 'System thermal pressure',       value = '' },
+        { text = 'Consumption: Loading...', subText = 'CPU/GPU power consumption',     value = '' },
+        { text = 'Battery: Loading...',     subText = 'Battery status and percentage', value = '' },
+        { text = 'Network: Loading...',     subText = 'Upload/Download speeds',        value = '' },
+        { text = 'Uptime: Loading...',      subText = 'System uptime',                 value = '' },
       }
 
       local function trim(s)
@@ -78,119 +78,86 @@ return {
         end
       end
 
-      -- Store previous network stats for calculating speed
       local prevNetStats = { rx = 0, tx = 0, time = os.time() }
 
       local function updateSystemInfo()
-        -- Use single powermetrics call for CPU, GPU, temps, and memory
-        -- This is much more efficient than multiple separate commands
+        -- Single powermetrics call for CPU, GPU, Thermal, and Power
         hs.task
             .new('/bin/bash', function(exitCode, stdout, stderr)
               if exitCode == 0 then
                 local output = stdout
 
-                -- Parse CPU cluster active residency for overall CPU usage
-                -- Look for both E-Cluster and P-Cluster
+                -- Parse CPU cluster active residency (handle P0/P1 clusters)
                 local eClusterActive = output:match 'E%-Cluster HW active residency:%s+([%d%.]+)%%'
-                local pClusterActive = output:match 'P%-Cluster HW active residency:%s+([%d%.]+)%%'
+                local p0ClusterActive = output:match 'P0%-Cluster HW active residency:%s+([%d%.]+)%%'
+                local p1ClusterActive = output:match 'P1%-Cluster HW active residency:%s+([%d%.]+)%%'
 
-                if eClusterActive and pClusterActive then
-                  -- Average of both clusters
-                  local avgCPU = (tonumber(eClusterActive) + tonumber(pClusterActive)) / 2
-                  results[1].text = string.format('CPU: %.0f%%', avgCPU)
-                  results[1].value = string.format('%.0f%%', avgCPU)
-                elseif pClusterActive then
-                  results[1].text = string.format('CPU: %.0f%%', tonumber(pClusterActive))
-                  results[1].value = string.format('%.0f%%', tonumber(pClusterActive))
+                -- Fallback for single P-Cluster systems
+                if not p0ClusterActive and not p1ClusterActive then
+                  p0ClusterActive = output:match 'P%-Cluster HW active residency:%s+([%d%.]+)%%'
                 end
 
-                -- Get load average from sysctl (more reliable)
-                local load = hs.execute("sysctl -n vm.loadavg | awk '{print $2, $3, $4}'")
+                -- Calculate average CPU usage
+                local cpuValues = {}
+                if eClusterActive then
+                  table.insert(cpuValues, tonumber(eClusterActive))
+                end
+                if p0ClusterActive then
+                  table.insert(cpuValues, tonumber(p0ClusterActive))
+                end
+                if p1ClusterActive then
+                  table.insert(cpuValues, tonumber(p1ClusterActive))
+                end
+
+                if #cpuValues > 0 then
+                  local sum = 0
+                  for _, v in ipairs(cpuValues) do
+                    sum = sum + v
+                  end
+                  local avgCPU = sum / #cpuValues
+                  results[1].text = string.format('CPU: %.0f%%', avgCPU)
+                  results[1].value = string.format('%.0f%%', avgCPU)
+                end
+
+                -- Get load average
+                local load = hs.execute "sysctl -n vm.loadavg | awk '{print $2, $3, $4}'"
                 if load and load ~= '' then
                   results[1].subText = 'Load: ' .. trim(load)
                 end
 
-                -- Parse Memory - use vm_stat for more accurate data
-                local vmstat = hs.execute([[
-                  vm_stat | awk '
-                    /Pages active/ {active=$3}
-                    /Pages wired down/ {wired=$4}
-                    /Pages occupied by compressor/ {compressed=$5}
-                    END {
-                      page_size=4096
-                      used=(active+wired+compressed)*page_size/1024/1024/1024
-                      printf "%.1f", used
-                    }'
-                ]])
-                local totalMem = hs.execute('sysctl -n hw.memsize')
-                if vmstat and totalMem then
-                  local usedGB = tonumber(trim(vmstat))
-                  local totalGB = tonumber(totalMem) / 1024 / 1024 / 1024
-                  local percent = (usedGB / totalGB) * 100
-                  results[2].text = string.format('Memory: %.0f%%', percent)
-                  results[2].value = string.format('%.0f%%', percent)
-                  results[2].subText = string.format('%.1f GB / %.1f GB', usedGB, totalGB)
-                end
-
-                -- Parse GPU active residency
+                -- Parse GPU
                 local gpuActive = output:match 'GPU HW active residency:%s+([%d%.]+)%%'
                 if gpuActive then
                   results[3].text = string.format('GPU: %.0f%%', tonumber(gpuActive))
                   results[3].value = string.format('%.0f%%', tonumber(gpuActive))
-
-                  -- Get GPU frequency for additional context
                   local gpuFreq = output:match 'GPU HW active frequency: (%d+) MHz'
                   if gpuFreq then
                     results[3].subText = 'Active @ ' .. gpuFreq .. ' MHz'
                   else
-                    results[3].subText = 'Graphics processor active residency'
+                    results[3].subText = 'Graphics processor usage'
                   end
-                else
-                  results[3].text = 'GPU: Setup Required'
-                  results[3].value = 'Setup Required'
-                  results[3].subText = 'Configure passwordless sudo for powermetrics'
                 end
 
-                -- Parse Thermal Pressure
+                -- Parse Thermal
                 local thermalLevel = output:match 'Current pressure level: (%w+)'
                 if thermalLevel then
                   results[4].text = 'Thermal: ' .. thermalLevel
                   results[4].value = thermalLevel
                   results[4].subText = 'System thermal pressure level'
-                else
-                  results[4].text = 'Thermal: Setup Required'
-                  results[4].value = 'Setup Required'
-                  results[4].subText = 'Configure passwordless sudo for powermetrics'
                 end
 
-                -- Parse Power Consumption
+                -- Parse Power
                 local cpuPower = output:match 'CPU Power: (%d+) mW'
                 local gpuPower = output:match 'GPU Power: (%d+) mW'
                 local anePower = output:match 'ANE Power: (%d+) mW'
-
                 if cpuPower and gpuPower then
                   local totalPower = tonumber(cpuPower) + tonumber(gpuPower) + (tonumber(anePower) or 0)
                   local watts = totalPower / 1000
                   results[5].text = string.format('Consumption: %.1f W', watts)
                   results[5].value = string.format('%.1f W', watts)
-                  results[5].subText = string.format('CPU: %.1fW | GPU: %.1fW', tonumber(cpuPower)/1000, tonumber(gpuPower)/1000)
-                else
-                  results[5].text = 'Consumption: Setup Required'
-                  results[5].value = 'Setup Required'
-                  results[5].subText = 'Configure passwordless sudo for powermetrics'
+                  results[5].subText = string.format('CPU: %.1fW | GPU: %.1fW', tonumber(cpuPower) / 1000,
+                    tonumber(gpuPower) / 1000)
                 end
-              else
-                -- Powermetrics failed, likely no sudo access
-                results[1].text = 'CPU: Setup Required'
-                results[1].subText = 'Configure passwordless sudo for powermetrics'
-                results[2].text = 'Memory: Setup Required'
-                results[2].subText = 'Configure passwordless sudo for powermetrics'
-                results[3].text = 'GPU: Setup Required'
-                results[3].subText = 'Configure passwordless sudo for powermetrics'
-                results[4].text = 'Thermal: Setup Required'
-                results[4].subText = 'Configure passwordless sudo for powermetrics'
-                results[5].text = 'Power: Setup Required'
-                results[5].subText = 'Configure passwordless sudo for powermetrics'
               end
 
               if isActive then
@@ -202,26 +169,57 @@ return {
             })
             :start()
 
-        -- Power/Battery Status
+        -- Memory - calculate like Activity Monitor (App Memory + Wired + Compressed)
         hs.task
             .new('/bin/bash', function(exitCode, stdout, stderr)
               if exitCode == 0 then
                 local output = trim(stdout)
+                local totalMem = hs.execute 'sysctl -n hw.memsize'
 
-                -- Check if on AC or Battery Power
-                local onBattery = output:match 'Battery Power'
-                local onAC = output:match 'AC Power'
+                -- Extract page size from vm_stat first line
+                local pageSizeStr = output:match 'page size of (%d+) bytes'
+                local pageSize = tonumber(pageSizeStr) or 16384
 
-                -- Extract battery percentage
+                -- Parse vm_stat output
+                local anonymous = output:match 'Anonymous pages:%s+(%d+)'
+                local wired = output:match 'Pages wired down:%s+(%d+)'
+                local compressed = output:match 'Pages occupied by compressor:%s+(%d+)'
+
+                if anonymous and wired and compressed and totalMem then
+                  -- Activity Monitor formula: App Memory + Wired + Compressed
+                  local anonymousPages = tonumber(anonymous)
+                  local wiredPages = tonumber(wired)
+                  local compressedPages = tonumber(compressed)
+
+                  local usedBytes = (anonymousPages + wiredPages + compressedPages) * pageSize
+                  local usedGB = usedBytes / 1024 / 1024 / 1024
+                  local totalGB = tonumber(totalMem) / 1024 / 1024 / 1024
+                  local percent = (usedGB / totalGB) * 100
+
+                  results[2].text = string.format('Memory: %.0f%%', percent)
+                  results[2].value = string.format('%.0f%%', percent)
+                  results[2].subText = string.format('%.1f GB / %.1f GB', usedGB, totalGB)
+                end
+              end
+
+              if isActive then
+                actionsLauncher:refresh()
+              end
+            end, { '-c', 'vm_stat' })
+            :start()
+
+        -- Battery Status
+        hs.task
+            .new('/bin/bash', function(exitCode, stdout, stderr)
+              if exitCode == 0 then
+                local output = trim(stdout)
                 local percent = output:match '(%d+)%%'
 
                 if not percent then
-                  -- No battery (desktop Mac)
                   results[6].text = 'Battery: AC Power'
                   results[6].subText = 'Connected to power adapter'
                   results[6].value = 'AC Power'
                 else
-                  -- Has battery - check status (order matters: check "discharging" before "charging")
                   local discharging = output:match 'discharging'
                   local charging = output:match 'charging' and not discharging
                   local charged = output:match 'charged'
@@ -246,7 +244,6 @@ return {
                   results[6].text = 'Battery: ' .. status .. ' ' .. percent .. '%'
                   results[6].value = percent .. '%'
 
-                  -- Extract time remaining
                   local time = output:match '(%d+:%d+)'
                   if time then
                     results[6].subText = statusText .. ' - ' .. time .. ' remaining'
@@ -255,6 +252,7 @@ return {
                   end
                 end
               end
+
               if isActive then
                 actionsLauncher:refresh()
               end
@@ -289,6 +287,7 @@ return {
                   prevNetStats = { rx = rxBytes, tx = txBytes, time = currentTime }
                 end
               end
+
               if isActive then
                 actionsLauncher:refresh()
               end
@@ -298,12 +297,11 @@ return {
             })
             :start()
 
-        -- System Uptime with boot date
+        -- Uptime
         hs.task
             .new('/bin/bash', function(exitCode, stdout, stderr)
               if exitCode == 0 then
                 local boottime = trim(stdout)
-                -- Parse sysctl kern.boottime output: { sec = 1234567890, usec = 0 }
                 local bootSec = boottime:match 'sec = (%d+)'
 
                 if bootSec then
@@ -311,12 +309,10 @@ return {
                   local currentTime = os.time()
                   local uptimeSeconds = currentTime - bootTimestamp
 
-                  -- Calculate uptime components
                   local days = math.floor(uptimeSeconds / 86400)
                   local hours = math.floor((uptimeSeconds % 86400) / 3600)
                   local mins = math.floor((uptimeSeconds % 3600) / 60)
 
-                  -- Format uptime string
                   local uptimeStr = ''
                   if days > 0 then
                     uptimeStr = string.format('%dd %dh %dm', days, hours, mins)
@@ -326,18 +322,13 @@ return {
                     uptimeStr = string.format('%dm', mins)
                   end
 
-                  -- Format boot date
                   local bootDate = os.date('%B %d, %Y at %H:%M', bootTimestamp)
-
                   results[8].text = 'Uptime: ' .. uptimeStr
                   results[8].value = uptimeStr
                   results[8].subText = 'Running since ' .. bootDate
-                else
-                  results[8].text = 'Uptime: Unknown'
-                  results[8].value = 'Unknown'
-                  results[8].subText = 'Unable to determine boot time'
                 end
               end
+
               if isActive then
                 actionsLauncher:refresh()
               end
@@ -346,7 +337,7 @@ return {
       end
 
       actionsLauncher:openChildChooser {
-        placeholder = 'System Information (real-time updates)',
+        placeholder = 'System Information (↩ copy metric)',
         parentAction = 'system_information',
         handler = function(query, launcher)
           return events.buildSearchableChoices(query, results, launcher, {
@@ -359,9 +350,7 @@ return {
           })
         end,
         onClose = function()
-          -- Set flag to prevent further refresh attempts
           isActive = false
-          -- Stop the update timer when chooser closes
           if updateTimer then
             updateTimer:stop()
             updateTimer = nil
@@ -372,9 +361,11 @@ return {
       -- Initial update
       updateSystemInfo()
 
-      -- Set up timer for real-time updates (every 2 seconds)
+      -- Update every 2 seconds
       updateTimer = hs.timer.doEvery(2, function()
-        updateSystemInfo()
+        if isActive then
+          updateSystemInfo()
+        end
       end)
     end,
   },

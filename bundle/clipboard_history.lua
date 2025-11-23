@@ -726,7 +726,7 @@ return {
       thumbnailCache.setMaxLoaded('images', 100)
 
       spoon.ActionsLauncher:openChildChooser {
-        placeholder = 'Clipboard History (↩ copy and paste, ⇧↩ copy and close)',
+        placeholder = 'Clipboard History (↩ paste, ⇧↩ copy)',
         parentAction = 'clipboard_history',
         handler = function(query, launcher)
           -- Reset image count for each query to limit memory usage

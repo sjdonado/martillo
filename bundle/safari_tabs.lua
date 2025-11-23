@@ -247,7 +247,7 @@ return {
 
       -- Open child chooser
       actionsLauncher:openChildChooser {
-        placeholder = 'Search Safari tabs...',
+        placeholder = 'Safari tabs (↩ open, ⇧↩ copy link)',
         parentAction = 'safari_tabs',
         handler = function(query, launcher)
           return buildChoices(tabs, query, launcher)

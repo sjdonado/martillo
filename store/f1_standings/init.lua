@@ -17,8 +17,8 @@ return {
       local standings = {}
       local loading = true
 
-      actionsLauncher:openChildPicker {
-        placeholder = 'F1 Drivers Championship 2024',
+      actionsLauncher:openChildChooser {
+        placeholder = 'F1 Drivers Championship (↩ copy driver, ⇧↩ copy team)',
         parentAction = 'f1_standings',
         handler = function(query, launcher)
           if loading then
@@ -107,8 +107,6 @@ return {
           toast.error('Failed to fetch F1 standings: HTTP ' .. status)
         end
       end)
-
-      return 'OPEN_CHILD_PICKER'
     end,
   },
 }

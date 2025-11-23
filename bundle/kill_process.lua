@@ -595,8 +595,8 @@ return {
 
             -- Fallback icon for non-app processes or if app icon failed
             if not icon then
-              icon = thumbnailCache.getFallbackIcon('executable', function()
-                return icons.getIcon(icons.preset.cube)
+              icon = thumbnailCache.getFallbackIcon('kill_process_fallback', function()
+                return icons.getIcon(icons.preset.puzzle)
               end)
             end
 
@@ -660,7 +660,7 @@ return {
       M.cacheRefreshTimer:start()
 
       actionsLauncher:openChildChooser {
-        placeholder = 'Search processes...',
+        placeholder = 'Kill Process (↩ kill, ⇧↩ copy PID)',
         parentAction = 'kill_process',
         onClose = function()
           -- Stop cache refresh timer when chooser closes

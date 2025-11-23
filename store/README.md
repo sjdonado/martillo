@@ -47,7 +47,7 @@ return {
       local loading = true
 
       actionsLauncher:openChildChooser {
-        placeholder = 'F1 Drivers Championship 2024',
+        placeholder = 'F1 Drivers Championship (↩ copy driver, ⇧↩ copy team)',
         parentAction = 'f1_standings',
         handler = function(query, launcher)
           local choices = {}

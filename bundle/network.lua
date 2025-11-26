@@ -15,14 +15,14 @@ return {
     handler = function()
       local actionsLauncher = spoon.ActionsLauncher
       local results = {
-        { text = 'Local IPv4: Loading...', subText = 'Enter to copy', value = '' },
-        { text = 'Public IPv4: Loading...', subText = 'Enter to copy', value = '' },
-        { text = 'Location: Loading...', subText = 'Country, State, City, ZIP', value = '' },
-        { text = 'GeoCoordinates: Loading...', subText = 'Latitude, Longitude', value = '' },
-        { text = 'Timezone: Loading...', subText = 'Enter to copy', value = '' },
-        { text = 'AS: Loading...', subText = 'Autonomous System', value = '' },
-        { text = 'ISP: Loading...', subText = 'Internet Service Provider', value = '' },
-        { text = 'Organization: Loading...', subText = 'Enter to copy', value = '' },
+        { text = 'Local IPv4: Loading...',     subText = 'Enter to copy',             value = '' },
+        { text = 'Public IPv4: Loading...',    subText = 'Enter to copy',             value = '' },
+        { text = 'Location: Loading...',       subText = 'Country, State, City, ZIP', value = '' },
+        { text = 'GeoCoordinates: Loading...', subText = 'Latitude, Longitude',       value = '' },
+        { text = 'Timezone: Loading...',       subText = 'Enter to copy',             value = '' },
+        { text = 'AS: Loading...',             subText = 'Autonomous System',         value = '' },
+        { text = 'ISP: Loading...',            subText = 'Internet Service Provider', value = '' },
+        { text = 'Organization: Loading...',   subText = 'Enter to copy',             value = '' },
       }
 
       local function trim(s)
@@ -35,103 +35,103 @@ return {
       local function fetchData()
         -- Get Local IP
         hs.task
-          .new('/bin/bash', function(exitCode, stdout, stderr)
-            local localIP = trim(stdout)
-            if exitCode == 0 and localIP ~= '' then
-              results[1].text = 'Local IPv4: ' .. localIP
-              results[1].value = localIP
-            else
-              results[1].text = 'Local IPv4: Not found'
-            end
-            actionsLauncher:refresh()
-          end, {
-            '-c',
-            "ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || ifconfig | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}'",
-          })
-          :start()
+            .new('/bin/bash', function(exitCode, stdout, stderr)
+              local localIP = trim(stdout)
+              if exitCode == 0 and localIP ~= '' then
+                results[1].text = 'Local IPv4: ' .. localIP
+                results[1].value = localIP
+              else
+                results[1].text = 'Local IPv4: Not found'
+              end
+              actionsLauncher:refresh()
+            end, {
+              '-c',
+              "ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || ifconfig | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}'",
+            })
+            :start()
 
         -- Get Public IP and Geolocation
         hs.task
-          .new('/bin/bash', function(exitCode, stdout, stderr)
-            local publicIP = trim(stdout)
-            if exitCode == 0 and publicIP ~= '' then
-              results[2].text = 'Public IPv4: ' .. publicIP
-              results[2].value = publicIP
-              actionsLauncher:refresh()
+            .new('/bin/bash', function(exitCode, stdout, stderr)
+              local publicIP = trim(stdout)
+              if exitCode == 0 and publicIP ~= '' then
+                results[2].text = 'Public IPv4: ' .. publicIP
+                results[2].value = publicIP
+                actionsLauncher:refresh()
 
-              -- Fetch geolocation data
-              hs.task
-                .new('/usr/bin/curl', function(exitCode2, stdout2, stderr2)
-                  if exitCode2 == 0 then
-                    -- Parse JSON manually (simple approach)
-                    local json = trim(stdout2)
+                -- Fetch geolocation data
+                hs.task
+                    .new('/usr/bin/curl', function(exitCode2, stdout2, stderr2)
+                      if exitCode2 == 0 then
+                        -- Parse JSON manually (simple approach)
+                        local json = trim(stdout2)
 
-                    -- Extract fields using pattern matching
-                    local country = json:match '"country"%s*:%s*"([^"]*)"' or ''
-                    local regionName = json:match '"regionName"%s*:%s*"([^"]*)"' or ''
-                    local city = json:match '"city"%s*:%s*"([^"]*)"' or ''
-                    local zip = json:match '"zip"%s*:%s*"([^"]*)"' or ''
-                    local lat = json:match '"lat"%s*:%s*([%d%.%-]+)' or ''
-                    local lon = json:match '"lon"%s*:%s*([%d%.%-]+)' or ''
-                    local timezone = json:match '"timezone"%s*:%s*"([^"]*)"' or ''
-                    local isp = json:match '"isp"%s*:%s*"([^"]*)"' or ''
-                    local org = json:match '"org"%s*:%s*"([^"]*)"' or ''
-                    local as = json:match '"as"%s*:%s*"([^"]*)"' or ''
+                        -- Extract fields using pattern matching
+                        local country = json:match '"country"%s*:%s*"([^"]*)"' or ''
+                        local regionName = json:match '"regionName"%s*:%s*"([^"]*)"' or ''
+                        local city = json:match '"city"%s*:%s*"([^"]*)"' or ''
+                        local zip = json:match '"zip"%s*:%s*"([^"]*)"' or ''
+                        local lat = json:match '"lat"%s*:%s*([%d%.%-]+)' or ''
+                        local lon = json:match '"lon"%s*:%s*([%d%.%-]+)' or ''
+                        local timezone = json:match '"timezone"%s*:%s*"([^"]*)"' or ''
+                        local isp = json:match '"isp"%s*:%s*"([^"]*)"' or ''
+                        local org = json:match '"org"%s*:%s*"([^"]*)"' or ''
+                        local as = json:match '"as"%s*:%s*"([^"]*)"' or ''
 
-                    -- Update results
-                    if country ~= '' then
-                      local location = country
-                      if regionName ~= '' then
-                        location = location .. ', ' .. regionName
+                        -- Update results
+                        if country ~= '' then
+                          local location = country
+                          if regionName ~= '' then
+                            location = location .. ', ' .. regionName
+                          end
+                          if city ~= '' then
+                            location = location .. ', ' .. city
+                          end
+                          if zip ~= '' then
+                            location = location .. ', ZIP: ' .. zip
+                          end
+                          results[3].text = 'Location: ' .. location
+                          results[3].value = location
+                        end
+
+                        if lat ~= '' and lon ~= '' then
+                          results[4].text = 'GeoCoordinates: ' .. lat .. ', ' .. lon
+                          results[4].value = lat .. ', ' .. lon
+                        end
+
+                        if timezone ~= '' then
+                          results[5].text = 'Timezone: ' .. timezone
+                          results[5].value = timezone
+                        end
+
+                        if as ~= '' then
+                          results[6].text = 'AS: ' .. as
+                          results[6].value = as
+                        end
+
+                        if isp ~= '' then
+                          results[7].text = 'ISP: ' .. isp
+                          results[7].value = isp
+                        end
+
+                        if org ~= '' then
+                          results[8].text = 'Organization: ' .. org
+                          results[8].value = org
+                        end
+
+                        actionsLauncher:refresh()
+                      else
+                        results[3].text = 'Location: Failed to fetch'
+                        actionsLauncher:refresh()
                       end
-                      if city ~= '' then
-                        location = location .. ', ' .. city
-                      end
-                      if zip ~= '' then
-                        location = location .. ', ZIP: ' .. zip
-                      end
-                      results[3].text = 'Location: ' .. location
-                      results[3].value = location
-                    end
-
-                    if lat ~= '' and lon ~= '' then
-                      results[4].text = 'GeoCoordinates: ' .. lat .. ', ' .. lon
-                      results[4].value = lat .. ', ' .. lon
-                    end
-
-                    if timezone ~= '' then
-                      results[5].text = 'Timezone: ' .. timezone
-                      results[5].value = timezone
-                    end
-
-                    if as ~= '' then
-                      results[6].text = 'AS: ' .. as
-                      results[6].value = as
-                    end
-
-                    if isp ~= '' then
-                      results[7].text = 'ISP: ' .. isp
-                      results[7].value = isp
-                    end
-
-                    if org ~= '' then
-                      results[8].text = 'Organization: ' .. org
-                      results[8].value = org
-                    end
-
-                    actionsLauncher:refresh()
-                  else
-                    results[3].text = 'Location: Failed to fetch'
-                    actionsLauncher:refresh()
-                  end
-                end, { '-s', 'http://ip-api.com/json/' .. publicIP })
-                :start()
-            else
-              results[2].text = 'Public IPv4: Failed to fetch'
-              actionsLauncher:refresh()
-            end
-          end, { '-c', 'curl -s ifconfig.me' })
-          :start()
+                    end, { '-s', 'http://ip-api.com/json/' .. publicIP })
+                    :start()
+              else
+                results[2].text = 'Public IPv4: Failed to fetch'
+                actionsLauncher:refresh()
+              end
+            end, { '-c', 'curl -s ifconfig.me' })
+            :start()
       end
 
       actionsLauncher:openChildChooser {
@@ -151,7 +151,6 @@ return {
 
       -- Start fetching data after chooser is shown
       hs.timer.doAfter(0.1, fetchData)
-
     end,
   },
 
@@ -238,13 +237,13 @@ return {
 
         -- Apple devices
         if
-          lowerHost:match 'iphone'
-          or lowerHost:match 'ipad'
-          or lowerHost:match 'macbook'
-          or lowerHost:match 'mac%-mini'
-          or lowerHost:match 'imac'
-          or lowerHost:match '^mac%.fritz'
-          or lowerHost:match '%-mac%.'
+            lowerHost:match 'iphone'
+            or lowerHost:match 'ipad'
+            or lowerHost:match 'macbook'
+            or lowerHost:match 'mac%-mini'
+            or lowerHost:match 'imac'
+            or lowerHost:match '^mac%.fritz'
+            or lowerHost:match '%-mac%.'
         then
           return 'Apple, Inc.'
         elseif lowerHost:match 'raspberrypi' or lowerHost:match 'pizero' or lowerHost:match 'pi%d' or lowerHost:match '^pi%.' then
@@ -289,127 +288,127 @@ return {
 
         -- Use macvendors.com API to lookup vendor
         hs.task
-          .new('/usr/bin/curl', function(exitCode, stdout, stderr)
-            if exitCode == 0 and stdout and stdout ~= '' then
-              local vendor = trim(stdout)
-              -- API returns error messages for unknown vendors or rate limiting
-              local lowerVendor = vendor:lower()
-              if
-                vendor ~= ''
-                and not vendor:match '^<!DOCTYPE'
-                and not lowerVendor:match 'error'
-                and not lowerVendor:match 'not found'
-                and not lowerVendor:match 'too many'
-              then
-                -- Save to cache
-                saveVendorToCache(oui, vendor)
-                -- Update the result with vendor info
-                updateResultWithVendor(index, vendor)
+            .new('/usr/bin/curl', function(exitCode, stdout, stderr)
+              if exitCode == 0 and stdout and stdout ~= '' then
+                local vendor = trim(stdout)
+                -- API returns error messages for unknown vendors or rate limiting
+                local lowerVendor = vendor:lower()
+                if
+                    vendor ~= ''
+                    and not vendor:match '^<!DOCTYPE'
+                    and not lowerVendor:match 'error'
+                    and not lowerVendor:match 'not found'
+                    and not lowerVendor:match 'too many'
+                then
+                  -- Save to cache
+                  saveVendorToCache(oui, vendor)
+                  -- Update the result with vendor info
+                  updateResultWithVendor(index, vendor)
+                end
               end
-            end
-          end, { '-s', '-m', '2', 'https://api.macvendors.com/' .. mac })
-          :start()
+            end, { '-s', '-m', '2', 'https://api.macvendors.com/' .. mac })
+            :start()
       end
 
       local function parseArpTable()
         hs.task
-          .new('/bin/bash', function(exitCode, stdout, stderr)
-            if exitCode == 0 then
-              results = {}
-              local lines = {}
-              for line in stdout:gmatch '[^\r\n]+' do
-                table.insert(lines, line)
-              end
+            .new('/bin/bash', function(exitCode, stdout, stderr)
+              if exitCode == 0 then
+                results = {}
+                local lines = {}
+                for line in stdout:gmatch '[^\r\n]+' do
+                  table.insert(lines, line)
+                end
 
-              -- Parse arp output
-              -- Format: hostname (ip) at mac on interface [ethernet]
-              for _, line in ipairs(lines) do
-                local hostname = line:match '^([^%(]+)%s*%('
-                local ip = line:match '%(([%d%.]+)%)'
-                local mac = line:match 'at%s+([%x:]+)%s+'
+                -- Parse arp output
+                -- Format: hostname (ip) at mac on interface [ethernet]
+                for _, line in ipairs(lines) do
+                  local hostname = line:match '^([^%(]+)%s*%('
+                  local ip = line:match '%(([%d%.]+)%)'
+                  local mac = line:match 'at%s+([%x:]+)%s+'
 
-                if ip and mac then
-                  hostname = hostname and trim(hostname) or 'Unknown'
-                  if hostname == '?' then
-                    hostname = 'Unknown'
-                  end
+                  if ip and mac then
+                    hostname = hostname and trim(hostname) or 'Unknown'
+                    if hostname == '?' then
+                      hostname = 'Unknown'
+                    end
 
-                  -- Filter out incomplete entries
-                  -- Allow MAC addresses with 1 or 2 hex digits per octet (e.g., b8:27:eb:5:5f:26 or b8:27:eb:05:5f:26)
-                  if mac ~= '(incomplete)' and mac:match '%x+:%x+:%x+:%x+:%x+:%x+' then
-                    -- Normalize MAC address to always have 2 digits per octet
-                    local normalizedMac = mac:gsub('(%x+)', function(octet)
-                      if #octet == 1 then
-                        return '0' .. octet
-                      end
-                      return octet
-                    end)
+                    -- Filter out incomplete entries
+                    -- Allow MAC addresses with 1 or 2 hex digits per octet (e.g., b8:27:eb:5:5f:26 or b8:27:eb:05:5f:26)
+                    if mac ~= '(incomplete)' and mac:match '%x+:%x+:%x+:%x+:%x+:%x+' then
+                      -- Normalize MAC address to always have 2 digits per octet
+                      local normalizedMac = mac:gsub('(%x+)', function(octet)
+                        if #octet == 1 then
+                          return '0' .. octet
+                        end
+                        return octet
+                      end)
 
-                    table.insert(results, {
-                      text = ip,
-                      subText = string.format('%s • %s', hostname, normalizedMac:upper()),
-                      ip = ip,
-                      mac = normalizedMac:upper(),
-                      hostname = hostname,
-                      vendor = nil,
-                    })
+                      table.insert(results, {
+                        text = ip,
+                        subText = string.format('%s • %s', hostname, normalizedMac:upper()),
+                        ip = ip,
+                        mac = normalizedMac:upper(),
+                        hostname = hostname,
+                        vendor = nil,
+                      })
+                    end
                   end
                 end
-              end
 
-              if #results == 0 then
-                results = {
-                  { text = 'No devices found', subText = 'Try again or check network connection', ip = '', mac = '' },
-                }
-              else
-                -- Sort by IP address
-                table.sort(results, function(a, b)
-                  local function ipToNum(ip)
-                    local parts = {}
-                    for part in ip:gmatch '%d+' do
-                      table.insert(parts, tonumber(part))
+                if #results == 0 then
+                  results = {
+                    { text = 'No devices found', subText = 'Try again or check network connection', ip = '', mac = '' },
+                  }
+                else
+                  -- Sort by IP address
+                  table.sort(results, function(a, b)
+                    local function ipToNum(ip)
+                      local parts = {}
+                      for part in ip:gmatch '%d+' do
+                        table.insert(parts, tonumber(part))
+                      end
+                      if #parts == 4 then
+                        return parts[1] * 16777216 + parts[2] * 65536 + parts[3] * 256 + parts[4]
+                      end
+                      return 0
                     end
-                    if #parts == 4 then
-                      return parts[1] * 16777216 + parts[2] * 65536 + parts[3] * 256 + parts[4]
-                    end
-                    return 0
-                  end
-                  return ipToNum(a.ip) < ipToNum(b.ip)
-                end)
+                    return ipToNum(a.ip) < ipToNum(b.ip)
+                  end)
 
-                -- Lookup vendor for each MAC address
-                local apiCallDelay = 0
-                for i, result in ipairs(results) do
-                  if result.mac and result.mac ~= '' then
-                    -- First, try to detect vendor from hostname
-                    local hostnameVendor = detectVendorFromHostname(result.hostname)
-                    if hostnameVendor then
-                      updateResultWithVendor(i, hostnameVendor)
-                    else
-                      -- Try MAC vendor lookup
-                      local oui = getOUI(result.mac)
-                      if oui and vendorCache[oui] then
-                        -- Cached - show immediately
-                        updateResultWithVendor(i, vendorCache[oui])
+                  -- Lookup vendor for each MAC address
+                  local apiCallDelay = 0
+                  for i, result in ipairs(results) do
+                    if result.mac and result.mac ~= '' then
+                      -- First, try to detect vendor from hostname
+                      local hostnameVendor = detectVendorFromHostname(result.hostname)
+                      if hostnameVendor then
+                        updateResultWithVendor(i, hostnameVendor)
                       else
-                        -- Not cached - rate limit API calls
-                        hs.timer.doAfter(apiCallDelay * 0.5, function()
-                          lookupVendor(result.mac, i)
-                        end)
-                        apiCallDelay = apiCallDelay + 1
+                        -- Try MAC vendor lookup
+                        local oui = getOUI(result.mac)
+                        if oui and vendorCache[oui] then
+                          -- Cached - show immediately
+                          updateResultWithVendor(i, vendorCache[oui])
+                        else
+                          -- Not cached - rate limit API calls
+                          hs.timer.doAfter(apiCallDelay * 0.5, function()
+                            lookupVendor(result.mac, i)
+                          end)
+                          apiCallDelay = apiCallDelay + 1
+                        end
                       end
                     end
                   end
                 end
+              else
+                results = {
+                  { text = 'Scan failed', subText = 'Unable to retrieve network devices', ip = '', mac = '' },
+                }
               end
-            else
-              results = {
-                { text = 'Scan failed', subText = 'Unable to retrieve network devices', ip = '', mac = '' },
-              }
-            end
-            actionsLauncher:refresh()
-          end, { '-c', 'arp -a' })
-          :start()
+              actionsLauncher:refresh()
+            end, { '-c', 'arp -a' })
+            :start()
       end
 
       local function scanDevices()
@@ -422,42 +421,42 @@ return {
 
         -- First, get the local IP and network range, then scan all IPs
         hs.task
-          .new('/bin/bash', function(exitCode, stdout, stderr)
-            if exitCode == 0 then
-              local networkPrefix = trim(stdout)
-              if networkPrefix ~= '' then
-                -- Scan the network by pinging all IPs in the range
-                -- This will populate the ARP table
-                results[1].text = 'Scanning ' .. networkPrefix .. '.0/24...'
-                results[1].subText = 'This may take a few seconds'
-                actionsLauncher:refresh()
+            .new('/bin/bash', function(exitCode, stdout, stderr)
+              if exitCode == 0 then
+                local networkPrefix = trim(stdout)
+                if networkPrefix ~= '' then
+                  -- Scan the network by pinging all IPs in the range
+                  -- This will populate the ARP table
+                  results[1].text = 'Scanning ' .. networkPrefix .. '.0/24...'
+                  results[1].subText = 'This may take a few seconds'
+                  actionsLauncher:refresh()
 
-                hs.task
-                  .new('/bin/bash', function(exitCode2, stdout2, stderr2)
-                    -- After ping sweep, read the ARP table
-                    parseArpTable()
-                  end, {
-                    '-c',
-                    'for i in {1..254}; do ping -c 1 -W 1 ' .. networkPrefix .. '.$i >/dev/null 2>&1 & done; wait',
-                  })
-                  :start()
+                  hs.task
+                      .new('/bin/bash', function(exitCode2, stdout2, stderr2)
+                        -- After ping sweep, read the ARP table
+                        parseArpTable()
+                      end, {
+                        '-c',
+                        'for i in {1..254}; do ping -c 1 -W 1 ' .. networkPrefix .. '.$i >/dev/null 2>&1 & done; wait',
+                      })
+                      :start()
+                else
+                  results = {
+                    { text = 'Network detection failed', subText = 'Unable to determine network range', ip = '', mac = '' },
+                  }
+                  actionsLauncher:refresh()
+                end
               else
                 results = {
                   { text = 'Network detection failed', subText = 'Unable to determine network range', ip = '', mac = '' },
                 }
                 actionsLauncher:refresh()
               end
-            else
-              results = {
-                { text = 'Network detection failed', subText = 'Unable to determine network range', ip = '', mac = '' },
-              }
-              actionsLauncher:refresh()
-            end
-          end, {
-            '-c',
-            "ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null | awk -F. '{print $1\".\"$2\".\"$3}'",
-          })
-          :start()
+            end, {
+              '-c',
+              'ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null | awk -F. \'{print $1"."$2"."$3}\'',
+            })
+            :start()
       end
 
       actionsLauncher:openChildChooser {
@@ -497,98 +496,58 @@ return {
     id = 'network_speed_test',
     name = 'Speed Test',
     icon = icons.preset.flash,
-    description = 'Check network connectivity, latency, and speed',
+    description = 'Open speed test in webview',
     handler = function()
-      local results = {
-        { text = 'Latency: Loading...', subText = 'curl to 1.1.1.1' },
-        { text = 'Download: Loading...', subText = '10MB from speed.cloudflare.com' },
-        { text = 'Upload: Loading...', subText = '1MB to speed.cloudflare.com' },
-      }
+      -- Get screen dimensions for sizing the webview
+      local screen = hs.screen.mainScreen()
+      local screenFrame = screen:frame()
 
-      -- Get ActionsLauncher instance
-      local actionsLauncher = spoon.ActionsLauncher
+      -- Match ActionsLauncher chooser size (40% width, similar proportions)
+      local width = screenFrame.w * 0.4
+      local height = screenFrame.h * 0.6
+      local x = screenFrame.x + (screenFrame.w - width) / 2
+      local y = screenFrame.y + (screenFrame.h - height) / 2
 
-      -- Helper to trim whitespace and newlines
-      local function trim(s)
-        if not s then
-          return ''
-        end
-        return s:match '^%s*(.-)%s*$'
-      end
+      -- Create user content controller to inject dark mode
+      local usercontent = hs.webview.usercontent.new('speedtest')
+      usercontent:injectScript({
+        source = [[
+          (function() {
+            var style = document.createElement('style');
+            style.textContent = `
+              html {
+                background-color: #1a1a1a !important;
+                filter: invert(1) hue-rotate(180deg);
+                overscroll-behavior: none;
+              }
+              img, video, svg, [style*="background-image"] {
+                filter: invert(1) hue-rotate(180deg);
+              }
+              /* Keep map inverted (dark) by not double-inverting its canvas */
+              .maplibregl-map canvas,
+              .mapboxgl-map canvas,
+              [class*="protomaps"] canvas,
+              [class*="map"] canvas {
+                filter: none !important;
+              }
+            `;
+            document.documentElement.appendChild(style);
+          })();
+        ]],
+        mainFrame = true,
+        injectionTime = 'documentStart',
+      })
 
-      local function runTests()
-        -- Test 1: Latency
-        results[1].text = 'Latency: Loading...'
-        actionsLauncher:refresh()
-
-        hs.task
-          .new('/bin/bash', function(exitCode, stdout, stderr)
-            local latency = trim(stdout)
-            if exitCode == 0 and latency ~= '' then
-              results[1].text = string.format('Latency: %s ms', latency)
-            else
-              results[1].text = 'Latency: Failed'
-            end
-            actionsLauncher:refresh()
-
-            -- Test 2: Download
-            results[2].text = 'Download: Loading...'
-            actionsLauncher:refresh()
-
-            hs.task
-              .new('/bin/bash', function(exitCode2, stdout2, stderr2)
-                local download = trim(stdout2)
-                if exitCode2 == 0 and download ~= '' then
-                  results[2].text = string.format('Download: %s MB/s', download)
-                else
-                  results[2].text = 'Download: Failed'
-                end
-                actionsLauncher:refresh()
-
-                -- Test 3: Upload
-                results[3].text = 'Upload: Loading...'
-                actionsLauncher:refresh()
-
-                hs.task
-                  .new('/bin/bash', function(exitCode3, stdout3, stderr3)
-                    local upload = trim(stdout3)
-                    if exitCode3 == 0 and upload ~= '' then
-                      results[3].text = string.format('Upload: %s MB/s', upload)
-                    else
-                      results[3].text = 'Upload: Failed'
-                    end
-                    actionsLauncher:refresh()
-                  end, {
-                    '-c',
-                    "dd if=/dev/zero bs=1024 count=1024 2>/dev/null | curl -o /dev/null -s -w '%{speed_upload}' --data-binary @- https://speed.cloudflare.com/__up 2>&1 | awk '{printf \"%.2f\", $1 / 1024 / 1024}'",
-                  })
-                  :start()
-              end, {
-                '-c',
-                "curl -o /dev/null -s -w '%{speed_download}' https://speed.cloudflare.com/__down?bytes=10000000 2>&1 | awk '{printf \"%.2f\", $1 / 1024 / 1024}'",
-              })
-              :start()
-          end, {
-            '-c',
-            "curl -o /dev/null -s -w '%{time_total}' https://1.1.1.1 2>&1 | awk '{printf \"%.0f\", $1 * 1000}'",
-          })
-          :start()
-      end
-
-      -- Use ActionsLauncher's openChildChooser
-      actionsLauncher:openChildChooser {
-        placeholder = 'Speed test results...',
-        parentAction = 'network_status',
-        handler = function(query, launcher)
-          return events.buildSearchableChoices(query, results, launcher, {
-            maxResults = 10,
-          })
-        end,
-      }
-
-      -- Start tests after chooser is shown
-      hs.timer.doAfter(0.1, runTests)
-
+      local webview = hs.webview
+          .new({ x = x, y = y, w = width, h = height }, {}, usercontent)
+          :windowStyle({ 'titled', 'closable', 'resizable', 'miniaturizable' })
+          :windowTitle('Speed Test')
+          :url('https://speed.cloudflare.com/')
+          :closeOnEscape(true)
+          :allowTextEntry(true)
+          :deleteOnClose(true)
+          :show()
+          :bringToFront(true)
     end,
   },
 }

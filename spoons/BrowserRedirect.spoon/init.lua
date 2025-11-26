@@ -174,7 +174,7 @@ end
 function obj:_startURLSchemeHandler()
   -- Store original default browser
   local output =
-    hs.execute "defaults read com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers | grep -A3 LSHandlerURLScheme | grep http -A2 | grep LSHandlerRoleAll -A1 | tail -1 | cut -d'\"' -f2"
+      hs.execute "defaults read com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers | grep -A3 LSHandlerURLScheme | grep http -A2 | grep LSHandlerRoleAll -A1 | tail -1 | cut -d'\"' -f2"
   if output and output ~= '' then
     self.originalDefaultBrowser = output:gsub('%s+', '')
   end
@@ -187,7 +187,8 @@ function obj:_startURLSchemeHandler()
 
   if not success then
     self.logger:w(
-      'Could not set default URL handler (this is usually fine): ' .. tostring(err) .. '. URL redirection will still work for URLs opened through Hammerspoon.'
+      'Could not set default URL handler (this is usually fine): ' ..
+      tostring(err) .. '. URL redirection will still work for URLs opened through Hammerspoon.'
     )
   end
 
@@ -248,9 +249,31 @@ end
 --- Returns:
 ---  * Boolean - Success status
 function obj:_openInApp(url, appName)
-  local openCmd = string.format('open -a "%s" "%s"', appName, url)
-  local output, success = hs.execute(openCmd)
-  return success
+  -- For Safari, use AppleScript to open in new tab instead of new window
+  if appName == 'Safari' then
+    local script = string.format(
+      [[
+      tell application "Safari"
+        if (count of windows) = 0 then
+          make new document
+        end if
+        tell front window
+          set current tab to (make new tab with properties {URL:"%s"})
+        end tell
+        activate
+      end tell
+    ]],
+      url:gsub('"', '\\"')
+    )
+
+    local success, output, descriptor = hs.osascript.applescript(script)
+    return success
+  else
+    -- For other apps, use the standard open command
+    local openCmd = string.format('open -a "%s" "%s"', appName, url)
+    local output, success = hs.execute(openCmd)
+    return success
+  end
 end
 
 --- BrowserRedirect:_transformURL(url)
@@ -374,7 +397,8 @@ function obj:_transformURLPattern(url, fromPattern, toPattern)
     local encodePlaceholder = '{' .. param .. '|encode}'
 
     if result:find(encodePlaceholder, 1, true) then
-      result = result:gsub(encodePlaceholder:gsub('([%^%$%(%)%%%.%[%]%+%-%?])', '%%%1'), hs.http.encodeForQuery(value or ''))
+      result = result:gsub(encodePlaceholder:gsub('([%^%$%(%)%%%.%[%]%+%-%?])', '%%%1'),
+        hs.http.encodeForQuery(value or ''))
     else
       result = result:gsub(placeholder:gsub('([%^%$%(%)%%%.%[%]%+%-%?])', '%%%1'), value or '')
     end
@@ -439,7 +463,8 @@ function obj:_matchesPattern(url, pattern)
   luaPattern = '^' .. luaPattern .. '$'
 
   local matches = url:match(luaPattern) ~= nil
-  self.logger:d(string.format("Pattern '%s' -> Lua pattern '%s' matches URL '%s': %s", pattern, luaPattern, url, tostring(matches)))
+  self.logger:d(string.format("Pattern '%s' -> Lua pattern '%s' matches URL '%s': %s", pattern, luaPattern, url,
+    tostring(matches)))
 
   return matches
 end

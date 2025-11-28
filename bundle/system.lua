@@ -58,6 +58,7 @@ return {
         { text = 'Consumption: Loading...', subText = 'CPU/GPU power consumption',     value = '' },
         { text = 'Battery: Loading...',     subText = 'Battery status and percentage', value = '' },
         { text = 'Network: Loading...',     subText = 'Upload/Download speeds',        value = '' },
+        { text = 'Disk: Loading...',        subText = 'Available disk space',          value = '' },
         { text = 'Uptime: Loading...',      subText = 'System uptime',                 value = '' },
       }
 
@@ -297,6 +298,38 @@ return {
             })
             :start()
 
+        -- Disk Space
+        hs.task
+            .new('/bin/bash', function(exitCode, stdout, stderr)
+              if exitCode == 0 then
+                local output = trim(stdout)
+                -- Parse df -k output: total, used, available
+                local totalKB, usedKB, availableKB = output:match '(%d+)%s+(%d+)%s+(%d+)'
+
+                if totalKB and availableKB then
+                  local totalKBNum = tonumber(totalKB)
+                  local availableKBNum = tonumber(availableKB)
+
+                  -- Convert KB to GB
+                  local totalGB = totalKBNum / 1024 / 1024
+                  local availableGB = availableKBNum / 1024 / 1024
+
+                  -- Calculate actual used space (total - available)
+                  local usedGB = totalGB - availableGB
+                  local percent = (usedGB / totalGB) * 100
+
+                  results[8].text = string.format('Disk: %.0f%%', percent)
+                  results[8].value = string.format('%.0f%%', percent)
+                  results[8].subText = string.format('%.1f GB used of %.1f GB', usedGB, totalGB)
+                end
+              end
+
+              if isActive then
+                actionsLauncher:refresh()
+              end
+            end, { '-c', 'df -k / | tail -1 | awk \'{print $2, $3, $4}\'' })
+            :start()
+
         -- Uptime
         hs.task
             .new('/bin/bash', function(exitCode, stdout, stderr)
@@ -323,9 +356,9 @@ return {
                   end
 
                   local bootDate = os.date('%B %d, %Y at %H:%M', bootTimestamp)
-                  results[8].text = 'Uptime: ' .. uptimeStr
-                  results[8].value = uptimeStr
-                  results[8].subText = 'Running since ' .. bootDate
+                  results[9].text = 'Uptime: ' .. uptimeStr
+                  results[9].value = uptimeStr
+                  results[9].subText = 'Running since ' .. bootDate
                 end
               end
 

@@ -5,472 +5,479 @@ local icons = require 'lib.icons'
 
 -- Get the focused window with retry logic
 local function getFocusedWindow()
-	local win = hs.window.focusedWindow()
-	if win then
-		return win
-	end
+    local win = hs.window.focusedWindow()
+    if win then
+        return win
+    end
 
-	-- Retry logic - sometimes the focused window isn't immediately available
-	local maxRetries = 3
-	local retryDelay = 0.05 -- 50ms
+    -- Retry logic - sometimes the focused window isn't immediately available
+    local maxRetries = 3
+    local retryDelay = 0.05 -- 50ms
 
-	for i = 1, maxRetries do
-		hs.timer.usleep(retryDelay * 1000000) -- Convert to microseconds
-		win = hs.window.focusedWindow()
-		if win then
-			return win
-		end
-	end
+    for i = 1, maxRetries do
+        hs.timer.usleep(retryDelay * 1000000) -- Convert to microseconds
+        win = hs.window.focusedWindow()
+        if win then
+            return win
+        end
+    end
 
-	return nil
+    return nil
 end
 
 -- Move and resize the focused window
 local function moveWindow(direction)
-	local win = getFocusedWindow()
-	if not win then
-		return
-	end
+    local win = getFocusedWindow()
+    if not win then
+        return
+    end
 
-	local screen = win:screen()
-	local frame = screen:frame()
-	local winFrame = win:frame()
+    local screen = win:screen()
+    local frame = screen:frame()
+    local winFrame = win:frame()
 
-	-- Halves
-	if direction == 'left' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y
-		winFrame.w = frame.w / 2
-		winFrame.h = frame.h
-	elseif direction == 'right' then
-		winFrame.x = frame.x + frame.w / 2
-		winFrame.y = frame.y
-		winFrame.w = frame.w / 2
-		winFrame.h = frame.h
-	elseif direction == 'up' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y
-		winFrame.w = frame.w
-		winFrame.h = frame.h / 2
-	elseif direction == 'down' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y + frame.h / 2
-		winFrame.w = frame.w
-		winFrame.h = frame.h / 2
+    -- Halves
+    if direction == 'left' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y
+        winFrame.w = frame.w / 2
+        winFrame.h = frame.h
+    elseif direction == 'right' then
+        winFrame.x = frame.x + frame.w / 2
+        winFrame.y = frame.y
+        winFrame.w = frame.w / 2
+        winFrame.h = frame.h
+    elseif direction == 'up' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y
+        winFrame.w = frame.w
+        winFrame.h = frame.h / 2
+    elseif direction == 'down' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y + frame.h / 2
+        winFrame.w = frame.w
+        winFrame.h = frame.h / 2
 
-	-- Sizing
-	elseif direction == 'max' then
-		winFrame = frame
-	elseif direction == 'center' then
-		winFrame.x = frame.x + (frame.w - winFrame.w) / 2
-		winFrame.y = frame.y + (frame.h - winFrame.h) / 2
-	elseif direction == 'almost_max' then
-		-- Almost Maximize: 90% of screen, centered
-		winFrame.w = frame.w * 0.9
-		winFrame.h = frame.h * 0.9
-		winFrame.x = frame.x + (frame.w - winFrame.w) / 2
-		winFrame.y = frame.y + (frame.h - winFrame.h) / 2
-	elseif direction == 'reasonable' then
-		-- Reasonable Size: 70% of screen, centered
-		winFrame.w = frame.w * 0.6
-		winFrame.h = frame.h * 0.7
-		winFrame.x = frame.x + (frame.w - winFrame.w) / 2
-		winFrame.y = frame.y + (frame.h - winFrame.h) / 2
+        -- Sizing
+    elseif direction == 'max' then
+        winFrame = frame
+    elseif direction == 'center' then
+        winFrame.x = frame.x + (frame.w - winFrame.w) / 2
+        winFrame.y = frame.y + (frame.h - winFrame.h) / 2
+    elseif direction == 'almost_max' then
+        -- Almost Maximize: 90% of screen, centered
+        winFrame.w = frame.w * 0.9
+        winFrame.h = frame.h * 0.9
+        winFrame.x = frame.x + (frame.w - winFrame.w) / 2
+        winFrame.y = frame.y + (frame.h - winFrame.h) / 2
+    elseif direction == 'reasonable' then
+        -- Reasonable Size: 70% of screen, centered
+        winFrame.w = frame.w * 0.6
+        winFrame.h = frame.h * 0.7
+        winFrame.x = frame.x + (frame.w - winFrame.w) / 2
+        winFrame.y = frame.y + (frame.h - winFrame.h) / 2
 
-	-- Quarters
-	elseif direction == 'top_left' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y
-		winFrame.w = frame.w / 2
-		winFrame.h = frame.h / 2
-	elseif direction == 'top_right' then
-		winFrame.x = frame.x + frame.w / 2
-		winFrame.y = frame.y
-		winFrame.w = frame.w / 2
-		winFrame.h = frame.h / 2
-	elseif direction == 'bottom_left' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y + frame.h / 2
-		winFrame.w = frame.w / 2
-		winFrame.h = frame.h / 2
-	elseif direction == 'bottom_right' then
-		winFrame.x = frame.x + frame.w / 2
-		winFrame.y = frame.y + frame.h / 2
-		winFrame.w = frame.w / 2
-		winFrame.h = frame.h / 2
+        -- Quarters
+    elseif direction == 'top_left' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y
+        winFrame.w = frame.w / 2
+        winFrame.h = frame.h / 2
+    elseif direction == 'top_right' then
+        winFrame.x = frame.x + frame.w / 2
+        winFrame.y = frame.y
+        winFrame.w = frame.w / 2
+        winFrame.h = frame.h / 2
+    elseif direction == 'bottom_left' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y + frame.h / 2
+        winFrame.w = frame.w / 2
+        winFrame.h = frame.h / 2
+    elseif direction == 'bottom_right' then
+        winFrame.x = frame.x + frame.w / 2
+        winFrame.y = frame.y + frame.h / 2
+        winFrame.w = frame.w / 2
+        winFrame.h = frame.h / 2
 
-	-- Thirds (horizontal)
-	elseif direction == 'left_third' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y
-		winFrame.w = frame.w / 3
-		winFrame.h = frame.h
-	elseif direction == 'center_third' then
-		winFrame.x = frame.x + frame.w / 3
-		winFrame.y = frame.y
-		winFrame.w = frame.w / 3
-		winFrame.h = frame.h
-	elseif direction == 'right_third' then
-		winFrame.x = frame.x + (frame.w * 2 / 3)
-		winFrame.y = frame.y
-		winFrame.w = frame.w / 3
-		winFrame.h = frame.h
-	elseif direction == 'left_two_thirds' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y
-		winFrame.w = frame.w * 2 / 3
-		winFrame.h = frame.h
-	elseif direction == 'right_two_thirds' then
-		winFrame.x = frame.x + frame.w / 3
-		winFrame.y = frame.y
-		winFrame.w = frame.w * 2 / 3
-		winFrame.h = frame.h
+        -- Thirds (horizontal)
+    elseif direction == 'left_third' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y
+        winFrame.w = frame.w / 3
+        winFrame.h = frame.h
+    elseif direction == 'center_third' then
+        winFrame.x = frame.x + frame.w / 3
+        winFrame.y = frame.y
+        winFrame.w = frame.w / 3
+        winFrame.h = frame.h
+    elseif direction == 'right_third' then
+        winFrame.x = frame.x + (frame.w * 2 / 3)
+        winFrame.y = frame.y
+        winFrame.w = frame.w / 3
+        winFrame.h = frame.h
+    elseif direction == 'left_two_thirds' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y
+        winFrame.w = frame.w * 2 / 3
+        winFrame.h = frame.h
+    elseif direction == 'right_two_thirds' then
+        winFrame.x = frame.x + frame.w / 3
+        winFrame.y = frame.y
+        winFrame.w = frame.w * 2 / 3
+        winFrame.h = frame.h
 
-	-- Thirds (vertical)
-	elseif direction == 'top_third' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y
-		winFrame.w = frame.w
-		winFrame.h = frame.h / 3
-	elseif direction == 'middle_third' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y + frame.h / 3
-		winFrame.w = frame.w
-		winFrame.h = frame.h / 3
-	elseif direction == 'bottom_third' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y + (frame.h * 2 / 3)
-		winFrame.w = frame.w
-		winFrame.h = frame.h / 3
-	elseif direction == 'top_two_thirds' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y
-		winFrame.w = frame.w
-		winFrame.h = frame.h * 2 / 3
-	elseif direction == 'bottom_two_thirds' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y + frame.h / 3
-		winFrame.w = frame.w
-		winFrame.h = frame.h * 2 / 3
+        -- Thirds (vertical)
+    elseif direction == 'top_third' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y
+        winFrame.w = frame.w
+        winFrame.h = frame.h / 3
+    elseif direction == 'middle_third' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y + frame.h / 3
+        winFrame.w = frame.w
+        winFrame.h = frame.h / 3
+    elseif direction == 'bottom_third' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y + (frame.h * 2 / 3)
+        winFrame.w = frame.w
+        winFrame.h = frame.h / 3
+    elseif direction == 'top_two_thirds' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y
+        winFrame.w = frame.w
+        winFrame.h = frame.h * 2 / 3
+    elseif direction == 'bottom_two_thirds' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y + frame.h / 3
+        winFrame.w = frame.w
+        winFrame.h = frame.h * 2 / 3
 
-	-- Fourths (horizontal)
-	elseif direction == 'left_fourth' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y
-		winFrame.w = frame.w / 4
-		winFrame.h = frame.h
-	elseif direction == 'center_left_fourth' then
-		winFrame.x = frame.x + frame.w / 4
-		winFrame.y = frame.y
-		winFrame.w = frame.w / 4
-		winFrame.h = frame.h
-	elseif direction == 'center_right_fourth' then
-		winFrame.x = frame.x + (frame.w * 2 / 4)
-		winFrame.y = frame.y
-		winFrame.w = frame.w / 4
-		winFrame.h = frame.h
-	elseif direction == 'right_fourth' then
-		winFrame.x = frame.x + (frame.w * 3 / 4)
-		winFrame.y = frame.y
-		winFrame.w = frame.w / 4
-		winFrame.h = frame.h
-	elseif direction == 'left_three_fourths' then
-		winFrame.x = frame.x
-		winFrame.y = frame.y
-		winFrame.w = frame.w * 3 / 4
-		winFrame.h = frame.h
-	elseif direction == 'right_three_fourths' then
-		winFrame.x = frame.x + frame.w / 4
-		winFrame.y = frame.y
-		winFrame.w = frame.w * 3 / 4
-		winFrame.h = frame.h
+        -- Fourths (horizontal)
+    elseif direction == 'left_fourth' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y
+        winFrame.w = frame.w / 4
+        winFrame.h = frame.h
+    elseif direction == 'center_left_fourth' then
+        winFrame.x = frame.x + frame.w / 4
+        winFrame.y = frame.y
+        winFrame.w = frame.w / 4
+        winFrame.h = frame.h
+    elseif direction == 'center_right_fourth' then
+        winFrame.x = frame.x + (frame.w * 2 / 4)
+        winFrame.y = frame.y
+        winFrame.w = frame.w / 4
+        winFrame.h = frame.h
+    elseif direction == 'right_fourth' then
+        winFrame.x = frame.x + (frame.w * 3 / 4)
+        winFrame.y = frame.y
+        winFrame.w = frame.w / 4
+        winFrame.h = frame.h
+    elseif direction == 'left_three_fourths' then
+        winFrame.x = frame.x
+        winFrame.y = frame.y
+        winFrame.w = frame.w * 3 / 4
+        winFrame.h = frame.h
+    elseif direction == 'right_three_fourths' then
+        winFrame.x = frame.x + frame.w / 4
+        winFrame.y = frame.y
+        winFrame.w = frame.w * 3 / 4
+        winFrame.h = frame.h
+    elseif direction == 'max_horizontal' then
+        -- Full width, preserve current height/position
+        winFrame.x = frame.x
+        winFrame.w = frame.w
+    elseif direction == 'max_vertical' then
+        -- Full height, preserve current width/position
+        winFrame.y = frame.y
+        winFrame.h = frame.h
+    end
 
-	-- Cinema mode
-	elseif direction == 'cinema' then
-		-- Cinema: Full width, 90% height, centered vertically
-		winFrame.w = frame.w
-		winFrame.h = frame.h * 0.9
-		winFrame.x = frame.x
-		winFrame.y = frame.y + (frame.h - winFrame.h) / 2
-	end
-
-	win:setFrame(winFrame, 0)
+    win:setFrame(winFrame, 0)
 end
 
 -- Return action definitions
 return {
-	-- Window Management Actions - Sizing
-	{
-		id = 'window_maximize',
-		name = 'Maximize Window',
-		icon = icons.preset.computer,
-		description = 'Maximize window to full screen',
-		handler = function()
-			moveWindow('max')
-		end,
-	},
-	{
-		id = 'window_almost_maximize',
-		name = 'Almost Maximize',
-		icon = icons.preset.computer,
-		description = 'Resize window to 90% of screen, centered',
-		handler = function()
-			moveWindow('almost_max')
-		end,
-	},
-	{
-		id = 'window_reasonable_size',
-		name = 'Reasonable Size',
-		icon = icons.preset.computer,
-		description = 'Resize window to reasonable size 70% of screen, centered',
-		handler = function()
-			moveWindow('reasonable')
-		end,
-	},
-	{
-		id = 'window_center',
-		name = 'Center Window',
-		icon = icons.preset.computer,
-		description = 'Center window without resizing',
-		handler = function()
-			moveWindow('center')
-		end,
-	},
+    -- Window Management Actions - Sizing
+    {
+        id = 'window_maximize',
+        name = 'Maximize Window',
+        icon = icons.preset.computer,
+        description = 'Maximize window to full screen',
+        handler = function()
+            moveWindow('max')
+        end,
+    },
+    {
+        id = 'window_almost_maximize',
+        name = 'Almost Maximize',
+        icon = icons.preset.computer,
+        description = 'Resize window to 90% of screen, centered',
+        handler = function()
+            moveWindow('almost_max')
+        end,
+    },
+    {
+        id = 'window_reasonable_size',
+        name = 'Reasonable Size',
+        icon = icons.preset.computer,
+        description = 'Resize window to reasonable size 70% of screen, centered',
+        handler = function()
+            moveWindow('reasonable')
+        end,
+    },
+    {
+        id = 'window_center',
+        name = 'Center Window',
+        icon = icons.preset.computer,
+        description = 'Center window without resizing',
+        handler = function()
+            moveWindow('center')
+        end,
+    },
 
-	-- Window Management Actions - Halves
-	{
-		id = 'window_left',
-		name = 'Window Left Half',
-		icon = icons.preset.computer,
-		description = 'Position window in left half',
-		handler = function()
-			moveWindow('left')
-		end,
-	},
-	{
-		id = 'window_right',
-		name = 'Window Right Half',
-		icon = icons.preset.computer,
-		description = 'Position window in right half',
-		handler = function()
-			moveWindow('right')
-		end,
-	},
-	{
-		id = 'window_up',
-		name = 'Window Top Half',
-		icon = icons.preset.computer,
-		description = 'Position window in top half',
-		handler = function()
-			moveWindow('up')
-		end,
-	},
-	{
-		id = 'window_down',
-		name = 'Window Bottom Half',
-		icon = icons.preset.computer,
-		description = 'Position window in bottom half',
-		handler = function()
-			moveWindow('down')
-		end,
-	},
+    -- Window Management Actions - Halves
+    {
+        id = 'window_left',
+        name = 'Window Left Half',
+        icon = icons.preset.computer,
+        description = 'Position window in left half',
+        handler = function()
+            moveWindow('left')
+        end,
+    },
+    {
+        id = 'window_right',
+        name = 'Window Right Half',
+        icon = icons.preset.computer,
+        description = 'Position window in right half',
+        handler = function()
+            moveWindow('right')
+        end,
+    },
+    {
+        id = 'window_up',
+        name = 'Window Top Half',
+        icon = icons.preset.computer,
+        description = 'Position window in top half',
+        handler = function()
+            moveWindow('up')
+        end,
+    },
+    {
+        id = 'window_down',
+        name = 'Window Bottom Half',
+        icon = icons.preset.computer,
+        description = 'Position window in bottom half',
+        handler = function()
+            moveWindow('down')
+        end,
+    },
 
-	-- Window Management Actions - Quarters
-	{
-		id = 'window_top_left',
-		name = 'Window Top Left',
-		icon = icons.preset.computer,
-		description = 'Position window in top left quarter',
-		handler = function()
-			moveWindow('top_left')
-		end,
-	},
-	{
-		id = 'window_top_right',
-		name = 'Window Top Right',
-		icon = icons.preset.computer,
-		description = 'Position window in top right quarter',
-		handler = function()
-			moveWindow('top_right')
-		end,
-	},
-	{
-		id = 'window_bottom_left',
-		name = 'Window Bottom Left',
-		icon = icons.preset.computer,
-		description = 'Position window in bottom left quarter',
-		handler = function()
-			moveWindow('bottom_left')
-		end,
-	},
-	{
-		id = 'window_bottom_right',
-		name = 'Window Bottom Right',
-		icon = icons.preset.computer,
-		description = 'Position window in bottom right quarter',
-		handler = function()
-			moveWindow('bottom_right')
-		end,
-	},
+    -- Window Management Actions - Quarters
+    {
+        id = 'window_top_left',
+        name = 'Window Top Left',
+        icon = icons.preset.computer,
+        description = 'Position window in top left quarter',
+        handler = function()
+            moveWindow('top_left')
+        end,
+    },
+    {
+        id = 'window_top_right',
+        name = 'Window Top Right',
+        icon = icons.preset.computer,
+        description = 'Position window in top right quarter',
+        handler = function()
+            moveWindow('top_right')
+        end,
+    },
+    {
+        id = 'window_bottom_left',
+        name = 'Window Bottom Left',
+        icon = icons.preset.computer,
+        description = 'Position window in bottom left quarter',
+        handler = function()
+            moveWindow('bottom_left')
+        end,
+    },
+    {
+        id = 'window_bottom_right',
+        name = 'Window Bottom Right',
+        icon = icons.preset.computer,
+        description = 'Position window in bottom right quarter',
+        handler = function()
+            moveWindow('bottom_right')
+        end,
+    },
 
-	-- Window Management Actions - Thirds (Horizontal)
-	{
-		id = 'window_left_third',
-		name = 'Window Left Third',
-		icon = icons.preset.computer,
-		description = 'Position window in left third',
-		handler = function()
-			moveWindow('left_third')
-		end,
-	},
-	{
-		id = 'window_center_third',
-		name = 'Window Center Third',
-		icon = icons.preset.computer,
-		description = 'Position window in center third',
-		handler = function()
-			moveWindow('center_third')
-		end,
-	},
-	{
-		id = 'window_right_third',
-		name = 'Window Right Third',
-		icon = icons.preset.computer,
-		description = 'Position window in right third',
-		handler = function()
-			moveWindow('right_third')
-		end,
-	},
-	{
-		id = 'window_left_two_thirds',
-		name = 'Window Left Two Thirds',
-		icon = icons.preset.computer,
-		description = 'Position window in left two thirds',
-		handler = function()
-			moveWindow('left_two_thirds')
-		end,
-	},
-	{
-		id = 'window_right_two_thirds',
-		name = 'Window Right Two Thirds',
-		icon = icons.preset.computer,
-		description = 'Position window in right two thirds',
-		handler = function()
-			moveWindow('right_two_thirds')
-		end,
-	},
+    -- Window Management Actions - Thirds (Horizontal)
+    {
+        id = 'window_left_third',
+        name = 'Window Left Third',
+        icon = icons.preset.computer,
+        description = 'Position window in left third',
+        handler = function()
+            moveWindow('left_third')
+        end,
+    },
+    {
+        id = 'window_center_third',
+        name = 'Window Center Third',
+        icon = icons.preset.computer,
+        description = 'Position window in center third',
+        handler = function()
+            moveWindow('center_third')
+        end,
+    },
+    {
+        id = 'window_right_third',
+        name = 'Window Right Third',
+        icon = icons.preset.computer,
+        description = 'Position window in right third',
+        handler = function()
+            moveWindow('right_third')
+        end,
+    },
+    {
+        id = 'window_left_two_thirds',
+        name = 'Window Left Two Thirds',
+        icon = icons.preset.computer,
+        description = 'Position window in left two thirds',
+        handler = function()
+            moveWindow('left_two_thirds')
+        end,
+    },
+    {
+        id = 'window_right_two_thirds',
+        name = 'Window Right Two Thirds',
+        icon = icons.preset.computer,
+        description = 'Position window in right two thirds',
+        handler = function()
+            moveWindow('right_two_thirds')
+        end,
+    },
 
-	-- Window Management Actions - Thirds (Vertical)
-	{
-		id = 'window_top_third',
-		name = 'Window Top Third',
-		icon = icons.preset.computer,
-		description = 'Position window in top third',
-		handler = function()
-			moveWindow('top_third')
-		end,
-	},
-	{
-		id = 'window_middle_third',
-		name = 'Window Middle Third',
-		icon = icons.preset.computer,
-		description = 'Position window in middle third',
-		handler = function()
-			moveWindow('middle_third')
-		end,
-	},
-	{
-		id = 'window_bottom_third',
-		name = 'Window Bottom Third',
-		icon = icons.preset.computer,
-		description = 'Position window in bottom third',
-		handler = function()
-			moveWindow('bottom_third')
-		end,
-	},
-	{
-		id = 'window_top_two_thirds',
-		name = 'Window Top Two Thirds',
-		icon = icons.preset.computer,
-		description = 'Position window in top two thirds',
-		handler = function()
-			moveWindow('top_two_thirds')
-		end,
-	},
-	{
-		id = 'window_bottom_two_thirds',
-		icon = icons.preset.computer,
-		name = 'Window Bottom Two Thirds',
-		description = 'Position window in bottom two thirds',
-		handler = function()
-			moveWindow('bottom_two_thirds')
-		end,
-	},
+    -- Window Management Actions - Thirds (Vertical)
+    {
+        id = 'window_top_third',
+        name = 'Window Top Third',
+        icon = icons.preset.computer,
+        description = 'Position window in top third',
+        handler = function()
+            moveWindow('top_third')
+        end,
+    },
+    {
+        id = 'window_middle_third',
+        name = 'Window Middle Third',
+        icon = icons.preset.computer,
+        description = 'Position window in middle third',
+        handler = function()
+            moveWindow('middle_third')
+        end,
+    },
+    {
+        id = 'window_bottom_third',
+        name = 'Window Bottom Third',
+        icon = icons.preset.computer,
+        description = 'Position window in bottom third',
+        handler = function()
+            moveWindow('bottom_third')
+        end,
+    },
+    {
+        id = 'window_top_two_thirds',
+        name = 'Window Top Two Thirds',
+        icon = icons.preset.computer,
+        description = 'Position window in top two thirds',
+        handler = function()
+            moveWindow('top_two_thirds')
+        end,
+    },
+    {
+        id = 'window_bottom_two_thirds',
+        icon = icons.preset.computer,
+        name = 'Window Bottom Two Thirds',
+        description = 'Position window in bottom two thirds',
+        handler = function()
+            moveWindow('bottom_two_thirds')
+        end,
+    },
 
-	-- Window Management Actions - Fourths (Horizontal)
-	{
-		id = 'window_left_fourth',
-		name = 'Window Left Fourth',
-		icon = icons.preset.computer,
-		description = 'Position window in left fourth',
-		handler = function()
-			moveWindow('left_fourth')
-		end,
-	},
-	{
-		id = 'window_center_left_fourth',
-		name = 'Window Center Left Fourth',
-		icon = icons.preset.computer,
-		description = 'Position window in center left fourth',
-		handler = function()
-			moveWindow('center_left_fourth')
-		end,
-	},
-	{
-		id = 'window_center_right_fourth',
-		name = 'Window Center Right Fourth',
-		icon = icons.preset.computer,
-		description = 'Position window in center right fourth',
-		handler = function()
-			moveWindow('center_right_fourth')
-		end,
-	},
-	{
-		id = 'window_right_fourth',
-		name = 'Window Right Fourth',
-		icon = icons.preset.computer,
-		description = 'Position window in right fourth',
-		handler = function()
-			moveWindow('right_fourth')
-		end,
-	},
-	{
-		id = 'window_left_three_fourths',
-		name = 'Window Left Three Fourths',
-		icon = icons.preset.computer,
-		description = 'Position window in left three fourths',
-		handler = function()
-			moveWindow('left_three_fourths')
-		end,
-	},
-	{
-		id = 'window_right_three_fourths',
-		name = 'Window Right Three Fourths',
-		icon = icons.preset.computer,
-		description = 'Position window in right three fourths',
-		handler = function()
-			moveWindow('right_three_fourths')
-		end,
-	},
-
-	-- Cinema Mode
-	{
-		id = 'window_cinema',
-		name = 'Cinema Mode',
-		icon = icons.preset.computer,
-		description = 'Full width, 90% height, centered vertically',
-		handler = function()
-			moveWindow('cinema')
-		end,
-	},
+    -- Window Management Actions - Fourths (Horizontal)
+    {
+        id = 'window_left_fourth',
+        name = 'Window Left Fourth',
+        icon = icons.preset.computer,
+        description = 'Position window in left fourth',
+        handler = function()
+            moveWindow('left_fourth')
+        end,
+    },
+    {
+        id = 'window_center_left_fourth',
+        name = 'Window Center Left Fourth',
+        icon = icons.preset.computer,
+        description = 'Position window in center left fourth',
+        handler = function()
+            moveWindow('center_left_fourth')
+        end,
+    },
+    {
+        id = 'window_center_right_fourth',
+        name = 'Window Center Right Fourth',
+        icon = icons.preset.computer,
+        description = 'Position window in center right fourth',
+        handler = function()
+            moveWindow('center_right_fourth')
+        end,
+    },
+    {
+        id = 'window_right_fourth',
+        name = 'Window Right Fourth',
+        icon = icons.preset.computer,
+        description = 'Position window in right fourth',
+        handler = function()
+            moveWindow('right_fourth')
+        end,
+    },
+    {
+        id = 'window_left_three_fourths',
+        name = 'Window Left Three Fourths',
+        icon = icons.preset.computer,
+        description = 'Position window in left three fourths',
+        handler = function()
+            moveWindow('left_three_fourths')
+        end,
+    },
+    {
+        id = 'window_right_three_fourths',
+        name = 'Window Right Three Fourths',
+        icon = icons.preset.computer,
+        description = 'Position window in right three fourths',
+        handler = function()
+            moveWindow('right_three_fourths')
+        end,
+    },
+    {
+        id = 'window_maximize_horizontal',
+        name = 'Maximize Horizontal',
+        icon = icons.preset.computer,
+        description = 'Set window width to screen width, keep height and Y position',
+        handler = function()
+            moveWindow('max_horizontal')
+        end,
+    },
+    {
+        id = 'window_maximize_vertical',
+        name = 'Maximize Vertical',
+        icon = icons.preset.computer,
+        description = 'Set window height to screen height, keep width and X position',
+        handler = function()
+            moveWindow('max_vertical')
+        end,
+    },
 }

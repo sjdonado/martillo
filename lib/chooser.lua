@@ -12,8 +12,9 @@ function M.new()
     stack = {},
     currentChooser = nil,
     escTap = nil,
+    tabTap = nil,
     onEscNavigate = nil,
-    logger = hs.logger.new('ChooserManager', 'info'),
+    logger = hs.logger.new('ChooserManager', 'debug'),
   }
 
   setmetatable(manager, { __index = M })
@@ -93,6 +94,101 @@ function M:shouldKeepStack()
   return keepStack
 end
 
+--- Start Tab key interception for chooser navigation
+--- This intercepts Tab before it reaches the chooser to use it for navigation:
+---   - Tab: select next item (event consumed)
+---   - Shift+Tab: select previous item (event consumed)
+function M:startTabInterception()
+  self.logger:d('startTabInterception called')
+
+  if self.tabTap then
+    self.logger:d('Stopping existing tabTap')
+    self.tabTap:stop()
+  end
+
+  self.logger:d('Creating new Tab event tap')
+  self.tabTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
+    local keyCode = event:getKeyCode()
+    local flags = event:getFlags()
+
+    -- Log ALL key presses to debug
+    self.logger:d('Key pressed: keyCode=' .. keyCode)
+
+    -- Tab key is keycode 48
+    if keyCode == 48 then
+      self.logger:d('Tab key detected! keyCode=' .. keyCode)
+      if not self.currentChooser then
+        self.logger:d('No current chooser, ignoring Tab')
+        return false
+      end
+
+      -- Check if chooser is visible
+      if not self.currentChooser:isVisible() then
+        self.logger:d('Chooser not visible, ignoring Tab')
+        return false
+      end
+
+      self.logger:d('Processing Tab navigation')
+
+      -- Directly manipulate selected row
+      local success, currentRow = pcall(function() return self.currentChooser:selectedRow() end)
+
+      if not success then
+        self.logger:d('Could not get current row: ' .. tostring(currentRow))
+        return true
+      end
+
+      self.logger:d('Current row: ' .. tostring(currentRow))
+
+      -- Navigate without querying choices count
+      -- The chooser should handle out-of-bounds gracefully
+      local newRow
+      if flags.shift then
+        -- Shift+Tab: previous item (decrement)
+        newRow = (currentRow or 1) - 1
+        if newRow < 1 then
+          newRow = 1 -- Don't wrap, stay at first
+        end
+        self.logger:d('Shift+Tab: moving to row ' .. newRow)
+      else
+        -- Tab: next item (increment)
+        newRow = (currentRow or 1) + 1
+        self.logger:d('Tab: moving to row ' .. newRow)
+      end
+
+      -- Try to set the new row
+      local setSuccess = pcall(function()
+        self.currentChooser:selectedRow(newRow)
+      end)
+
+      if setSuccess then
+        self.logger:d('Successfully set row to ' .. newRow)
+      else
+        self.logger:d('Failed to set row to ' .. newRow .. ', might be out of bounds')
+      end
+
+      return true -- Consume the event
+    end
+
+    -- Let all other keys through
+    return false
+  end)
+
+  local startSuccess = self.tabTap:start()
+  self.logger:d('Tab event tap start() called, success: ' .. tostring(startSuccess))
+  self.logger:d('Tab interception started, tap object: ' .. tostring(self.tabTap))
+  self.logger:d('Tab tap isEnabled: ' .. tostring(self.tabTap:isEnabled()))
+end
+
+--- Stop Tab key interception
+function M:stopTabInterception()
+  if self.tabTap then
+    self.tabTap:stop()
+    self.tabTap = nil
+    self.logger:d('Tab interception stopped')
+  end
+end
+
 --- Start ESC key interception for chooser navigation
 --- This intercepts ESC before it reaches the chooser to distinguish:
 ---   - ESC alone: navigate to parent (event consumed)
@@ -145,6 +241,12 @@ function M:stopEscInterception()
     self.logger:d('ESC interception stopped')
   end
   self.onEscNavigate = nil
+end
+
+--- Stop all key interceptions
+function M:stopAllInterceptions()
+  self:stopEscInterception()
+  self:stopTabInterception()
 end
 
 return M

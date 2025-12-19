@@ -174,7 +174,7 @@ return {
       end
 
       local vendorCache = {}
-      local cacheFile = '/tmp/martillo_mac_vendor_cache.txt'
+      local cacheFile = '/tmp/martillo/' .. os.getenv('USER') .. '/mac_vendor_cache.txt'
 
       local function loadVendorCache()
         -- Load from file

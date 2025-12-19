@@ -4,7 +4,7 @@
 local icons = require 'lib.icons'
 
 local M = {
-  cacheDir = '/tmp/martillo_thumbnails',
+  cacheDir = '/tmp/martillo/' .. os.getenv("USER") .. '/tumbnails',
   defaultSize = icons.ICON_SIZE,
   logger = hs.logger.new('ThumbnailCache', 'info'),
   -- Memory limit tracking (per subdirectory)

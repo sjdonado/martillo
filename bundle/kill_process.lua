@@ -14,16 +14,15 @@ local M = {
   currentQuery = '',
   maxResults = 150,
   logger = hs.logger.new('KillProcess', 'info'),
-  cachedProcessList = nil, -- Cache process list to avoid re-running ps on every keystroke
-  cacheRefreshTimer = nil, -- Timer to refresh the cache periodically
-  iconCache = {},          -- Cache icon objects in memory for the session
+  cachedProcessList = nil,   -- Cache process list to avoid re-running ps on every keystroke
+  cacheRefreshTimer = nil,   -- Timer to refresh the cache periodically
 }
 
 -- Format memory for display
 local function formatMemory(memKB)
-  if memKB >= 1024 * 1024 then -- >= 1GB
+  if memKB >= 1024 * 1024 then   -- >= 1GB
     return string.format('%.1f GB', memKB / (1024 * 1024))
-  elseif memKB >= 1024 then    -- >= 1MB
+  elseif memKB >= 1024 then      -- >= 1MB
     return string.format('%.0f MB', memKB / 1024)
   else
     return string.format('%.0f KB', memKB)
@@ -294,7 +293,8 @@ end
 
 -- Get Safari tab URLs and extract domains
 local function getSafariDomains()
-  local success, output = pcall(hs.execute, [[osascript -e 'tell application "Safari" to get URL of every tab of every window' 2>/dev/null]])
+  local success, output = pcall(hs.execute,
+    [[osascript -e 'tell application "Safari" to get URL of every tab of every window' 2>/dev/null]])
   if not success or not output then
     return {}
   end
@@ -302,7 +302,7 @@ local function getSafariDomains()
   local domains = {}
   -- Parse comma-separated URLs
   for url in output:gmatch('[^,]+') do
-    url = url:gsub('^%s+', ''):gsub('%s+$', '') -- trim whitespace
+    url = url:gsub('^%s+', ''):gsub('%s+$', '')     -- trim whitespace
     -- Extract domain from URL
     local domain = url:match('https?://([^/]+)')
     if domain then
@@ -390,11 +390,12 @@ local function getProcessList()
           if pidNum and cpuNum then
             table.insert(processes, {
               text = processName or 'Unknown',
-              subText = string.format('PID: %s | CPU: %s%% | Memory: %s | %s', pid, cpu, memDisplay, command or ''),
+              subText = string.format('PID: %s | CPU: %s%% | Memory: %s | %s', pid, cpu, memDisplay,
+                command or ''),
               pid = pidNum,
               ppid = ppidNum,
               cpu = cpuNum,
-              mem = memKB, -- Store raw KB for sorting
+              mem = memKB,               -- Store raw KB for sorting
               memDisplay = memDisplay,
               name = processName,
               fullPath = command,
@@ -510,12 +511,12 @@ return {
     icon = icons.preset.trash_can,
     description = 'Kill processes with fuzzy search',
     opts = {
-      success_toast = true, -- Show success toast notification when killing processes
+      success_toast = true,       -- Show success toast notification when killing processes
     },
     handler = function()
       -- Get ActionsLauncher instance
       local actionsLauncher = spoon.ActionsLauncher
-      local currentLauncher = nil -- Will be set by handler
+      local currentLauncher = nil       -- Will be set by handler
 
       -- Get action configuration (user can override opts in their config)
       local showToast = events.getActionOpt('kill_process', 'success_toast', true)
@@ -524,7 +525,7 @@ return {
       local defaultIcon = icons.getIcon(icons.preset.puzzle)
 
       -- Initialize process cache and start refresh timer
-      refreshProcessCache() -- Initial load
+      refreshProcessCache()       -- Initial load
 
       -- Function to build choices from filtered processes
       local function buildChoices(launcher)
@@ -609,7 +610,6 @@ return {
           end
           -- Clear cached process list and icon cache to free memory
           M.cachedProcessList = nil
-          M.iconCache = {}
           currentLauncher = nil
           M.logger:d 'Stopped process cache refresh timer and cleared caches'
         end,

@@ -31,49 +31,49 @@ print("========================================")
 
 -- Create chooser
 chooser = hs.chooser.new(function(choice)
-	if not choice then
-		print("⚠️  Chooser callback: choice = nil (ESC or cancel)")
-		print("    This should ONLY happen with Shift+ESC, not plain ESC")
-		return
-	end
-	print("✅ Chooser callback: selected " .. choice.text)
-	chooser:hide()
+  if not choice then
+    print("⚠️  Chooser callback: choice = nil (ESC or cancel)")
+    print("    This should ONLY happen with Shift+ESC, not plain ESC")
+    return
+  end
+  print("✅ Chooser callback: selected " .. choice.text)
+  chooser:hide()
 end)
 
 chooser:choices({
-	{ text = "Option 1" },
-	{ text = "Option 2" },
-	{ text = "Option 3" },
+  { text = "Option 1" },
+  { text = "Option 2" },
+  { text = "Option 3" },
 })
 
 chooser:hideCallback(function()
-	print("🔽 hideCallback: chooser is hiding")
-	print("    This should fire for: Shift+ESC, click-outside, Enter selection")
-	print("    This should NOT fire for: plain ESC (event consumed)")
+  print("🔽 hideCallback: chooser is hiding")
+  print("    This should fire for: Shift+ESC, click-outside, Enter selection")
+  print("    This should NOT fire for: plain ESC (event consumed)")
 end)
 
 -- Create ESC key interceptor
 escTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
-	local keyCode = event:getKeyCode()
-	local flags = event:getFlags()
+  local keyCode = event:getKeyCode()
+  local flags = event:getFlags()
 
-	-- ESC key is keycode 53
-	if keyCode == 53 then
-		print("")
-		print("🔑 ESC intercepted! Shift: " .. tostring(flags.shift or false))
+  -- ESC key is keycode 53
+  if keyCode == 53 then
+    print("")
+    print("🔑 ESC intercepted! Shift: " .. tostring(flags.shift or false))
 
-		if flags.shift then
-			print("   → Shift+ESC: Letting event through to CLOSE ALL")
-			-- Let it propagate to close the chooser
-			return false
-		else
-			print("   → ESC alone: CONSUMING event, would navigate to parent")
-			-- Block the event to prevent chooser from closing
-			return true  -- Delete the event (chooser stays open)
-		end
-	end
+    if flags.shift then
+      print("   → Shift+ESC: Letting event through to CLOSE ALL")
+      -- Let it propagate to close the chooser
+      return false
+    else
+      print("   → ESC alone: CONSUMING event, would navigate to parent")
+      -- Block the event to prevent chooser from closing
+      return true -- Delete the event (chooser stays open)
+    end
+  end
 
-	return false  -- Let other keys through
+  return false -- Let other keys through
 end)
 
 -- Start the interceptor

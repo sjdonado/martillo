@@ -192,12 +192,12 @@ function M.buildSearchableChoices(query, results, launcher, opts)
   opts = opts or {}
   local handler = opts.handler or M.noAction()
   local searchFields = opts.searchFields
-    or function(result)
-      return {
-        { value = result.text or '', weight = 1.0, key = 'text' },
-        { value = result.subText or '', weight = 0.7, key = 'subText' },
-      }
-    end
+      or function(result)
+        return {
+          { value = result.text or '',    weight = 1.0, key = 'text' },
+          { value = result.subText or '', weight = 0.7, key = 'subText' },
+        }
+      end
   local fuzzyMinQueryLength = opts.fuzzyMinQueryLength or 2
   local maxResults = opts.maxResults or 50
   local defaultImage = opts.image -- Optional default image for all choices

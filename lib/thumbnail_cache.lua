@@ -2,15 +2,16 @@
 -- Manages thumbnail generation and caching to disk to reduce memory usage
 --
 local icons = require 'lib.icons'
+local temp = require 'lib.tmp'
 
 local M = {
-  cacheDir = '/tmp/martillo/' .. os.getenv("USER") .. '/tumbnails',
+  cacheDir = temp.getDir('thumbnails'),
   defaultSize = icons.ICON_SIZE,
   logger = hs.logger.new('ThumbnailCache', 'info'),
   -- Memory limit tracking (per subdirectory)
-  loadedCounts = {}, -- Track how many thumbnails loaded per subdir in this session
+  loadedCounts = {},       -- Track how many thumbnails loaded per subdir in this session
   maxLoadedPerSubdir = {}, -- Configurable limits per subdir
-  fallbackIcons = {}, -- Cached fallback icons
+  fallbackIcons = {},      -- Cached fallback icons
 }
 
 -- Initialize cache directory
@@ -19,7 +20,7 @@ local function ensureCacheDir(subdir)
   if subdir then
     fullPath = fullPath .. '/' .. subdir
   end
-  os.execute("mkdir -p '" .. fullPath .. "'")
+  hs.fs.mkdir(fullPath)
   return fullPath
 end
 
@@ -279,6 +280,8 @@ end
 function M.init(cacheDir)
   if cacheDir then
     M.cacheDir = cacheDir
+  else
+    M.cacheDir = temp.getDir('thumbnails')
   end
   ensureCacheDir()
   M.logger:i('Thumbnail cache initialized: ' .. M.cacheDir)

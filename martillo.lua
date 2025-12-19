@@ -206,6 +206,16 @@ local function processActionFilters(allActions, actionFilters)
 					filteredAction.alias = overrides.alias
 				end
 
+				-- Apply opts override (merge with existing opts)
+				if overrides.opts then
+					if not filteredAction.opts then
+						filteredAction.opts = {}
+					end
+					for k, v in pairs(overrides.opts) do
+						filteredAction.opts[k] = v
+					end
+				end
+
 				table.insert(filteredActions, filteredAction)
 			end
 		end
@@ -253,6 +263,16 @@ local function processActionFilters(allActions, actionFilters)
 							filteredAction.alias = overrides.alias
 						end
 
+						-- Apply opts override (merge with existing opts)
+						if overrides.opts then
+							if not filteredAction.opts then
+								filteredAction.opts = {}
+							end
+							for k, v in pairs(overrides.opts) do
+								filteredAction.opts[k] = v
+							end
+						end
+
 						table.insert(filtered.static, filteredAction)
 						break
 					end
@@ -286,6 +306,16 @@ local function processActionFilters(allActions, actionFilters)
 						-- Apply alias override (Nested Actions can't have keys)
 						if overrides.alias then
 							filteredAction.alias = overrides.alias
+						end
+
+						-- Apply opts override (merge with existing opts)
+						if overrides.opts then
+							if not filteredAction.opts then
+								filteredAction.opts = {}
+							end
+							for k, v in pairs(overrides.opts) do
+								filteredAction.opts[k] = v
+							end
 						end
 
 						table.insert(filtered.dynamic, filteredAction)

@@ -25,6 +25,7 @@ Every action below ships with Martillo and is available through `ActionsLauncher
 
 | Category | Action ID | What it does | Enter / ⇧Enter | Search & notes |
 | --- | --- | --- | --- | --- |
+| Window | switch_window | Switch to any open window with fuzzy search | Enter: focus window<br>⇧Enter: same | Child chooser with fuzzy search<br>Shows app icons and titles |
 | Window | window_maximize | Maximize window to full screen | Enter: run<br>⇧Enter: same | Global fuzzy search<br>Direct action |
 | Window | window_almost_maximize | Resize to 90% of screen, centered | Enter: run<br>⇧Enter: same | Global fuzzy search<br>Direct action |
 | Window | window_reasonable_size | Resize to ~70% of screen, centered | Enter: run<br>⇧Enter: same | Global fuzzy search<br>Direct action |
@@ -53,7 +54,8 @@ Every action below ships with Martillo and is available through `ActionsLauncher
 | Window | window_right_fourth | Right fourth | Enter: run<br>⇧Enter: same | Global fuzzy search<br>Direct action |
 | Window | window_left_three_fourths | Left three-fourths | Enter: run<br>⇧Enter: same | Global fuzzy search<br>Direct action |
 | Window | window_right_three_fourths | Right three-fourths | Enter: run<br>⇧Enter: same | Global fuzzy search<br>Direct action |
-| Window | window_cinema | Full width, 90% height, centered vertically | Enter: run<br>⇧Enter: same | Global fuzzy search<br>Direct action |
+| Window | window_maximize_horizontal | Maximize width (keep height and position) | Enter: run<br>⇧Enter: same | Global fuzzy search<br>Direct action |
+| Window | window_maximize_vertical | Maximize height (keep width and position) | Enter: run<br>⇧Enter: same | Global fuzzy search<br>Direct action |
 | System | toggle_caffeinate | Toggle system sleep prevention | Enter: toggle<br>⇧Enter: same | Global fuzzy search<br>Direct action |
 | System | toggle_system_appearance | Toggle Dark/Light Mode | Enter: toggle<br>⇧Enter: same | Global fuzzy search<br>Direct action |
 | System | system_information | Live CPU/memory/battery/network stats with auto-refresh | Enter: copy field<br>⇧Enter: same | Child chooser with fuzzy search on fields |
@@ -103,6 +105,7 @@ return require("martillo").setup({
             { "system_information",       alias = "si" },
             { "screen_ruler",             alias = "ru" },
 
+            { "switch_window",            keys = { { "<leader>", "tab" } }, opts = { success_toast = false } },
             { "window_maximize",          alias = "wm" },
             { "window_almost_maximize",   keys = { { "<leader>", "up" } } },
             { "window_reasonable_size",   keys = { { "<leader>", "down" } } },
@@ -348,12 +351,14 @@ The central command palette with all your actions. Martillo automatically loads 
 - `keys` - Keybindings for direct access
 - `alias` - Short name for faster fuzzy search
 - `desc` - Optional description for the keybinding
+- `opts` - Action-specific options (e.g., `{ success_toast = false }` to disable success toasts)
 
 **Note:** All bundles from `bundle/` and custom actions from `store/` are automatically loaded. You don't need to manually import them!
 
 ### Available Action Bundles
 
-- `bundle.window` - Window positioning (halves, quarters, thirds, maximize, center) - 25 actions total
+- `bundle.window` - Window positioning (halves, quarters, thirds, maximize, center) - 26 actions total
+- `bundle.switch_window` - Window switcher with fuzzy search
 - `bundle.system` - System management (caffeinate, dark mode, system information)
 - `bundle.utilities` - Text utilities (UUID generation, word count)
 - `bundle.converter` - Converters (time, colors, base64, JWT)

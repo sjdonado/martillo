@@ -59,12 +59,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - `events.noAction()` - Display-only (no action on Enter)
    - `events.custom(fn)` - Custom handler function
 
-8. **Shared Modules**:
+8. **Action Options System**:
+   - Actions can define default options via `opts` field
+   - Users can override options in their config: `{ "action_id", opts = { option_name = value } }`
+   - Options are merged by `martillo.lua` during action processing
+   - Access options via `events.getActionOpt(actionId, optionName, defaultValue)`
+   - Common option: `success_toast` (default: true) - disable success toast notifications
+
+9. **Shared Modules**:
    - `lib/icons.lua` - Icon management with automatic discovery and caching
-   - `lib/events.lua` - Composable action helpers for common patterns
+   - `lib/events.lua` - Composable action helpers for common patterns + action options helper
    - `lib/search.lua` - Fuzzy search with ranking
-   - `lib/chooser.lua` - Chooser state management (stack-based navigation)
+   - `lib/chooser.lua` - Chooser state management (stack-based navigation with Tab support)
    - `lib/leader.lua` - Leader key expansion
+   - `lib/thumbnail_cache.lua` - Disk-based thumbnail caching with memory limits
+   - `lib/toast.lua` - Toast notification helpers
 
 ## Built-in Spoons
 
@@ -122,7 +131,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Action Bundles
 
 ### bundle/window.lua
-**Description**: Window positioning (halves, quarters, thirds, maximize, center) - 25 actions total
+**Description**: Window positioning (halves, quarters, thirds, maximize, center) - 26 actions total
 **Self-contained**: All window management logic embedded (no external dependencies)
 
 **Actions**:
@@ -130,6 +139,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `window_almost_maximize` - Resize to 90% of screen, centered
 - `window_reasonable_size` - Resize to 70% of screen, centered
 - `window_center` - Center window without resizing
+- `window_maximize_horizontal` - Maximize width (keep height and Y position)
+- `window_maximize_vertical` - Maximize height (keep width and X position)
 - `window_left` - Position in left half
 - `window_right` - Position in right half
 - `window_up` - Position in top half
@@ -211,18 +222,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - File size and line count display
 - Automatic clipboard monitoring
 - Enter to paste, Shift+Enter to copy only
-- Stores up to 300 entries
+- Stores up to 150 entries (configurable via `M.maxEntries`)
 - File extension mapping for icons
+- Thumbnail caching for images (limit: 30 per session for performance)
+- History file: `~/.martillo_clipboard_history`
+- Image assets folder: `~/.martillo_clipboard_history_assets`
 
 ### bundle/kill_process.lua
-**Description**: Process killer with fuzzy search
+**Description**: Process manager with accurate memory display (matches Activity Monitor)
 
 **Features**:
-- Real-time process list
-- Memory and CPU usage display
-- App icons for processes
-- Enter to kill, Shift+Enter to copy PID
+- Real-time process list sorted by memory usage (descending)
+- Accurate memory values using `top` command (matches Activity Monitor)
+- Full command paths from `ps` command (for process identification)
+- Enter to kill process, Shift+Enter to copy PID
 - Fuzzy search through process names
+- Limit: 150 processes (configurable via `M.maxResults`)
+- Refresh interval: 2 seconds while picker is open
+- Icons disabled for performance (uses single default icon)
+
+**Process Naming**:
+- **Interpreters** (node, python, ruby): Shows script name in parentheses
+  - `node (tsserver.js)`, `python (script.py)`, `ruby (server.rb)`
+- **Safari WebKit processes**: Shows domain from open tabs via AppleScript
+  - `Safari (github.com)`, `Safari (autarc-grafana.fly.dev)`
+  - Falls back to `Safari (WebContent)` if no domains available
+- **Electron apps**: Detected via `app.asar` pattern
+  - `AppName (Electron)`
+
+**Technical Details**:
+- Uses `top -l 1 -stats pid,ppid,cpu,mem` for memory (shows real memory including compressed)
+- Uses `ps -axo pid,command` for full command paths (needed for process identification)
+- Safari domains extracted via AppleScript: `osascript -e 'tell application "Safari" to get URL of every tab of every window'`
+- No process aggregation - each process shown separately like Activity Monitor
+
+**Why `top` instead of `ps` for memory**:
+- `ps` RSS (Resident Set Size) only counts physical memory pages in RAM
+- `top` MEM includes compressed memory, proportional shared memory
+- Example: Postico shows 58MB with `ps` but 104MB with `top` (matching Activity Monitor)
 
 ### bundle/network.lua
 **Description**: Network utilities
@@ -394,9 +431,9 @@ icons.clearCache()
 
 **Location**: `lib/events.lua`
 
-**Purpose**: Composable helpers for common child chooser action patterns
+**Purpose**: Composable helpers for common child chooser action patterns and action option management
 
-**Usage**:
+**Action Handlers**:
 ```lua
 local events = require 'lib.events'
 
@@ -420,6 +457,21 @@ launcher.handlers[uuid] = events.custom(function(choice)
 end)
 ```
 
+**Action Options Helper**:
+```lua
+-- Get action option with default fallback
+local showToast = events.getActionOpt('action_id', 'success_toast', true)
+
+-- Looks up the action in ActionsLauncher.actions array
+-- Returns the option value or defaultValue if not found
+-- Handles nil checks and iteration internally
+```
+
+**Common Action Options**:
+- `success_toast` (boolean, default: true) - Show success toast notifications
+  - Supported by: `switch_window`, `safari_tabs`, `kill_process`, `keyboard_lock`, `keyboard_keep_alive`
+  - Usage: `{ "switch_window", opts = { success_toast = false } }`
+
 ### Search System
 
 **Location**: `lib/search.lua`
@@ -442,6 +494,7 @@ end)
 - ESC navigation: pop from stack and restore parent
 - Shift+ESC: close all choosers and clear stack
 - Click-outside: close all choosers and clear stack
+- Tab navigation: navigate to next item, Shift+Tab to previous
 - Modifier key detection (Shift for alternate actions in child choosers)
 
 **Implementation**: ESC Interception with `hs.eventtap`
@@ -528,9 +581,34 @@ This handles cases where click-outside leaves stack items (because `shouldKeepSt
 
 - `startEscInterception(onNavigate)` - Starts eventtap, stores navigation callback
 - `stopEscInterception()` - Stops and cleans up eventtap
+- `startTabInterception()` - Starts Tab key interception for navigation
+- `stopTabInterception()` - Stops Tab key interception
+- `stopAllInterceptions()` - Stops both ESC and Tab interception
 - `shouldKeepStack()` - Returns true if stack depth > 0 (ESC navigation in progress)
 
-**Secure input limitation**: ESC interception won't work in password fields or when macOS secure input is enabled (Hammerspoon API limitation)
+**Tab Navigation Implementation**:
+
+Tab key navigation is implemented using `hs.eventtap` to intercept Tab and Shift+Tab key presses before they reach the chooser:
+
+1. **Tab (keycode 48)**: Moves to next item by directly calling `chooser:selectedRow(currentRow + 1)`
+2. **Shift+Tab**: Moves to previous item by calling `chooser:selectedRow(currentRow - 1)`
+
+**Why direct row manipulation**:
+- ❌ **Keystroke simulation failed**: Simulating Down/Up arrows with `hs.eventtap.keyStroke()` from within the event tap callback didn't reach the chooser properly
+- ❌ **Querying choices failed**: Calling `chooser:choices()` from within event tap caused "incorrect number of arguments" error
+- ✅ **Direct row setting works**: `chooser:selectedRow()` getter/setter works reliably from event tap callbacks
+- ✅ **No wrapping needed**: The chooser handles out-of-bounds row numbers gracefully
+
+**Implementation**:
+```lua
+-- Get current row
+local currentRow = self.currentChooser:selectedRow()
+
+-- Set new row (increment for Tab, decrement for Shift+Tab)
+self.currentChooser:selectedRow(currentRow + 1)
+```
+
+**Secure input limitation**: Tab and ESC interception won't work in password fields or when macOS secure input is enabled (Hammerspoon API limitation)
 
 ### Auto-Launch System
 
@@ -563,6 +641,54 @@ __pairs   -- General iteration: for k, v in pairs(store)
 ```
 
 ## Development Guidelines
+
+### Adding Action Options
+
+Actions can define configurable options that users can override in their config:
+
+**Define default options in action**:
+```lua
+return {
+  {
+    id = 'my_action',
+    name = 'My Action',
+    icon = icons.preset.star,
+    opts = {
+      success_toast = true,  -- Default value
+      custom_option = 'default',
+    },
+    handler = function()
+      local events = require 'lib.events'
+
+      -- Get option with fallback to default
+      local showToast = events.getActionOpt('my_action', 'success_toast', true)
+      local customValue = events.getActionOpt('my_action', 'custom_option', 'default')
+
+      -- Use options in your logic
+      if showToast then
+        toast.success('Action completed!')
+      end
+    end,
+  },
+}
+```
+
+**User override in config**:
+```lua
+{
+  "ActionsLauncher",
+  actions = {
+    { "my_action", opts = { success_toast = false, custom_option = 'custom' } },
+  },
+}
+```
+
+**How it works**:
+1. Action defines default `opts` in bundle file
+2. User provides overrides in config
+3. `martillo.lua` merges user opts with action opts during `processActionFilters()`
+4. Action handler calls `events.getActionOpt()` to retrieve merged value
+5. Returns user value if set, otherwise default value
 
 ### Adding Icons to Actions
 
@@ -679,6 +805,34 @@ spoon.ActionsLauncher:openChildChooser{
 - Store actions use folder structure: `store/name/init.lua`
 - Store auto-loader uses lazy loading with metatables to defer directory scanning
 - Lazy loading solves timing issues with `hs.fs` initialization
+
+## Performance Considerations
+
+### Icon Loading
+- **Problem**: Loading icons via `hs.application.applicationForPID()` and `thumbnailCache.getCachedAppIcon()` is slow
+- **Solution**: For performance-critical pickers (like kill_process), use a single default icon for all entries
+- **Trade-off**: Faster picker opening vs visual richness
+
+### Thumbnail Caching (`lib/thumbnail_cache.lua`)
+- Disk-based caching in `/tmp/martillo/{user}/thumbnails/`
+- Memory limits configurable per subdirectory: `thumbnailCache.setMaxLoaded('images', 30)`
+- Reset counts between sessions: `thumbnailCache.resetLoadedCount('images')`
+- Fallback icons when limit reached: `thumbnailCache.getFallbackIcon(key, loaderFn)`
+
+### Process Memory Values
+- **`ps` RSS**: Only physical memory pages in RAM (inaccurate)
+- **`top` MEM**: Real memory including compressed and proportional shared (accurate)
+- Always use `top` when memory values need to match Activity Monitor
+
+### Chooser Refresh Intervals
+- Too frequent refreshes (e.g., 1 second) cause noticeable lag
+- Recommended: 2+ seconds for auto-refreshing pickers
+- Use cached data and only refresh on explicit user action when possible
+
+### Entry Limits
+- Large lists (200+ entries) slow down chooser rendering
+- Recommended limits: 150 entries for process lists, 150 for clipboard history
+- Apply limits AFTER sorting to show most relevant entries
 
 ## Resources
 

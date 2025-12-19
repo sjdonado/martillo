@@ -119,9 +119,9 @@ function obj:createChooser()
 
 	-- Cleanup when hidden
 	self.chooser:hideCallback(function()
-		self.logger:d('Main launcher hideCallback - Always stopping ESC interception')
-		-- Always stop ESC interception when hiding
-		self.chooserManager:stopEscInterception()
+		self.logger:d('Main launcher hideCallback - Always stopping key interceptions')
+		-- Always stop key interceptions when hiding
+		self.chooserManager:stopAllInterceptions()
 
 		-- Check if we should keep the stack (ESC navigation in progress)
 		if not self.chooserManager:shouldKeepStack() then
@@ -135,7 +135,7 @@ function obj:createChooser()
 		end
 	end)
 
-	-- Start ESC interception for navigation
+	-- Start key interceptions for navigation
 	self.chooserManager:startEscInterception(function()
 		-- ESC pressed - navigate to parent
 		self.logger:d('ESC navigation - popping from stack, depth before=' .. self.chooserManager:depth())
@@ -162,13 +162,16 @@ function obj:createChooser()
 			end)
 		else
 			-- No parent, just close (stack is empty, hideCallback will clear)
-			self.logger:d('No parent to restore, stopping ESC interception and closing')
-			self.chooserManager:stopEscInterception()
+			self.logger:d('No parent to restore, stopping key interceptions and closing')
+			self.chooserManager:stopAllInterceptions()
 			if self.chooser then
 				self.chooser:hide()
 			end
 		end
 	end)
+
+	-- Start Tab interception for navigation
+	self.chooserManager:startTabInterception()
 end
 
 --- ActionsLauncher:setup(config)
@@ -468,9 +471,9 @@ function obj:openChildChooser(config, options)
 
 		-- Cleanup when hidden
 		self.chooser:hideCallback(function()
-			self.logger:d('Child chooser hideCallback - Always stopping ESC interception')
-			-- Always stop ESC interception when hiding
-			self.chooserManager:stopEscInterception()
+			self.logger:d('Child chooser hideCallback - Always stopping key interceptions')
+			-- Always stop key interceptions when hiding
+			self.chooserManager:stopAllInterceptions()
 
 			-- Check if we should keep the stack (ESC navigation in progress)
 			if not self.chooserManager:shouldKeepStack() then
@@ -519,13 +522,16 @@ function obj:openChildChooser(config, options)
 				end)
 			else
 				-- No parent, just close (stack is empty, hideCallback will clear)
-				self.logger:d('No parent to restore, stopping ESC interception and closing')
-				self.chooserManager:stopEscInterception()
+				self.logger:d('No parent to restore, stopping key interceptions and closing')
+				self.chooserManager:stopAllInterceptions()
 				if self.chooser then
 					self.chooser:hide()
 				end
 			end
 		end)
+
+		-- Start Tab interception for navigation
+		self.chooserManager:startTabInterception()
 
 		-- Set initial query if provided
 		if config.initialQuery and config.initialQuery ~= '' then
@@ -596,9 +602,9 @@ function obj:restoreParentChooser(parentState)
 
 	-- Cleanup when hidden
 	self.chooser:hideCallback(function()
-		self.logger:d('Restored parent hideCallback - Always stopping ESC interception')
-		-- Always stop ESC interception when hiding
-		self.chooserManager:stopEscInterception()
+		self.logger:d('Restored parent hideCallback - Always stopping key interceptions')
+		-- Always stop key interceptions when hiding
+		self.chooserManager:stopAllInterceptions()
 
 		-- Check if we should keep the stack (ESC navigation in progress)
 		if not self.chooserManager:shouldKeepStack() then
@@ -639,13 +645,16 @@ function obj:restoreParentChooser(parentState)
 			end)
 		else
 			-- No parent, just close (stack is empty, hideCallback will clear)
-			self.logger:d('No parent to restore, stopping ESC interception and closing')
-			self.chooserManager:stopEscInterception()
+			self.logger:d('No parent to restore, stopping key interceptions and closing')
+			self.chooserManager:stopAllInterceptions()
 			if self.chooser then
 				self.chooser:hide()
 			end
 		end
 	end)
+
+	-- Start Tab interception for navigation
+	self.chooserManager:startTabInterception()
 
 	self.chooser:show()
 end

@@ -10,7 +10,7 @@ local thumbnailCache = require 'lib.thumbnail_cache'
 
 local M = {
   watcher = nil,
-  maxEntries = 300,
+  maxEntries = 150,
   historyFile = '~/.martillo_clipboard_history',
   historyAssets = '~/.martillo_clipboard_history_assets',
   currentQuery = '',
@@ -722,8 +722,8 @@ return {
       -- Capture focus for paste functionality
       captureFocus()
 
-      -- Set thumbnail memory limit for images
-      thumbnailCache.setMaxLoaded('images', 100)
+      -- Set thumbnail memory limit for images (reduced for faster initial load)
+      thumbnailCache.setMaxLoaded('images', 30)
 
       spoon.ActionsLauncher:openChildChooser {
         placeholder = 'Clipboard History (↩ paste, ⇧↩ copy)',

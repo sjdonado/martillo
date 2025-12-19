@@ -157,7 +157,7 @@ local function formatURL(url, maxLength)
 end
 
 -- Build choices for the chooser
-local function buildChoices(tabs, query, launcher)
+local function buildChoices(tabs, query, launcher, showToast)
   if not tabs or #tabs == 0 then
     return {}
   end
@@ -209,7 +209,9 @@ local function buildChoices(tabs, query, launcher)
         -- Enter: Switch to tab
         local success = switchToTab(tab.windowIndex, tab.tabIndex)
         if success then
-          toast.success('Switched to tab')
+          if showToast then
+            toast.success('Switched to tab')
+          end
         else
           toast.error('Failed to switch to tab')
         end
@@ -228,6 +230,9 @@ return {
     name = 'Safari Tabs',
     icon = icons.preset.explorer,
     description = 'Switch to Safari tabs with fuzzy search',
+    opts = {
+      success_toast = true, -- Show success toast notification when switching tabs
+    },
     handler = function()
       -- Get Safari tabs
       local tabs, error = getSafariTabs()
@@ -245,12 +250,15 @@ return {
       -- Get ActionsLauncher instance
       local actionsLauncher = spoon.ActionsLauncher
 
+      -- Get action configuration (user can override opts in their config)
+      local showToast = events.getActionOpt('safari_tabs', 'success_toast', true)
+
       -- Open child chooser
       actionsLauncher:openChildChooser {
         placeholder = 'Safari tabs (↩ focus, ⇧↩ copy link)',
         parentAction = 'safari_tabs',
         handler = function(query, launcher)
-          return buildChoices(tabs, query, launcher)
+          return buildChoices(tabs, query, launcher, showToast)
         end,
       }
     end,

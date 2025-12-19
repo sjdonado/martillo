@@ -67,7 +67,7 @@ local function isLeaderReturn(flags)
 end
 
 -- Unlock the keyboard
-local function unlockKeyboard()
+local function unlockKeyboard(showToast)
   M.logger:d 'Unlocking keyboard'
 
   -- Stop the event tap
@@ -89,7 +89,9 @@ local function unlockKeyboard()
     spoon.ActionsLauncher.chooserManager:clear()
   end
 
-  toast.success 'Keyboard unlocked'
+  if showToast then
+    toast.success 'Keyboard unlocked'
+  end
 end
 
 -- Lock the keyboard
@@ -100,6 +102,8 @@ local function lockKeyboard()
 
   M.logger:d 'Locking keyboard'
   M.keyboardLocked = true
+  -- Store showToast in module for access in event tap
+  -- (it will be set before lockKeyboard is called)
 
   -- Create event tap to intercept all keyboard events
   M.keyboardLockTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
@@ -109,7 +113,7 @@ local function lockKeyboard()
     -- Check for leader+return to unlock
     if keyCode == 36 and isLeaderReturn(flags) then -- 36 is Return/Enter key
       M.logger:d 'Leader+Return detected, unlocking keyboard'
-      unlockKeyboard()
+      unlockKeyboard(M.showToast)
       return true -- Consume the event
     end
 
@@ -127,13 +131,23 @@ return {
     name = 'Lock Keyboard',
     icon = icons.preset.lock,
     description = 'Lock keyboard for cleaning (unlock with <leader>+Enter)',
+    opts = {
+      success_toast = true, -- Show success toast notification when unlocking keyboard
+    },
     handler = function()
+      -- Get action configuration (user can override opts in their config)
+      local events = require 'lib.events'
+      local showToast = events.getActionOpt('keyboard_lock', 'success_toast', true)
+
       spoon.ActionsLauncher:openChildChooser {
         placeholder = '🔒 Keyboard Locked - Clean away!',
         parentAction = 'keyboard_lock',
         handler = function(query, launcher)
           -- Store reference to the chooser
           M.lockChooserChooser = launcher.chooser
+
+          -- Store showToast for use in event tap
+          M.showToast = showToast
 
           -- Start keyboard lock after chooser is ready
           if not M.keyboardLocked then
@@ -161,7 +175,14 @@ return {
     name = 'Toggle Keep-Alive',
     icon = icons.preset.magic_trick,
     description = 'Toggle keyboard activity to keep screen active and apps thinking you are active',
+    opts = {
+      success_toast = true, -- Show success toast notification when stopping keep-alive
+    },
     handler = function()
+      -- Get action configuration (user can override opts in their config)
+      local events = require 'lib.events'
+      local showToast = events.getActionOpt('keyboard_keep_alive', 'success_toast', true)
+
       if M.keepAliveActive then
         if not M.keepAliveActive then
           M.logger:d 'Keep-alive not active'
@@ -176,7 +197,9 @@ return {
         end
 
         M.keepAliveActive = false
-        toast.success 'Keep-alive stopped'
+        if showToast then
+          toast.success 'Keep-alive stopped'
+        end
       else
         if M.keepAliveActive then
           M.logger:d 'Keep-alive already active'

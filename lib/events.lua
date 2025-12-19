@@ -6,6 +6,31 @@ local searchUtils = require 'lib.search'
 
 local M = {}
 
+--- Get an option value for a specific action
+--- Looks up the action in ActionsLauncher and returns the option value
+--- @param actionId string The ID of the action (e.g., 'switch_window')
+--- @param optionName string The name of the option (e.g., 'success_toast')
+--- @param defaultValue any The default value if option is not found (defaults to nil)
+--- @return any The option value or default value
+function M.getActionOpt(actionId, optionName, defaultValue)
+  local actionsLauncher = spoon.ActionsLauncher
+
+  if not actionsLauncher or not actionsLauncher.actions then
+    return defaultValue
+  end
+
+  for _, action in ipairs(actionsLauncher.actions) do
+    if action.id == actionId then
+      if action.opts and action.opts[optionName] ~= nil then
+        return action.opts[optionName]
+      end
+      break
+    end
+  end
+
+  return defaultValue
+end
+
 --- Create a handler that copies the choice text to clipboard
 --- @param getText function(choice) Function to extract text from choice (optional, defaults to choice.text)
 --- @return function Handler function

@@ -10,9 +10,9 @@ local thumbnailCache = require 'lib.thumbnail_cache'
 
 local M = {
   refreshTimer = nil,
-  refreshIntervalSeconds = 1,
+  refreshIntervalSeconds = 2,
   currentQuery = '',
-  maxResults = 200,
+  maxResults = 150,
   logger = hs.logger.new('KillProcess', 'info'),
   cachedProcessList = nil, -- Cache process list to avoid re-running ps on every keystroke
   cacheRefreshTimer = nil, -- Timer to refresh the cache periodically
@@ -62,7 +62,7 @@ local function getSimpleProcessName(command)
   if command:match 'app%.asar' then
     local pathAppName = command:match '/([^/]+)%.app/' or command:match '([A-Z][%w%s]+)'
     if pathAppName then
-      return pathAppName .. ' - Electron'
+      return pathAppName .. ' (Electron)'
     end
     return 'Electron App'
   end
@@ -73,17 +73,17 @@ local function getSimpleProcessName(command)
     return bracketName
   end
 
-  -- Extract process name from full path
-  local processName = command:match '([^/]+)$' or command:match '^(%S+)' or command
+  -- First, extract just the executable path (before any arguments)
+  local executablePath = command:match '^(%S+)' or command
+
+  -- Then extract the basename from that executable path
+  local processName = executablePath:match '([^/]+)$' or executablePath
 
   -- Remove .app extension if present
   processName = processName:gsub('%.app$', '')
 
   -- Remove common executable suffixes
   processName = processName:gsub('%.bin$', '')
-
-  -- Handle processes with arguments by taking only the first part
-  processName = processName:match '^([^%s]+)' or processName
 
   -- XPC services
   if processName:match '%.xpc$' then
@@ -178,19 +178,39 @@ local function isMainAppProcess(command, baseAppName, appProcessList)
 end
 
 -- Extract a clean process name from the command string, with helper suffix for auxiliary app processes
-local function extractProcessName(command, baseAppName, appProcessList)
+local function extractProcessName(command, safariDomains, webkitIndex)
   if not command or command == '' then
     return 'Unknown'
   end
 
   -- Handle IP address network processes that belong to an app (e.g., Spotify network processes)
   if command:match '^%d+%.%d+%.%d+%.%d+$' then
-    -- If we have app context from the grouping, use it
-    if baseAppName and baseAppName ~= 'Unknown' and baseAppName ~= command then
-      return baseAppName .. ' - Network'
-    else
-      return 'Network (' .. command .. ')'
+    return 'Network (' .. command .. ')'
+  end
+
+  -- Handle WebKit WebContent processes (Safari tabs) - show domain if available
+  if command:match 'com%.apple%.WebKit%.WebContent' then
+    if safariDomains and #safariDomains > 0 and webkitIndex then
+      -- Use modulo to cycle through available domains
+      local domainIndex = ((webkitIndex - 1) % #safariDomains) + 1
+      local domain = safariDomains[domainIndex]
+      -- Truncate long domains
+      if #domain > 50 then
+        domain = domain:sub(1, 47) .. '...'
+      end
+      return 'Safari (' .. domain .. ')'
     end
+    return 'Safari (WebContent)'
+  end
+
+  -- Handle WebKit Networking processes
+  if command:match 'com%.apple%.WebKit%.Networking' then
+    return 'Safari (Networking)'
+  end
+
+  -- Handle WebKit GPU processes
+  if command:match 'com%.apple%.WebKit%.GPU' then
+    return 'Safari (GPU)'
   end
 
   -- Check if this is an app bundle process
@@ -204,106 +224,167 @@ local function extractProcessName(command, baseAppName, appProcessList)
     processName = getSimpleProcessName(command)
   end
 
-  -- If this app has multiple processes, determine which is main and which are helpers
-  if appProcessList and #appProcessList > 1 then
-    local isMainProc = isMainAppProcess(command, baseAppName, appProcessList)
-
-    -- If it's the main process, return early without any suffix
-    if isMainProc then
-      return processName
+  -- Special handling for interpreter processes (node, python, ruby, etc.)
+  -- Include the script/first argument to differentiate multiple instances
+  if processName == 'node' or processName == 'nodejs' then
+    -- For node, look for .js, .cjs, .mjs files in the command
+    local scriptPath = command:match '%s([^%s]*%.m?[c]?js)' or command:match '%s([^%s]*tsserver[^%s]*)'
+    if scriptPath then
+      local scriptName = scriptPath:match '([^/]+)$' or scriptPath
+      -- Truncate very long script names
+      if #scriptName > 40 then
+        scriptName = scriptName:sub(1, 37) .. '...'
+      end
+      return 'node (' .. scriptName .. ')'
     end
-
-    -- This is a helper process - add appropriate suffix
-    -- Don't add suffix if process name already contains Helper, Daemon, etc.
-    if processName:match '[Hh]elper' or processName:match '[Dd]aemon' or processName:match '%(Helper%)' or processName:match '%(Daemon%)' then
-      return processName
+  elseif processName == 'python' or processName == 'python2' or processName == 'python3' then
+    -- For python, look for .py files
+    local scriptPath = command:match '%s([^%s]*%.py)'
+    if scriptPath then
+      local scriptName = scriptPath:match '([^/]+)$' or scriptPath
+      if #scriptName > 40 then
+        scriptName = scriptName:sub(1, 37) .. '...'
+      end
+      return processName .. ' (' .. scriptName .. ')'
     end
-
-    -- Determine if it's a helper or daemon based on process characteristics
-    if processName:match 'daemon' or processName:match 'service' or processName:match 'worker' or processName:match 'monitor' or processName:match 'mgr' then
-      return processName .. ' (Daemon)'
-    else
-      -- Mark as helper for auxiliary app processes
-      return processName .. ' (Helper)'
+  elseif processName == 'ruby' then
+    -- For ruby, look for .rb files
+    local scriptPath = command:match '%s([^%s]*%.rb)'
+    if scriptPath then
+      local scriptName = scriptPath:match '([^/]+)$' or scriptPath
+      if #scriptName > 40 then
+        scriptName = scriptName:sub(1, 37) .. '...'
+      end
+      return processName .. ' (' .. scriptName .. ')'
     end
   end
 
   return processName
 end
 
--- Get list of running processes
-local function getProcessList()
-  -- Get ALL processes including kernel tasks and parent info
-  local success, output = pcall(hs.execute, 'ps -axo pid,ppid,pcpu,rss,command')
+-- Parse memory value with unit suffix (e.g., "104M", "8017K", "2082M+")
+local function parseMemoryValue(memStr)
+  if not memStr or memStr == '' then
+    return 0
+  end
+
+  -- Remove any trailing '+' or '-' characters
+  memStr = memStr:gsub('[%+%-]$', '')
+
+  -- Extract number and unit
+  local num, unit = memStr:match '^([%d%.]+)([KMG]?)$'
+  if not num then
+    return 0
+  end
+
+  num = tonumber(num) or 0
+
+  -- Convert to KB for consistency
+  if unit == 'G' then
+    return num * 1024 * 1024
+  elseif unit == 'M' then
+    return num * 1024
+  elseif unit == 'K' then
+    return num
+  else
+    -- No unit means bytes, convert to KB
+    return num / 1024
+  end
+end
+
+-- Get Safari tab URLs and extract domains
+local function getSafariDomains()
+  local success, output = pcall(hs.execute, [[osascript -e 'tell application "Safari" to get URL of every tab of every window' 2>/dev/null]])
   if not success or not output then
-    M.logger:e('Failed to execute ps command: ' .. tostring(output))
     return {}
   end
 
+  local domains = {}
+  -- Parse comma-separated URLs
+  for url in output:gmatch('[^,]+') do
+    url = url:gsub('^%s+', ''):gsub('%s+$', '') -- trim whitespace
+    -- Extract domain from URL
+    local domain = url:match('https?://([^/]+)')
+    if domain then
+      table.insert(domains, domain)
+    end
+  end
+
+  return domains
+end
+
+-- Get list of running processes
+local function getProcessList()
+  -- Use top for accurate memory values (matches Activity Monitor)
+  -- top shows real memory including compressed memory and proportional shared memory
+  local topSuccess, topOutput = pcall(hs.execute, 'top -l 1 -stats pid,ppid,cpu,mem')
+  if not topSuccess or not topOutput then
+    M.logger:e('Failed to execute top command: ' .. tostring(topOutput))
+    return {}
+  end
+
+  -- Use ps to get full command paths (needed for icon detection)
+  local psSuccess, psOutput = pcall(hs.execute, 'ps -axo pid,command')
+  if not psSuccess or not psOutput then
+    M.logger:e('Failed to execute ps command: ' .. tostring(psOutput))
+    return {}
+  end
+
+  -- Get Safari domains for WebKit process labeling
+  local safariDomains = getSafariDomains()
+  local webkitProcessCount = 0
+
+  -- Build a map of PID -> full command path from ps
+  local pidToCommand = {}
+  for line in psOutput:gmatch '[^\r\n]+' do
+    local pid, command = line:match '^%s*(%d+)%s+(.*)'
+    if pid and command and not command:match '^PID%s+COMMAND' then
+      pidToCommand[pid] = command
+    end
+  end
+
   local processes = {}
-  local appProcesses = {} -- Map app names to their processes
   local lineCount = 0
   local processedCount = 0
+  local inProcessList = false
 
-  for line in output:gmatch '[^\r\n]+' do
+  for line in topOutput:gmatch '[^\r\n]+' do
     lineCount = lineCount + 1
 
-    -- Skip header line
-    if not line:match '^%s*PID' then
-      -- Parse: PID PPID %CPU RSS COMMAND
-      -- Handle both normal RSS values and edge cases
-      local pid, ppid, cpu, rss, command = line:match '^%s*(%d+)%s+(%d+)%s+([%d%.]+)%s+(%d+)%s+(.*)'
+    -- Skip header lines until we find the column headers
+    if line:match '^PID%s+PPID' then
+      inProcessList = true
+    elseif inProcessList then
+      -- Parse: PID PPID %CPU MEM
+      local pid, ppid, cpu, mem = line:match '^%s*(%d+)%s+(%d+)%s+([%d%.]+)%s+(%S+)'
 
-      -- Fallback: try to capture processes with missing or non-numeric RSS
-      if not pid then
-        pid, ppid, cpu, rss, command = line:match '^%s*(%d+)%s+(%d+)%s+([%d%.]+)%s+(%S+)%s+(.*)'
-      end
-
-      -- Last resort: handle lines with unusual spacing or formatting
-      if not pid then
-        pid, ppid, cpu, command = line:match '^%s*(%d+)%s+(%d+)%s+([%d%.]+)%s+(.*)'
-        rss = '0'
-      end
-
-      if pid and cpu and tonumber(pid) and tonumber(pid) >= 0 then
+      if pid and cpu and mem then
         processedCount = processedCount + 1
 
         local pidNum = tonumber(pid)
         local ppidNum = tonumber(ppid) or 0
 
-        -- Ensure RSS is numeric
-        if rss and not tonumber(rss) then
-          rss = '0'
+        -- Get full command from ps output
+        local command = pidToCommand[pid] or ''
+
+        -- Parse memory value with unit
+        local memKB = parseMemoryValue(mem)
+
+        -- Track WebKit processes for domain assignment
+        local isWebKit = command:match('com%.apple%.WebKit%.WebContent') ~= nil
+        if isWebKit then
+          webkitProcessCount = webkitProcessCount + 1
         end
 
-        -- Get base app name for grouping
-        local baseAppName = getBaseAppName(command)
-
-        -- Store process info for app grouping
-        if not appProcesses[baseAppName] then
-          appProcesses[baseAppName] = {}
-        end
-        table.insert(appProcesses[baseAppName], {
-          pid = pidNum,
-          ppid = ppidNum,
-          command = command,
-          cpu = cpu,
-          rss = rss,
-        })
-
-        -- Extract process name with app grouping logic
-        local processName = extractProcessName(command, baseAppName, appProcesses[baseAppName])
+        -- Extract process name (pass Safari domains for WebKit processes)
+        local processName = extractProcessName(command, safariDomains, isWebKit and webkitProcessCount or nil)
 
         -- Ensure we have a valid process name
         if processName and processName ~= '' then
-          -- Get memory usage (allow 0 memory processes)
-          local memKB = tonumber(rss) or 0
-
-          -- Convert RSS (KB) to MB or GB for display
+          -- Format memory for display
           local memDisplay = formatMemory(memKB)
 
           -- Create process entry with safe values
-          local pidNum = tonumber(pid)
           local cpuNum = tonumber(cpu)
 
           if pidNum and cpuNum then
@@ -312,7 +393,7 @@ local function getProcessList()
               subText = string.format('PID: %s | CPU: %s%% | Memory: %s | %s', pid, cpu, memDisplay, command or ''),
               pid = pidNum,
               ppid = ppidNum,
-              cpu = tonumber(cpu),
+              cpu = cpuNum,
               mem = memKB, -- Store raw KB for sorting
               memDisplay = memDisplay,
               name = processName,
@@ -325,110 +406,14 @@ local function getProcessList()
     end
   end
 
-  local rawProcessCount = #processes
-
-  -- Aggregate processes with the same display name
-  local nameBuckets = {}
-  for _, process in ipairs(processes) do
-    local key = process.name or process.text or 'Unknown'
-    if not nameBuckets[key] then
-      nameBuckets[key] = { name = key, processes = {} }
-    end
-    table.insert(nameBuckets[key].processes, process)
-  end
-
-  local function selectMainProcess(processList)
-    local function hasChildren(candidate)
-      for _, other in ipairs(processList) do
-        if other.ppid == candidate.pid then
-          return true
-        end
-      end
-      return false
-    end
-
-    local function isBetter(candidate, current)
-      if not current then
-        return true
-      end
-
-      local candidateIsApp = isAppProcessEntry(candidate)
-      local currentIsApp = isAppProcessEntry(current)
-      if candidateIsApp ~= currentIsApp then
-        return candidateIsApp
-      end
-
-      local candidateIsParent = hasChildren(candidate)
-      local currentIsParent = hasChildren(current)
-      if candidateIsParent ~= currentIsParent then
-        return candidateIsParent
-      end
-
-      local candidateMem = candidate.mem or 0
-      local currentMem = current.mem or 0
-      if candidateMem ~= currentMem then
-        return candidateMem > currentMem
-      end
-
-      return (candidate.pid or math.huge) < (current.pid or math.huge)
-    end
-
-    local selected = nil
-    for _, proc in ipairs(processList) do
-      if isBetter(proc, selected) then
-        selected = proc
-      end
-    end
-    return selected or processList[1]
-  end
-
-  local aggregatedProcesses = {}
-  for _, bucket in pairs(nameBuckets) do
-    local list = bucket.processes
-    if #list == 1 then
-      table.insert(aggregatedProcesses, list[1])
-    else
-      local main = selectMainProcess(list)
-      local totalCpu = 0
-      local totalMem = 0
-
-      for _, proc in ipairs(list) do
-        totalCpu = totalCpu + (proc.cpu or 0)
-        totalMem = totalMem + (proc.mem or 0)
-      end
-
-      local totalMemDisplay = formatMemory(totalMem)
-      local subText =
-          string.format('PID: %d | Total CPU: %.1f%% | Total Memory: %s | %s | %d processes', main.pid, totalCpu,
-            totalMemDisplay, main.fullPath or '', #list)
-
-      table.insert(aggregatedProcesses, {
-        text = bucket.name,
-        subText = subText,
-        pid = main.pid,
-        ppid = main.ppid,
-        cpu = totalCpu,
-        mem = totalMem,
-        memDisplay = totalMemDisplay,
-        name = bucket.name,
-        fullPath = main.fullPath,
-        aggregated = list,
-        -- Don't load icon here - will be loaded lazily when displayed
-      })
-    end
-  end
-
-  processes = aggregatedProcesses
-
-  -- Sort by memory usage (descending) FIRST
+  -- Sort by memory usage (descending)
   table.sort(processes, function(a, b)
     return a.mem > b.mem
   end)
 
   -- Debug logging
   M.logger:d(
-    string.format('Processed %d lines, %d parsed, %d raw processes, %d aggregated (before limit)', lineCount,
-      processedCount, rawProcessCount, #processes)
+    string.format('Processed %d lines, %d parsed processes (before limit)', lineCount, processedCount)
   )
 
   -- Limit results to maxResults AFTER sorting
@@ -461,28 +446,9 @@ local function getFilteredChoices()
     return {}
   end
 
-  -- No search query - return all processes
+  -- No search query - return all processes (already sorted by memory from getProcessList)
   if not M.currentQuery or M.currentQuery == '' then
-    local appProcesses = {}
-    local otherProcesses = {}
-
-    for _, process in ipairs(allProcesses) do
-      if process then
-        if isAppProcessEntry(process) then
-          table.insert(appProcesses, process)
-        else
-          table.insert(otherProcesses, process)
-        end
-      end
-    end
-
-    for _, process in ipairs(appProcesses) do
-      table.insert(choices, process)
-    end
-    for _, process in ipairs(otherProcesses) do
-      table.insert(choices, process)
-    end
-    return choices
+    return allProcesses
   end
 
   -- Search filtering
@@ -543,19 +509,19 @@ return {
     name = 'Kill Process',
     icon = icons.preset.trash_can,
     description = 'Kill processes with fuzzy search',
+    opts = {
+      success_toast = true, -- Show success toast notification when killing processes
+    },
     handler = function()
       -- Get ActionsLauncher instance
       local actionsLauncher = spoon.ActionsLauncher
       local currentLauncher = nil -- Will be set by handler
 
-      -- Reset icon count at the start of each search session
-      thumbnailCache.resetLoadedCount 'app_icons'
+      -- Get action configuration (user can override opts in their config)
+      local showToast = events.getActionOpt('kill_process', 'success_toast', true)
 
-      -- Set thumbnail memory limit for app icons
-      thumbnailCache.setMaxLoaded('app_icons', 100)
-
-      -- Clear icon cache from previous session
-      M.iconCache = {}
+      -- Use a single default icon for all processes (icons disabled for performance)
+      local defaultIcon = icons.getIcon(icons.preset.puzzle)
 
       -- Initialize process cache and start refresh timer
       refreshProcessCache() -- Initial load
@@ -575,41 +541,12 @@ return {
           -- Generate UUID for this choice
           local uuid = launcher:generateUUID()
 
-          -- Check if icon is already cached in memory for this PID
-          local icon = M.iconCache[process.pid]
-
-          if not icon then
-            -- Load icon for this process
-            if isAppProcessEntry(process) then
-              -- App processes: try to get app icon
-              if process.pid then
-                local success, appbundle = pcall(hs.application.applicationForPID, process.pid)
-                if success and appbundle then
-                  local bundleID = appbundle:bundleID()
-                  if bundleID then
-                    icon = thumbnailCache.getCachedAppIcon(bundleID)
-                  end
-                end
-              end
-            end
-
-            -- Fallback icon for non-app processes or if app icon failed
-            if not icon then
-              icon = thumbnailCache.getFallbackIcon('kill_process_fallback', function()
-                return icons.getIcon(icons.preset.puzzle)
-              end)
-            end
-
-            -- Cache the icon in memory for this session
-            M.iconCache[process.pid] = icon
-          end
-
-          -- Create choice entry
+          -- Create choice entry (using default icon for all processes)
           local choiceEntry = {
             text = process.text,
             subText = process.subText,
             uuid = uuid,
-            image = icon,
+            image = defaultIcon,
           }
 
           -- Register handler for this choice
@@ -625,7 +562,9 @@ return {
               -- Enter: Kill the process
               local success = hs.execute(string.format('kill %d', process.pid))
               if success then
-                toast.success('Killed: ' .. process.name)
+                if showToast then
+                  toast.success('Killed: ' .. process.name)
+                end
               else
                 toast.error('Failed to kill: ' .. process.name)
               end

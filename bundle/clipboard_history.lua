@@ -110,6 +110,61 @@ local function unescapeYamlString(str)
   return str:gsub('\\r', '\r'):gsub('\\n', '\n'):gsub('\\\\', '\\')
 end
 
+local function isHistoryAssetPath(path)
+  if not path or not M.historyAssets then
+    return false
+  end
+  return path:sub(1, #M.historyAssets) == M.historyAssets
+end
+
+local function pruneHistoryBuffer()
+  local trimmed = false
+  while #M.historyBuffer > M.maxEntries do
+    local removedEntry = table.remove(M.historyBuffer)
+    if removedEntry and removedEntry.type == 'image' then
+      if not isHistoryAssetPath(path) then
+        return
+      end
+      local attributes = hs.fs.attributes(path)
+      if attributes and attributes.mode == 'file' then
+        os.remove(path)
+      end
+    end
+    trimmed = true
+  end
+  return trimmed
+end
+
+local function cleanupHistoryAssets()
+  if not M.historyAssets then
+    return
+  end
+
+  local referencedAssets = {}
+  for _, entry in ipairs(M.historyBuffer) do
+    if entry.type == 'image' and entry.content then
+      referencedAssets[entry.content] = true
+    end
+  end
+
+  local iter, dirObj = hs.fs.dir(M.historyAssets)
+  if not iter then
+    return
+  end
+
+  for filename in iter, dirObj do
+    if filename ~= '.' and filename ~= '..' then
+      local path = M.historyAssets .. '/' .. filename
+      if not referencedAssets[path] then
+        local attributes = hs.fs.attributes(path)
+        if attributes and attributes.mode == 'file' then
+          os.remove(path)
+        end
+      end
+    end
+  end
+end
+
 -- Load clipboard history from plain text file
 local function loadHistory()
   M.historyBuffer = {}
@@ -145,6 +200,12 @@ local function loadHistory()
 
   file:close()
   M.logger:d(string.format('Loaded %d entries from history file', #M.historyBuffer))
+
+  local trimmed = pruneHistoryBuffer()
+  cleanupHistoryAssets()
+  if trimmed then
+    saveHistory()
+  end
 end
 
 -- Save clipboard history to plain text file
@@ -283,9 +344,7 @@ local function onClipboardChange()
   table.insert(M.historyBuffer, 1, newEntry)
 
   -- Keep only maxEntries
-  while #M.historyBuffer > M.maxEntries do
-    table.remove(M.historyBuffer)
-  end
+  pruneHistoryBuffer()
 
   saveHistory()
 end

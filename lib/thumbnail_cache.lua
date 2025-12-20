@@ -14,14 +14,11 @@ local M = {
   fallbackIcons = {},      -- Cached fallback icons
 }
 
--- Initialize cache directory
-local function ensureCacheDir(subdir)
-  local fullPath = M.cacheDir
+local function cacheDirFor(subdir)
   if subdir then
-    fullPath = fullPath .. '/' .. subdir
+    return temp.getDir('thumbnails/' .. subdir)
   end
-  hs.fs.mkdir(fullPath)
-  return fullPath
+  return M.cacheDir
 end
 
 -- Sanitize a string to be safe for use as a filename
@@ -40,7 +37,7 @@ end
 
 -- Get the path for a cached thumbnail
 local function getThumbnailPath(cacheKey, subdir)
-  local dir = ensureCacheDir(subdir)
+  local dir = cacheDirFor(subdir)
   local safeName = sanitizeFilename(cacheKey)
   return dir .. '/' .. safeName .. '.png'
 end
@@ -262,7 +259,7 @@ end
 function M.clearCache()
   M.logger:i('Clearing thumbnail cache: ' .. M.cacheDir)
   os.execute("rm -rf '" .. M.cacheDir .. "'")
-  ensureCacheDir()
+  hs.fs.mkdir(M.cacheDir)
 end
 
 -- Clear a specific subdirectory in the cache
@@ -273,7 +270,7 @@ function M.clearCacheSubdir(subdir)
   local dir = M.cacheDir .. '/' .. subdir
   M.logger:i('Clearing cache subdirectory: ' .. dir)
   os.execute("rm -rf '" .. dir .. "'")
-  ensureCacheDir(subdir)
+  hs.fs.mkdir(dir)
 end
 
 -- Initialize the cache
@@ -283,7 +280,7 @@ function M.init(cacheDir)
   else
     M.cacheDir = temp.getDir('thumbnails')
   end
-  ensureCacheDir()
+  hs.fs.mkdir(M.cacheDir)
   M.logger:i('Thumbnail cache initialized: ' .. M.cacheDir)
 end
 

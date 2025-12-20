@@ -5,6 +5,7 @@ local toast = require 'lib.toast'
 local events = require 'lib.events'
 local icons = require 'lib.icons'
 local chooserManager = require 'lib.chooser'
+local temp = require 'lib.tmp'
 
 return {
   {
@@ -174,7 +175,7 @@ return {
       end
 
       local vendorCache = {}
-      local cacheFile = '/tmp/martillo/' .. os.getenv('USER') .. '/mac_vendor_cache.txt'
+      local cacheFile = temp.getDir() .. '/mac_vendor_cache.txt'
 
       local function loadVendorCache()
         -- Load from file

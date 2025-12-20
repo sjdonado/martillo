@@ -10,8 +10,9 @@ obj.cachedEvents = {}    -- Cache for events
 obj.lastUpdate = 0       -- Timestamp of last update
 obj.loadingTask = nil    -- Current loading task
 obj.isLoading = false    -- Loading state
+obj.accessDenied = false -- Access denied state
 obj.eventkitBinary = nil -- Cached EventKit fetcher binary
-obj.logger = hs.logger.new('MySchedule', 'info')
+obj.logger = hs.logger.new('MySchedule', 'debug')
 
 --- MySchedule:init()
 --- Method
@@ -64,6 +65,13 @@ end
 --- Method
 --- Update the menu bar with current schedule information
 function obj:updateSchedule()
+  if self.accessDenied then
+    self.menubar:setTitle 'Access Denied'
+    self.menubar:setTooltip 'Calendar access denied. Click to grant permissions.'
+    self:setMenu(nil, {})
+    return
+  end
+
   local events = self.cachedEvents
   self.logger:d('updateSchedule - using ' .. #events .. ' cached events')
 
@@ -106,7 +114,7 @@ function obj:loadEventsAsync()
 
   self.isLoading = true
   -- Only show "Loading..." if we don't have cached events
-  if self.menubar and #self.cachedEvents == 0 then
+  if self.menubar and #self.cachedEvents == 0 and not self.accessDenied then
     self.menubar:setTitle 'Loading...'
   end
 
@@ -168,6 +176,15 @@ function obj:compile()
     error('Failed to compile EventKit fetcher. Command: ' .. compileCmd .. '\nOutput: ' .. (output or 'no output'))
   end
 
+  -- Ad-hoc code sign the binary to help with TCC permissions
+  local signCmd = string.format('/usr/bin/codesign -s - --force %s', binaryPath)
+  local signOutput, signSuccess = hs.execute(signCmd)
+  if not signSuccess then
+    self.logger:w('Failed to code sign binary (permissions might not persist): ' .. (signOutput or 'unknown error'))
+  else
+    self.logger:i('✅ Binary code signed successfully')
+  end
+
   -- Verify binary was created
   local finalBinaryAttr = hs.fs.attributes(binaryPath)
   if not finalBinaryAttr then
@@ -220,6 +237,9 @@ function obj:loadEventsWithEventKit()
     self.isLoading = false
     self.loadingTask = nil
 
+    -- Reset access denied state initially, we'll set it to true if confirmed denied
+    self.accessDenied = false
+
     -- Log debug output from stderr
     if stdErr and stdErr ~= '' then
       self.logger:i('EventKit debug output:\n' .. stdErr)
@@ -227,18 +247,17 @@ function obj:loadEventsWithEventKit()
 
     self.logger:i('Raw stdOut: [' .. (stdOut or 'nil') .. ']')
 
-    if exitCode == 0 and stdOut then
-      if stdOut:find 'ACCESS_DENIED' then
-        hs.alert.show(
-          'Calendar access denied. Please grant Hammerspoon calendar access in System Preferences > Privacy & Security > Calendar',
-          _G.MARTILLO_ALERT_DURATION
-        )
-        self.cachedEvents = {}
-      else
-        self.logger:d 'EventKit fetch completed'
-        self.logger:d('Raw output: ' .. stdOut)
-        self:parseEventKitResult(stdOut)
-      end
+    if stdOut and stdOut:find 'ACCESS_DENIED' then
+      self.accessDenied = true
+      hs.alert.show(
+        'Calendar access denied. Please grant Hammerspoon calendar access in System Preferences > Privacy & Security > Calendar',
+        _G.MARTILLO_ALERT_DURATION
+      )
+      self.cachedEvents = {}
+    elseif exitCode == 0 and stdOut then
+      self.logger:d 'EventKit fetch completed'
+      self.logger:d('Raw output: ' .. stdOut)
+      self:parseEventKitResult(stdOut)
     else
       self.logger:e('EventKit failed with exit code ' .. exitCode .. ': ' .. (stdErr or 'unknown error'))
       -- If compilation failed, it might be a permission issue

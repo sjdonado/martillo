@@ -94,7 +94,7 @@ return {
   {
     id = 'switch_window',
     name = 'Switch Window',
-    icon = icons.preset.computer,
+    icon = icons.preset.umbrella,
     description = 'Switch to a window with fuzzy search',
     opts = {
       success_toast = true, -- Show success toast notification when switching windows
